@@ -8,7 +8,7 @@
 }
 \usage{
 clinical.import(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\\\.txt",
-                usubjid = getOption("GSKStatGen.usubjid"),
+                usubjid = getOption("clinical.usubjid"),
                 verbose = TRUE,
                 only)
 }

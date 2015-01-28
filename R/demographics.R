@@ -22,11 +22,11 @@ demographics.numeric <- function(object, by, style) {
   ## FOLLOWING CODE ASSUMES MISSING IS COLUMN 1
   ## ntf = nt formatted
   ntf <- vapply(1:ncol(nt), function(icol) {
-    return(format(nt[ , icol], digits = getOption("GSKStatGen.digits", 4), scientific = FALSE))
+    return(format(nt[ , icol], digits = getOption("demographics.digits", 4), scientific = FALSE))
   }, character(nrow(nt)))
   if (!is.array(ntf)) ntf <- matrix(ntf, nrow = 1)
   dimnames(ntf) <- dimnames(nt)
-#  ntf <- apply(nt[ , -1, drop = FALSE], 2, format, digits = getOption("GSKStatGen.digits", 4),
+#  ntf <- apply(nt[ , -1, drop = FALSE], 2, format, digits = getOption("demographics.digits", 4),
 #                scientific = FALSE)
   ## Add extra columns derved from existing columns
   ntf <- cbind(ntf,
@@ -55,7 +55,7 @@ demographics.factor <- function(object, by, style) {
                integer(length(levels(object)) + 1))
   if (nrow(ct) > 0) rownames(ct) <- paste(rownames(ct), ", N", sep = "")
   ## remove rows of all zeros
-  if (getOption("GSKStatGen.demographics.omit0rows", TRUE)) ct <- ct[!apply(ct == 0, 1, all), , drop = FALSE]
+  if (getOption("demographics.omit0rows", TRUE)) ct <- ct[!apply(ct == 0, 1, all), , drop = FALSE]
   ## coerce to character?
 
   return(ct)
@@ -81,7 +81,7 @@ demographics.Surv <- function(object, by, style) {
   ## FOLLOWING CODE ASSUMES MISSING IS COLUMN 1
   ## ntf = nt formatted
   ntf <- vapply(1:ncol(nt), function(icol) {
-    return(format(nt[ , icol], digits = getOption("GSKStatGen.digits", 4), scientific = FALSE))
+    return(format(nt[ , icol], digits = getOption("demographics.digits", 4), scientific = FALSE))
   }, character(nrow(nt)))
   if (!is.array(ntf)) ntf <- matrix(ntf, nrow = 1)
   dimnames(ntf) <- dimnames(nt)
@@ -109,7 +109,7 @@ demographics.logical <- function(object, by, style) {
   },
                 integer(2))
   ## remove missing row if all zero
-  if (getOption("GSKStatGen.demographics.omit0rows", TRUE)) if (all(tmt[nrow(tmt), ] == 0)) tmt <- tmt[-nrow(tmt), , drop = FALSE]
+  if (getOption("demographics.omit0rows", TRUE)) if (all(tmt[nrow(tmt), ] == 0)) tmt <- tmt[-nrow(tmt), , drop = FALSE]
   ## coerce to character?
   return(tmt)
   ## add nice pretty pcs
@@ -210,7 +210,7 @@ demographics.data.frame <- function(object, by, style) {
   rownames(dtn) <- "N"
   ## demographics table all items
   dta <- do.call(rbind,
-                 lapply(setdiff(names(object), getOption("GSKStatGen.usubjid", NULL)), 
+                 lapply(setdiff(names(object), getOption("clinical.usubjid", NULL)), 
                         function(oname) {
                           style1 <- style[[oname]]
                           if (is.null(style1)) style1 <- style[[class(object[[oname]])]]
@@ -225,7 +225,7 @@ demographics.data.frame <- function(object, by, style) {
   dta <- rbind(dtn, dta)
   colnames(dta) <- names(bylist)
   ## if stripping empty columns
-  if (getOption("GSKStatGen.demographics.omit0groups", TRUE)) dta <- dta[ , which(n > 0), drop = FALSE]
+  if (getOption("demographics.omit0groups", TRUE)) dta <- dta[ , which(n > 0), drop = FALSE]
   return(dta)
 }
 

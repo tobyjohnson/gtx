@@ -1,5 +1,5 @@
 clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
-                            usubjid = getOption("GSKStatGen.usubjid"),
+                            usubjid = getOption("clinical.usubjid"),
                             verbose = TRUE,
                             only) {
   f <- dir(d, pattern = pattern) # list of files
@@ -62,7 +62,7 @@ derivation.add <- function(derivations, targets, types, deps, data, fun, aept.li
 }
   
 derive1idsl <- function(datalist, targets, types, deps, data, fun) {
-  usubjid <- getOption("GSKStatGen.usubjid")
+  usubjid <- getOption("clinical.usubjid")
   stopifnot(all(deps %in% names(datalist)))
   targetv <- unlist(strsplit(targets, '\\s+'))
   typev <- unlist(strsplit(types, '\\s+'))
@@ -97,8 +97,8 @@ derive1idsl <- function(datalist, targets, types, deps, data, fun) {
 }
 
 clinical.derive <- function(datalist, derivations, verbose = TRUE, only) {
-  usubjid <- getOption("GSKStatGen.usubjid")
-  if (identical(getOption("GSKStatGen.ClinicalFormat"), "IDSL")) {
+  usubjid <- getOption("clinical.usubjid")
+  if (identical(getOption("clinical.ClinicalFormat"), "IDSL")) {
     stopifnot(all(c("targets", "types", "deps.IDSL", "data.IDSL", "fun.IDSL") %in% names(derivations)))
     if (missing(only)) only <- derivations$targets
     only <- unlist(strsplit(only, '\\s+'))

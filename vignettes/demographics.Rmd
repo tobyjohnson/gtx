@@ -27,7 +27,7 @@ groups by genotype at a variant of interest, or one group for all
 subjects in a clinical study and a second group for the subset of
 subjects included in a genetic analysis.
 
-The `demographics` functions in the GSKStatGen package aim to make
+The `demographics` functions in the gtx package aim to make
 generation of demographics tables as easy as possible, given the
 following assumptions:
 
@@ -86,7 +86,7 @@ be converted or coerced to appropriate classes.
 An example of preparing suitable input, using the `aoex1` example
 dataset:
 ```{r prepare}
-suppressPackageStartupMessages(library(GSKStatGen))
+suppressPackageStartupMessages(library(gtx))
 suppressPackageStartupMessages(library(survival))
 data(aoex1)
 aoex1 <- within(aoex1, {
@@ -190,7 +190,7 @@ allows finer control than the "VARIABLE=value" column names generated
 in the previous examples.  The names have to be quoted if they contain
 spaces.  This demonstration includes a deliberately empty group, which
 is automatically suppressed in the output (unless
-`options(GSKStatGen.demographics.omit0groups = FALSE)` is used).
+`options(demographics.omit0groups = FALSE)` is used).
 ```{r demo5, results="asis"}
 bygroups <- list("All subjects" = rep(TRUE, nrow(aoex1)),
                  "Study 1" = aoex1$STUDYID == "AO000001",
@@ -242,8 +242,8 @@ Therefore, the user can in principle define new classes and write
 The `demographics` functions have some behaviours that are controlled
 by options that can be set by the user.  Currently, these control
 whether rows where all groups have zero count are omitted
-(GSKStatGen.demographics.omit0rows, default TRUE), and whether groups with no subjects are omitted 
-(GSKStatGen.demographics.omit0groups, default TRUE),
+(demographics.omit0rows, default TRUE), and whether groups with no subjects are omitted 
+(demographics.omit0groups, default TRUE),
 
 In the future it is planned to provide automatic collapsing of levels
 for factors with many levels, and automagically printing descriptive
