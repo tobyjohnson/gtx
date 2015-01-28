@@ -27,5 +27,5 @@ grs.make.scores(params, snpdata, appendage = ".score")
   The snpdata list with additional column(s) added to data.
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

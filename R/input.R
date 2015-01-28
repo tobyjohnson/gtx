@@ -1,10 +1,19 @@
-read.snpdata.mach <- function(fileroot, tol.af = 0.01, phenotypes = NULL) {
-  mlinfo <- read.table(paste(fileroot, "mlinfo", sep = "."), header = TRUE, colClasses = "character") # read as characters to prevent small .mlinfo files with Al1 or Al2 all "T" alleles being coerced to logical
+read.snpdata.mach <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isuffix = ".mlinfo", dsuffix = ".mldose") {
+  if (substr(isuffix, nchar(isuffix) - 2, nchar(isuffix)) == ".gz") {
+    mlinfo <- read.table(gzfile(paste(fileroot, isuffix, sep = "")), header = TRUE, colClasses = "character")
+  } else {
+    mlinfo <- read.table(paste(fileroot, isuffix, sep = ""), header = TRUE, colClasses = "character")
+  }
+  ## read info as characters to prevent small .mlinfo files with Al1 or Al2 all "T" alleles being coerced to logical
   names(mlinfo) <- sub("^AL", "Al", names(mlinfo)) # some old files have AL1,AL2
   stopifnot(all(c("SNP", "Al1", "Al2", "Freq1") %in% names(mlinfo)))
   for (colname in intersect(c("Freq1", "MAF", "Quality", "Rsq"), names(mlinfo))) mlinfo[[colname]] <- as.real(mlinfo[[colname]]) # if present, coerce these columns to real
   ## we could use something like try(as.numeric(... to make this more general
-  mldose <- read.table(paste(fileroot, "mldose", sep = "."), header = FALSE, col.names = c("MACHID", "DATATYPE", paste(mlinfo$SNP, mlinfo$Al1, sep = "_")), as.is = TRUE)
+  if (substr(dsuffix, nchar(dsuffix) - 2, nchar(dsuffix)) == ".gz") {
+    mldose <- read.table(gzfile(paste(fileroot, dsuffix, sep = "")), header = FALSE, col.names = c("MACHID", "DATATYPE", paste(mlinfo$SNP, mlinfo$Al1, sep = "_")), as.is = TRUE)
+  } else {
+    mldose <- read.table(paste(fileroot, dsuffix, sep = ""), header = FALSE, col.names = c("MACHID", "DATATYPE", paste(mlinfo$SNP, mlinfo$Al1, sep = "_")), as.is = TRUE)
+  }
   if (nrow(mlinfo) > 0 && any(abs(apply(mldose[ , -2:-1, drop = FALSE], 2, mean)/2 - mlinfo$Freq1) > tol.af)) stop("mlinfo/mldose allele frequency mismatch") # check mean dose corresponds to Freq1 from mlinfo file; we allow empty mlinfo/mldose files
   ## we should check for MACH-style names with "->" separator
   mldose$FID <- sapply(mldose$MACHID, function(ii) unlist(strsplit(ii, "->"))[1])
@@ -22,6 +31,10 @@ read.snpdata.mach <- function(fileroot, tol.af = 0.01, phenotypes = NULL) {
   snpdata <- list(snpinfo = snpinfo, data = mldose)
   class(snpdata) <- "snpdata"
   return(snpdata)
+}
+
+read.snpdata.minimac <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isuffix = ".info.gz", dsuffix = ".dose.gz") {
+  return(read.snpdata.mach(fileroot, tol.af, phenotypes, isuffix, dsuffix))
 }
 
 read.snpdata.plink <- function(fileroot, tol.af = 0.01, phenotypes = NULL) {
@@ -102,7 +115,7 @@ align.snpdata.coding <- function(params, snpdata, ploidy = 2, missing.snp = "fai
     }
   }
   stopifnot(all(params$snp %in% snpdata$snpinfo$snp))
-  ### flaky way to deal with PLINK calling coded allele "0"
+  ### non-robust workaround to deal with PLINK calling coded allele "0"
   for (idx in which(snpdata$snpinfo$snp %in% params$snp & snpdata$snpinfo$coded.allele == "0")) {
     jdx <- match(snpdata$snpinfo$snp[idx], params$snp)
     if (snpdata$snpinfo$noncoded.allele[idx] == params$coded.allele[jdx]) {
@@ -116,8 +129,6 @@ align.snpdata.coding <- function(params, snpdata, ploidy = 2, missing.snp = "fai
     }
   }
   stopifnot(all(allelesAB(params$coded.allele, params$noncoded.allele) == allelesAB(snpdata$snpinfo$coded.allele, snpdata$snpinfo$noncoded.allele)[match(params$snp, snpdata$snpinfo$snp)])) # check alleles match even if inverted 
-  stopifnot(all(params$data >= 0))
-  stopifnot(all(params$data <= ploidy))
   params$codeB <- paste(params$snp, params$coded.allele, sep = "_")
   params$codeA <- paste(params$snp, params$noncoded.allele, sep = "_")
   ## the next section recodes columsn of snpdata$data to coded allele of params if necessary
@@ -133,9 +144,9 @@ align.snpdata.coding <- function(params, snpdata, ploidy = 2, missing.snp = "fai
   rm(uset)
   for (colid in which(names(snpdata$data) %in% params$codeB)) {
     if (any(is.na(snpdata$data[ , colid]))) stop("missing dosages for", names(snpdata$data)[colid])
-    if (any(snpdata$data[ , colid] < 0 | snpdata$data[ , colid] > 2)) stop("dosages outside [0,2] for", names(snpdata$data)[colid])
+    if (any(snpdata$data[ , colid] < 0 | snpdata$data[ , colid] > ploidy)) stop("dosages outside [0,ploidy] for", names(snpdata$data)[colid])
   }
-  params$data.coded.freq <- apply(subset(snpdata$data, select = params$codeB), 2, mean)/2
+  params$data.coded.freq <- apply(subset(snpdata$data, select = params$codeB), 2, mean)/ploidy
   ## do some kind of check...
   return(list(params = params, snpdata = snpdata))
 }

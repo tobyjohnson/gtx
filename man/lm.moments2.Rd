@@ -41,5 +41,5 @@ lm(SBP ~ rs6668659_G+rs4846049_G+rs1801133_A+Sex+Age, data = mthfrex$data)
 ## Note in results Sex factor coded differently than SexC
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

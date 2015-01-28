@@ -62,5 +62,5 @@ mthfrex <- align.snpdata.coding(mthfr.params, mthfrex)$snpdata
 "rs1537514_G" \%in\% names(mthfrex$data) # TRUE
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

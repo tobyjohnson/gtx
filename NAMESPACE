@@ -1,0 +1,28 @@
+## abf.R
+export(abf.normal, abf.t, abf.Wakefield)
+## blat.R
+export(sanitise.whitespace, parse.snps, remap.q2t)
+## fitmix.R
+export(fitmix.simulate, fitmix.r2, fitmix.plot, fitmix)
+## glsglm.R
+export(gls.approx.logistic)
+## grs.R
+export(coeff.extract, grs.onesnp.apply, grs.make.scores, grs.summary, grs.plot, grs.filter.Qrs)
+export(test.subsample) ## hacky code, to deprecate
+## hapmap.R
+export(hapmap.read.haplotypes, hapmap.snpdata)
+## input.R
+export(read.snpdata.mach, read.snpdata.plink, read.snpdata.impute, allelesAB, align.snpdata.coding)
+## moments2.R
+export(is.moments2, make.moments2, lm.moments2, est.moments2, combine.moments2)
+## multimatch.R
+export(multimatch)
+## multipheno.R
+export(multipheno.T2)
+## snpdata.R
+export(summary.snpdata, is.snpdata, as.snpdata)
+S3method(summary, snpdata)
+## stepwise.R
+export(stepup.moments2, stepdown.moments2)
+## snphwe.R
+export(snphwe, snphweCounts)

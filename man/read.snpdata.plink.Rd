@@ -41,5 +41,5 @@ mydata <- read.snpdata.plink("MYEXPORT", phenotypes = mypheno)
   \url{http://pngu.mgh.harvard.edu/~purcell/plink}.
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

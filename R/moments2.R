@@ -1,3 +1,11 @@
+is.moments2 <- function(object) {
+  if (class(object) != "moments2") return (FALSE)
+  if (!is.matrix(object)) return (FALSE)
+  if (nrow(object) != ncol(object)) return (FALSE)
+  if (any(rownames(object) != colnames(object))) return (FALSE)
+  return (TRUE)
+}
+
 make.moments2 <- function(params, phenolist, snpdata, weightvar = NULL) {
   stopifnot(is.data.frame(params))
   stopifnot(all(c("snp", "coded.allele") %in% names(params)))
@@ -16,9 +24,15 @@ make.moments2 <- function(params, phenolist, snpdata, weightvar = NULL) {
   x <- as.matrix(subset(tmp, !apply(is.na(tmp), 1, any)))
   ## note we extract columns of interest first, THEN hard drops any rows with missing data
   if (is.null(weightvar)) {
-    return(t(x) %*% x)
+    xtx <- t(x) %*% x
+    class(xtx) <- "moments2"
+    attr(xtx, "vscale") <- NULL
+    return(xtx)
   } else {
-    return(t(apply(x, 2, function(xcol) xcol*x[ , widx])) %*% x)
+    xtwx <- t(apply(x, 2, function(xcol) xcol*x[ , widx])) %*% x
+    class(xtwx) <- "moments2"
+    attr(xtwx, "vscale") <- 1
+    return(xtwx)
   }
 }
 
@@ -29,19 +43,32 @@ lm.moments2 <- function(xtx, leftvar, rightvars, n = NULL) {
 est.moments2 <- function(xtwx, leftvar, rightvars, n = NULL, vscale = NULL) {
   ## estimating vscale from data assumes normal/identity model
   ## if using vscale!=1 check definition vis-a-vis standard GLM notation, maybe inverse?
-  stopifnot(is.matrix(xtwx))
-  stopifnot(nrow(xtwx) == ncol(xtwx))
-  stopifnot(all(rownames(xtwx) == colnames(xtwx)))
+
+  if(is.moments2(xtwx)) {
+    vscale.arg <- vscale
+    vscale <- attr(xtwx, "vscale")
+    if ((is.null(vscale.arg) && !is.null(vscale)) ||
+        (!is.null(vscale.arg) && is.null(vscale)) ||
+        (!is.null(vscale.arg) && !is.null(vscale) && vscale.arg != vscale)) {
+      warning("using vscale=", if (is.null(vscale)) "NULL" else vscale, " from xt(w)x attribute", 
+              "instead of vscale=" , if (is.null(vscale.arg)) "NULL" else vscale.arg, " from function argument")
+    }
+  } else {
+    ## these checks only needed if !is.moments2(xtwx)
+    stopifnot(is.matrix(xtwx))
+    stopifnot(nrow(xtwx) == ncol(xtwx))
+    stopifnot(all(rownames(xtwx) == colnames(xtwx)))
+  }
   if (is.null(n)) stopifnot("ONE" %in% rownames(xtwx))
   stopifnot(length(leftvar) == 1)
   stopifnot(leftvar %in% rownames(xtwx))
   stopifnot(length(rightvars) >= 1)
   stopifnot(all(rightvars %in% rownames(xtwx)))
 
-  ## this is only right for NLM
-  if (is.null(n)) n <- xtwx["ONE", "ONE"]
+  ## n inferred this way is only right for NLM
+  if (is.null(vscale) && is.null(n)) n <- xtwx["ONE", "ONE"]
   p <- length(rightvars)
-  stopifnot(n - p >= 1) # residual degrees of freedom
+  stopifnot(n - p >= 1) # residual degrees of freedom; nothing happens if n==NULL
 
   lidx <- match(leftvar, rownames(xtwx))
   

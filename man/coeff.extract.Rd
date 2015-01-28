@@ -20,5 +20,5 @@ coeff.extract(object)
   uniform interface to all these classes.
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

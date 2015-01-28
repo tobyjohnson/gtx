@@ -53,5 +53,5 @@ grs.summary(w, b, s, n)
 Cite the paper by T. Johnson.
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

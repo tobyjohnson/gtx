@@ -41,5 +41,5 @@ coxph(Surv(FollowupDays,FollowupT2D) ~ Overweight + T2D2010.score,
       data = t2dex$data)
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

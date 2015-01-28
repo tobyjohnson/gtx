@@ -66,11 +66,6 @@ stepup.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05, n
   return(est.moments2(xtwx, leftvar, rownames(xtwx)[nidx], n = n.arg, vscale = vscale.arg))
 }
 
-
-
-
-
-
 stepdown.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05, n = NULL, vscale = NULL) {
   ## estimating vscale from data assumes normal/identity model
   ## if using vscale!=1 check definition vis-a-vis standard GLM notation, maybe inverse?

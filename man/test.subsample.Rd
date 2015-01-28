@@ -5,6 +5,6 @@
   This function is not currently part of the public API.
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }
 \keyword{internal}

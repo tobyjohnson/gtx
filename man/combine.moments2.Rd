@@ -54,7 +54,7 @@ combine.moments2(xtxlist, fixed)
   to be maintained while treating all subsets symetrically.
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }
 \examples{
 data(mthfrex)

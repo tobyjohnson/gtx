@@ -65,5 +65,5 @@ myfit <- stepup.moments2(xtx, "SBP", allsnps, c("ONE", "SexC", "Age"))
 cbind(beta = myfit$betahat, se = myfit$se, t = myfit$beta/myfit$se)
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

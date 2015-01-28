@@ -15,5 +15,5 @@ hapmap.snpdata(params, hapmap)
 See hapmap for how to build.  Returns a snpdata object with special ploidy=1.
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

@@ -22,5 +22,5 @@ allelesAB(A1, A2, sep = "/")
   table(allelesAB(t2d.scores$coded.allele, t2d.scores$noncoded.allele))
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

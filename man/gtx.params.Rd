@@ -24,5 +24,5 @@ make.moments2(params, phenolist, snpdata)
 }
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

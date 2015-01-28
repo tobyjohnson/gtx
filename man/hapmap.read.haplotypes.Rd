@@ -35,10 +35,10 @@ hapmap <- lapply(1:22, hapmap.read.haplotypes, path = "~/hapmap")
 ## selected chromosomes only
 hapmap <- lapply(1:22, function() return(NULL))
 for (chr in c(1, 11, 17)) {
-  hapmap[[chr]] <- hapmap.read.haplotypes(chr path = "~/hapmap")
+  hapmap[[chr]] <- hapmap.read.haplotypes(chr, path = "~/hapmap")
 }
 }
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

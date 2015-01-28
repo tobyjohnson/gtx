@@ -32,5 +32,5 @@ grs.plot(t2d.scores$coef, assoc1$beta, assoc1$se, t2d.scores$name)
 title(xlab = "risk score weight", ylab = "estimated effect size")
 }
 \author{
-  Toby Johnson \email{T.Johnson@qmul.ac.uk}
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

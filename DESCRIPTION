@@ -1,12 +1,22 @@
 Package: gtx
-Version: 0.0.3
-Date: 2010-10-06
+Version: 0.0.7
+Date: 2012-09-18
 Title: Genetics ToolboX
-Author: Toby Johnson <T.Johnson@qmul.ac.uk>
-Maintainer: Toby Johnson <T.Johnson@qmul.ac.uk>
-Depends: R (>= 2.4.0)
-Description: Assorted tools for genetic association analyses.  The focus is on implementing (either exactly or approximately) regression analyses using summary statistics instead of using subject-specific data.  So far, functions exist to support multi-SNP risk score analyses, and multi-SNP conditional regression analyses, using summary statistics.  There are helper functions for reading and manipulating subject-specific genotype data, which provide a platform for calculating the summary statistics, or for using R to conduct other analyses not supported by specific GWAS analysis tools.
+Author: Toby Johnson <Toby.x.Johnson@gsk.com>
+Maintainer: Toby Johnson <Toby.x.Johnson@gsk.com>
+Depends: R (>= 2.4.0), survival
+Description: Assorted tools for genetic association analyses.  The
+        current focus is on implementing (either exactly or
+        approximately) regression analyses using summary statistics
+        instead of using subject-specific data.  So far, functions
+        exist to support multi-SNP risk score analyses, multi-SNP
+        conditional regression analyses, and multi-phenotype analyses,
+        using summary statistics.  There are helper functions for
+        reading and manipulating subject-specific genotype data, which
+        provide a platform for calculating the summary statistics, or
+        for using R to conduct other analyses not supported by specific
+        GWAS analysis tools.
 License: GPL (>= 2)
-Packaged: 2011-11-16 15:51:41 UTC; toby
+Packaged: 2012-09-18 20:53:35 UTC; tj357745
 Repository: CRAN
-Date/Publication: 2011-11-17 11:25:57
+Date/Publication: 2012-09-19 12:46:20
