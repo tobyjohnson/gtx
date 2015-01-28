@@ -47,6 +47,7 @@ pgx.endpoints(d, measure, exposure,
   TO DO:  Allow elapsed time, cumulative dose
 }
 \examples{
+library(survival)
 data(clinex) # like plain text export of SAS files from CDER/CDISC
              # compliant data
 ## format dates for R
