@@ -1,3 +1,19 @@
+contrasting.rainbow <- function (x, ...) {
+  x <- as.integer(x)[1]
+  stopifnot(x >= 1)
+  ## make pretty colour cycle, by...
+  ## ...finding non-unit divisors of ler...
+  xnud <- setdiff(which(x %% 1:x == 0), 1)
+  ## ...and thus largest coprime of x that is <=x/2...
+  xcop <- max(which(sapply(1:(x/2), function(div) all(div %% xnud != 0))))
+  ## ...and thus constrasting traversal of x
+  xtrav <- (1:x*xcop) %% x + 1
+  ## fallback; no coprime exists so use random shuffle
+  if (!all(1:x %in% xtrav)) xtrav <- sample(x)
+  return(rainbow(x, ...)[xtrav])
+}
+
+
 ## plotpos.by.chr <- function (chr, pos, gap = 5e7, chrset = c(1:22, "X", "Y", "M")) {
 ##   stopifnot(length(pos) == length(chr))
 ##   chr <- toupper(as.character(chr))

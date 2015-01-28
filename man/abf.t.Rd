@@ -27,7 +27,7 @@ abf.t(beta, se, priorscale, df = 1, gridrange = 3, griddensity = 20)
     comparison with P-values} by John Wakeley, 2009, Genetic Epidemiology
     33(1):79-86 at \url{http://dx.doi.org/10.1002/gepi.20359}.  However,
     in contrast to that work, a t distribution is used for the prior,
-    which means it is necessary to use a numerical algorithm o calculate
+    which means it is necessary to use a numerical algorithm to calculate
     the (approximate) Bayes factor.
     }
 \examples{

@@ -1,0 +1,445 @@
+\documentclass[a0,portrait]{a0poster}
+
+%%%       *** SWEAVE ***
+%%%           auto-find style file
+\usepackage{\Sexpr{file.path(R.home(), "share/texmf/tex/latex/Sweave")}}
+%%%           this comment stops Sweave adding an extra \usepackage{Sweave}
+\SweaveOpts{echo=false,eps=true,pdf=false,width=6,height=4}
+
+%%%
+%%%       *** NO PAGE NUMBERS ON POSTERS ***
+%%%           see also \thispagestyle below  
+%%%
+\pagestyle{empty}
+
+%%%
+%%%       *** DISCOURAGE HYPENATION IN POSTERS ***
+%%%
+\hyphenpenalty=5000
+\tolerance=1000
+
+%%%
+%%%       *** AUTHOR-DATE CITATIONS ***
+%%%
+\usepackage{natbib}
+\bibpunct[]{[}{]}{,}{n}{}{,}
+
+%%%
+%%%       *** ISO MATH ***
+%%%
+\newcommand{\me}{\mathrm{e}}
+\newcommand{\mi}{\mathrm{i}}
+\newcommand{\dif}{\mathrm{d}}
+\usepackage{bm}
+\renewcommand{\vec}[1]{\bm{#1}}
+\DeclareMathAlphabet{\mathsfsl}{OT1}{cmss}{m}{sl}
+\newcommand{\tensor}[1]{\mathsfsl{#1}}
+
+%%%
+%%%       *** AMS PACKAGES ***
+%%%
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb} % for \square
+\usepackage{amsthm}
+
+%%% local defs
+
+\newcommand{\defeq}{\ensuremath{:=}}
+
+\begin{document}
+\setkeys{Gin}{width=0.475\textwidth} % figures displayed at this width
+
+%%%\VignetteIndexEntry{Efficient Calculation for Multi-SNP Genetic Risk Scores}
+
+\title{Efficient Calculation for Multi-SNP Genetic Risk Scores}
+\author{Toby Johnson \texttt{<Toby.x.Johnson@gsk.com>},
+  GlaxoSmithKline, Stevenage, UK}
+\date{presented at the 
+  American Society of Human Genetics Annual Meeting,
+  San Francisco, November 6--10, 2012 }
+\maketitle
+\thispagestyle{empty}
+
+\hspace{0.03\textwidth}\begin{minipage}{0.32\textwidth}
+%
+\section{Motivation}
+\label{sec:motivation}
+%
+\paragraph{Genetic risk scores} based on genotypes at multiple single
+nucleotide polymorphisms (SNPs) have several applications in
+association studies for complex human phenotypes.  However, for many
+human diseases and traits of clinical importance, identifying genetic
+associations has required large sample sizes, so single SNP
+associations are typically studied by meta-analysis of summary results
+obtained from multiple genotype-phenotype datasets held at different
+institutions.  In such settings, testing association between a
+multi-SNP genetic risk score and a phenotype is prone to
+organisational difficulties and potential for analytic error.
+
+\paragraph{One application of interest} is estimating the causal
+effect of a chosen biomarker on a disease outcome, invoking a
+Mendelian randomisation argument \cite{lawlor08:_mendel_random}.  An
+investigator may have access to information sufficient to parameterise
+a genetic risk score for the biomarker, but may not have direct access
+to genotype data sufficient to test association between the risk score
+and the disease.  In this application, it is desirable to make
+efficient use of single SNP meta-analysis association statistics,
+calculated by research consortia using datasets with very large total
+sample sizes of disease case and control subjects
+\cite[e.g.][]{schunkert11:_large_scale_assoc_analy_ident,
+  morris12:_large_scale_assoc_analy_provid}.
+
+\paragraph{The key quantities of interest} are the effect size
+estimate for association between the risk score and the disease (here
+denoted $\hat\alpha$), and its standard error (SE).  These are
+typically sufficient to calculate other quantities of interest, such
+as the association $P$-value, (pseudo-)variance explained, and the
+ratio estimate for the causal effect of a biomarker on the disease.
+
+\section{Definitions}
+\label{sec:definitions}
+%
+For an additive multi-SNP risk score depending on $m$ chosen
+SNPs, the value of the risk score for the $i$-th subject is
+\begin{equation}
+  r_i = \sum_{j=1}^{m}{w_j x_{ij}}
+  \quad\mbox{.}
+  \label{eq:def-ri}
+\end{equation}
+Here, $x_{ij}$ is the dose of the coded allele at the $j$-th SNP in
+the $i$-th subject, and $w_j$ is a chosen coefficient or weight for
+the $j$-th SNP.  The choice of the SNPs and the vector of coefficients
+$\vec{w}$ together parameterise the score and are assumed
+known.\vspace{11pt}
+
+Assume we wish to assess association between the risk
+score~(\ref{eq:def-ri}) and a chosen phenotype in a chosen dataset,
+using a regression model where the likelihood [or the partial
+likelihood for a Cox proportional hazards model] of the observed
+phenotype data depends on explanatory variables only through a linear
+predictor $\eta_i = r_i\alpha + \cdots$.\vspace{11pt}
+
+The key quantity of interest is $\hat\alpha$, an estimate for
+$\alpha$, the coefficient for the risk score in the linear predictor.
+
+\section{Results}
+\label{sec:results}
+%
+\subsection{``Summary statistic'' method}
+\label{sec:summ-stat-meth}
+%
+Define
+\begin{equation}
+  \tilde\alpha \defeq \frac{\sum_{j=1}^{m}{w_j \hat\beta_j s_j^{-2}}}
+  {\sum_{j=1}^{m}{w_j^2 s_j^{-2}}}
+  \qquad\mbox{with}\qquad
+  \mbox{SE}{\left(\tilde\alpha\right)} = \sqrt{\frac{1}{\sum_{j=1}^{m}{w_j^2s_j^{-2}}}}
+  \quad\mbox{,}
+  \label{eq:main-def-tildea}
+\end{equation}
+where $\hat\beta_j$ is the effect size estimate when the phenotype is
+regressed onto $x_{ij}$ in a single SNP analysis in the chosen
+dataset, and $s_j=\mbox{SE}{\left(\hat\beta_j\right)}$ is the
+corresponding SE.
+
+\subsection{Main result}
+\label{sec:main-result}
+%
+When all SNP genotypes used in the risk score are uncorrelated, then
+\begin{equation}
+  \tilde\alpha \simeq \hat\alpha
+  \label{eq:main}
+\end{equation}
+Trivially, under the null hypothesis that the $\hat\beta_j$ are
+independently normally distributed with means zero and variances $s_j^2$,
+the quantity $\tilde\alpha$ is normally distributed with mean zero and
+variance ${\mbox{SE}{(\tilde\alpha)}}^2$.
+
+\subsection{Goodness of fit test}
+\label{sec:goodness-fit-test}
+%
+When all SNP genotypes used in the risk score are uncorrelated, then
+\begin{equation}
+  X^2_m \defeq \sum_{i=1}^{m}{\hat\beta_j^2s_j^{-2}}
+  \qquad\mbox{and}\qquad
+  X^2_{\mathrm{rs}} \defeq \left(\frac{\tilde\alpha}{\mbox{SE}{(\tilde\alpha)}}\right)^2
+  \label{eq:def-x2-m-rs}
+\end{equation}
+are $\chi^2_{(m)}$ and $\chi^2_{(1)}$ distributed test statistics for
+association between the phenotype and all $m$ SNPs under an
+unconstrained $m$ d.f.\ model, and for the nested 1 d.f.\ risk score
+model, respectively.  Then,
+\begin{equation}
+  Q_{\mathrm{rs}} \defeq X^2_m - X^2_{\mathrm{rs}}  
+  \label{eq:def-qrs}
+\end{equation}
+is $\chi^2_{(m-1)}$ distributed, under the null hypothesis that all
+$m$ SNPs are associated with the phenotype with true effect sizes that
+are proportional to the coefficients $\vec{w}$ used to parameterise
+the risk score.  This null hypothesis expresses a critical assumption
+required for a Mendelian randomisation argument, namely that all the
+genetic instruments must affect disease risk \emph{only} through
+their effects on the biomarker of interest, and must not have other
+``pleiotropic'' effects on disease risk (e.g.\ via other biomarkers).
+%
+\end{minipage}%
+%
+\hspace{0.06\textwidth}%
+%
+\begin{minipage}{0.52\textwidth}
+%
+\subsection{Proof of main result}
+\label{sec:proof-main-result}
+%
+Here I write the proof for~(\ref{eq:main}) only for the simplest case,
+where the chosen phenotype is a continuous trait ($z_i$ in the $i$-th
+subject), and where there are no covariates.  Then, for the $j$-th
+SNP, the regression coefficient and SE are
+\begin{equation}
+  \hat\beta_j = \frac{\vec{z}'\vec{x}_j}{{\vec{x}_j}'\vec{x}_j}
+  \qquad
+  s_j \simeq \sqrt{\frac{\vec{z}'\vec{z}}{n\,{\vec{x}_j}'\vec{x}_j}}
+  \label{eq:def-betai}
+\end{equation}
+where $\vec{z}$ is the centered $n\times1$ vector of subject-specific
+trait values and $\vec{x}_j$ is the centered $n\times1$ vector of
+coded allele dosages.  The approximation for $s_j$
+in~(\ref{eq:def-betai}) assumes $n$ is large and that a small fraction
+of the trait variance is explained.  For the risk score the regression
+coefficient is
+\begin{equation}
+  \hat\alpha = \frac{\vec{z}'\vec{r}}{\vec{r}'\vec{r}}
+  \label{eq:def-alphahat}
+\end{equation}
+where $\vec{r}$ is the centered $n\times1$ vector of subject-specific
+multi-SNP risk score values.  The required result
+\begin{equation}
+  \hat\alpha = \frac{\vec{z}'\vec{r}}{\vec{r}'\vec{r}}
+  \simeq \frac{\sum_{j=1}^m{w_j\vec{z}'\vec{x}_j}}
+  {\sum_{j=1}^m{w_j^2{\vec{x}_j}'\vec{x}_j}}
+  \simeq \frac{\sum_{j=1}^m{w_j\hat\beta_js_j^{-2}\,n\,(\vec{z}'\vec{z})^{-1}}}
+  {\sum_{j=1}^m{w_j^2s_j^{-2}\,n\,(\vec{z}'\vec{z})^{-1}}}\;=\;\tilde\alpha
+  \label{eq:proof-alphahat-tilde-alpha}
+\end{equation}
+has two necessary conditions: (i) that
+$\vec{r}=\sum_{j=1}^m{w_j\vec{x}_j}$, which is true because the
+[centered] risk score~(\ref{eq:def-ri}) is a linear
+combination of the [centered] coded allele dosages; and (ii) that
+${\vec{x}_j}'\vec{x}_k\simeq0$ for all $j\not=k$, that is that the
+centered vectors of coded allele dosages are orthogonal, which is true
+for uncorrelated SNP genotypes.~$\square$\vspace{22pt}
+
+I wrote a more general but less rigorous derivation
+for~(\ref{eq:main}) in
+\cite{dastani12:_novel_loci_adipon_level_their}, and I have performed
+extensive numerical verification of (\ref{eq:main}) using Monte Carlo
+subsamples of several real datasets.
+
+\section{Illustrative application}
+\label{sec:illustr-appl}
+%
+<<load-gtx-and-data>>=
+library(gtx)
+data(lipid.cad.scores)
+# format small P-value for LaTeX
+latexp <- function(pval, digits = 1) {
+  paste(round(10^(log10(pval) - floor(log10(pval))), digits), "\\\\times10^{", floor(log10(pval)), "}", sep = "")
+}
+# compute odds-per-percent-change at qq-th quantile of estimate and CI
+# assuming risk score in ln(biomarker) and outcome in ln(odds)
+oppc <- function(grs, pc, qq, digits = 2) {
+  return(round(sort(exp((grs$ahat + qnorm(qq)*grs$aSE)*log((100 + pc)/100))), digits))
+}
+@ 
+%
+Previously, \cite{waterworth10:_genet_varian_influen_circul_lipid}
+reported effect size estimates for association between prevalent
+coronary artery disease (CAD) and genotypes at 29 SNPs associated with
+serum lipid biomarkers, combining results from nine studies totalling
+$9\,633$ CAD cases and $38\,684$ controls.  Effect size estimates for
+association between the biomarkers (low density lipoprotein
+cholesterol (LDL), high density lipoprotein cholesterol (HDL), and
+triglycerides) and the genotypes were also reported, combining results
+from eight studies totalling $17\,723$ subjects (partly overlapping
+the CAD case and control samples).  However,
+\cite{waterworth10:_genet_varian_influen_circul_lipid} did not report
+any results for multi-SNP risk scores.\vspace{11pt}
+
+\begin{center}
+  \addtocounter{figure}{1}
+  \begin{minipage}{0.9\textwidth}
+    \textsf{Figure~\arabic{figure}.~Estimated effects on CAD risk are
+      plotted against estimated effects on serum lipid biomarkers, for
+      ten SNPs associated with HDL (left panel) and for nine SNPs
+      associated with triglycerides (right panel).  Vertical grey
+      lines show 95\% confidence interval (CI) for each individual
+      SNP.  Estimates of casual effect of each biomarker on CAD risk,
+      by applying~(\ref{eq:main-def-tildea}) using all SNPs in each
+      panel, are represented by red solid lines with gradient
+      $\tilde\alpha$, with red dashed lines showing the 95\%
+      CI.}\vspace{11pt}
+  \end{minipage}
+<<hdl-plot1,fig=true>>=
+with(subset(lipid.cad.scores, score == "HDL"), {
+  par(mar = c(4, 4, 0, 0.5) + 0.1)
+  grs.plot(coef, beta_CAD, se_CAD, locus, textpos = c(3,3,1,1,1,1,3,1,3,1))
+  title(xlab = "ln change in HDL per allele",
+        ylab = "ln(odds) change in CAD risk per allele")
+})
+@ 
+\hspace{0.04\textwidth}%
+<<tg-plot1,fig=true>>=
+with(subset(lipid.cad.scores, score == "TG"), {
+  par(mar = c(4, 4, 0, 0.5) + 0.1)
+  grs.plot(coef, beta_CAD, se_CAD, locus, textpos = c(1,1,1,1,1,1,1,1,3))
+  title(xlab = "ln change in triglycerides per allele",
+        ylab = "ln(odds) change in CAD risk per allele")
+})
+@ 
+\\
+\end{center}
+
+<<fit-all-snps>>=
+hdl.grs1 <- with(subset(lipid.cad.scores, score == "HDL"), grs.summary(coef, beta_CAD, se_CAD, 38684 + 9633))
+tg.grs1 <- with(subset(lipid.cad.scores, score == "TG"), grs.summary(coef, beta_CAD, se_CAD, 38684 + 9633))
+@ 
+
+Using all SNPs, multi-SNP risk score analyses identify weak but
+statistically significant protective causal effects of HDL and
+triglycerides on CAD risk (\Sexpr{oppc(hdl.grs1, +10, 0.5)} odds (95\% CI 
+\Sexpr{oppc(hdl.grs1, +10, 0.025)}--\Sexpr{oppc(hdl.grs1, +10, 0.975)}) 
+per 10\% increase in HDL, $P=\Sexpr{latexp(hdl.grs1$pval)}$; 
+\Sexpr{oppc(tg.grs1, +10, 0.5)} odds (95\% CI 
+\Sexpr{oppc(tg.grs1, +10, 0.025)}--\Sexpr{oppc(tg.grs1, +10, 0.975)}) 
+per 10\% increase in triglycerides, $P=\Sexpr{round(tg.grs1$pval, 3)}$).
+However, applying~(\ref{eq:def-qrs}) detects strong evidence of
+heterogeneity of effects on CAD risk relative to the estimated effects
+on either biomarker ($Q_\mathrm{rs}=\Sexpr{round(hdl.grs1$Qrs, 2)}$ on 9 d.f.,
+$P=\Sexpr{latexp(hdl.grs1$phet)}$ for HDL; 
+$Q_\mathrm{rs}=\Sexpr{round(tg.grs1$Qrs, 2)}$ on 8 d.f.,
+$P=\Sexpr{latexp(tg.grs1$phet)}$ for triglycerides).  Hence the
+1~d.f.\ risk score models do not fit these data, and the assumptions
+required for a Mendelian randomisation argument must be seriously
+questioned.\vspace{11pt}
+
+<<fit-subset-snps>>=
+hdl.filter <- with(subset(lipid.cad.scores, score == "HDL"), grs.filter.Qrs(coef, beta_CAD, se_CAD))
+hdl.grs2 <- with(subset(lipid.cad.scores, score == "HDL"), grs.summary(coef[hdl.filter], beta_CAD[hdl.filter], se_CAD[hdl.filter], 38684 + 9633))
+tg.filter <- with(subset(lipid.cad.scores, score == "TG"), grs.filter.Qrs(coef, beta_CAD, se_CAD))
+tg.grs2 <- with(subset(lipid.cad.scores, score == "TG"), grs.summary(coef[tg.filter], beta_CAD[tg.filter], se_CAD[tg.filter], 38684 + 9633))
+@ 
+
+\begin{center}
+  \addtocounter{figure}{1}
+  \begin{minipage}{0.9\textwidth}
+    \textsf{Figure~\arabic{figure}.~Stepwise removal of SNPs from the risk score, minimising
+      $\mathsf{Q_\mathsf{rs}}$ at each step until there was no
+      significant heterogeneity (at $\mathsf{P\le0.05}$), removed
+      SNPs at the \textit{APOA5-A1} and \textit{LPL} loci for HDL, and
+      removed SNPs at the \textit{GCKR}, \textit{TRIB1} and
+      \textit{APOA5-A1} loci for triglycerides.  Estimated effects on
+      CAD risk are plotted against estimated effect on serum lipid
+      biomarkers for the remaining SNPs.  Corresponding estimates of
+      casual effect of biomarker on CAD risk are represented by red
+      lines as before.}\vspace{11pt}
+  \end{minipage}
+<<hdl-plot2,fig=true>>=
+with(subset(lipid.cad.scores, score == "HDL"), {
+  par(mar = c(4, 4, 0, 0.5) + 0.1)
+  grs.plot(coef[hdl.filter], beta_CAD[hdl.filter], se_CAD[hdl.filter], locus[hdl.filter],
+           textpos = c(3,3,1,1,1,1,3,1,3,1)[hdl.filter])
+  title(xlab = "ln change in HDL per allele",
+        ylab = "ln(odds) change in CAD risk per allele")
+})
+@ 
+\hspace{0.04\textwidth}%
+<<tg-plot2,fig=true>>=
+with(subset(lipid.cad.scores, score == "TG"), {
+  par(mar = c(4, 4, 0, 0.5) + 0.1)
+  grs.plot(coef[tg.filter], beta_CAD[tg.filter], se_CAD[tg.filter], locus[tg.filter],
+           textpos = c(1,1,1,1,1,1,1,1,3)[tg.filter])
+  title(xlab = "ln change in triglycerides per allele",
+        ylab = "ln(odds) change in CAD risk per allele")
+})
+@ 
+\\
+\end{center}
+
+After removing SNPs that likely violate assumptions required for a
+Mendelian randomisation argument, multi-SNP risk score analyses
+suggest no causal effects of either HDL or triglycerides on CAD risk, with
+narrow 95\% CIs 
+(\Sexpr{oppc(hdl.grs2, +10, 0.025)}--\Sexpr{oppc(hdl.grs2, +10, 0.975)} 
+odds for CAD per 10\% HDL increase, 
+$P=\Sexpr{round(hdl.grs2$pval, 2)}$;
+\Sexpr{oppc(tg.grs2, -10, 0.975)}--\Sexpr{oppc(tg.grs2, -10, 0.025)} 
+odds for CAD per 10\% triglyceride decrease, 
+$P=\Sexpr{round(tg.grs2$pval, 2)}$).\vspace{11pt}
+
+By constructing a genetic risk score for HDL, excluding
+``pleiotropic'' SNPs significantly associated (at $P\le0.01$) with
+either LDL or triglycerides,
+\cite{voight12:_plasm_hdl_choles_risk_myocar_infar} used the method
+described here to support a related conclusion, that HDL has no causal
+effect on myocardial infarction risk.  An advantage of the the
+goodness of fit approach described here is that SNPs with
+``pleiotropic'' effects on disease risk can be excluded from the risk
+score, even when suitable markers for the ``pleiotropic'' effects are
+not available.
+
+{\tiny\begin{raggedright}
+    \newcommand{\etalchar}[1]{$^{#1}$}
+\begin{thebibliography}{VPOM{\etalchar{+}}12}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi:\discretionary{}{}{}#1}\else
+  \providecommand{\doi}{doi:\discretionary{}{}{}\begingroup
+  \urlstyle{rm}\Url}\fi
+
+\bibitem[DHT{\etalchar{+}}12]{dastani12:_novel_loci_adipon_level_their}
+\textsc{Z.~Dastani} et~al. (2012) Novel loci for adiponectin levels
+  and their influence on type 2 diabetes and metabolic traits: A multi-ethnic
+  meta-analysis of 45,891 individuals.
+\newblock \emph{PLoS Genetics} \textbf{8}:e1002607.
+\newblock {doi}:10.1371/journal.pgen.1002607.
+
+\bibitem[LHS{\etalchar{+}}08]{lawlor08:_mendel_random}
+\textsc{D.~Lawlor}, \textsc{R.~M. Harbord}, \textsc{J.~A.~C. Sterne},
+  \textsc{N.~Timpson} and \textsc{G.~Davey~Smith} (2008) {M}endelian
+  randomization: {U}sing genes as instruments for making causal inferences in
+  epidemiology.
+\newblock \emph{Statistics in Medicine} \textbf{27}(8):1133--1163.
+\newblock {doi}:10.1002/sim.3034.
+
+\bibitem[MVT{\etalchar{+}}12]{morris12:_large_scale_assoc_analy_provid}
+\textsc{A.~P. Morris} et~al. (2012) Large-scale association analysis
+  provides insights into the genetic architecture and pathophysiology of type 2
+  diabetes.
+\newblock \emph{Nature Genetics} \textbf{44}(9):981--990.
+\newblock {doi}:10.1038/ng.2383.
+
+\bibitem[SKK{\etalchar{+}}11]{schunkert11:_large_scale_assoc_analy_ident}
+\textsc{H.~Schunkert} et~al. (2011) Large-scale association analysis
+  identifies 13 new susceptibility loci for coronary artery disease.
+\newblock \emph{Nature Genetics} \textbf{43}(4):333--338.
+\newblock {doi}:10.1038/ng.784.
+
+\bibitem[VPOM{\etalchar{+}}12]{voight12:_plasm_hdl_choles_risk_myocar_infar}
+\textsc{B.~F. Voight} et~al. (2012) Plasma {HDL} cholesterol and risk
+  of myocardial infarction: {A} {M}endelian randomisation study.
+\newblock \emph{The Lancet} \textbf{380}(9841):572--580.
+\newblock {doi}:10.1016/S0140-6736(12)60312-2.
+
+\bibitem[WRS{\etalchar{+}}10]{waterworth10:_genet_varian_influen_circul_lipid}
+\textsc{D.~M. Waterworth} et~al. (2010) Genetic variants influencing
+  circulating lipid levels and risk of coronary artery disease.
+\newblock \emph{Arteriosclerosis, Thrombosis, and Vascular Biology}
+  \textbf{30}:2264--2276.
+\newblock {doi}:10.1161/ATVBAHA.109.201020.
+\end{thebibliography}\end{raggedright}}\vspace{-11pt}
+
+\paragraph{Methods} described here are implemented in my \texttt{gtx}
+ package for the R statistical programming language, available at \texttt{http://cran.r-project.org/web/packages/gtx}
+%
+\end{minipage}
+\end{document}

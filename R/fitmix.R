@@ -51,17 +51,17 @@ fitmix1 <- function(x, k, tol = 1e-6, maxit = 100,
   x <- x[!is.na(x)] # hard drop NAs 
   stopifnot(length(x) > 1)
   k <- as.integer(k); stopifnot(k > 0)
-  tol <- as.real(tol); stopifnot(tol > 0)
+  tol <- as.double(tol); stopifnot(tol > 0)
   maxit <- as.integer(maxit); stopifnot(maxit > 0)
   if (is.null(p)) p <- rep(1/k, k) # reasonable initial values if not specified
-  p <- as.real(p)
+  p <- as.double(p)
   stopifnot(length(p) == k); stopifnot(all(p >= 0)); stopifnot(sum(p) > 0)
   p <- p/sum(p) # normalise if necessary
   if (is.null(mu)) mu <- quantile(x, seq(from = 1/(k+1), to = 1-1/(k+1), length.out = k)) # reasonable initial values if not specified
-  mu <- as.real(mu)
+  mu <- as.double(mu)
   stopifnot(length(mu) == k)
   if (is.null(sigma)) sigma <- rep(sd(x)/3, k) # reasonable initial values if not specified
-  sigma <- as.real(sigma)
+  sigma <- as.double(sigma)
   stopifnot(length(sigma) == k); stopifnot(all(sigma > 0))
   p.binomial <- as.logical(p.binomial)
   mu.additive <- as.logical(mu.additive)
@@ -114,7 +114,7 @@ fitmix <- function(x, k, tol = 1e-6, maxit = 100, restarts = 20,
   x <- x[!is.na(x)] # hard drop NAs 
   stopifnot(length(x) > 1)
   k <- as.integer(k); stopifnot(k > 0)
-  tol <- as.real(tol); stopifnot(tol > 0)
+  tol <- as.double(tol); stopifnot(tol > 0)
   maxit <- as.integer(maxit); stopifnot(maxit > 0)
   restarts <- as.integer(restarts); stopifnot(restarts >= 0)
   p.binomial <- as.logical(p.binomial)

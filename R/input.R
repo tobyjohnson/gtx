@@ -7,7 +7,7 @@ read.snpdata.mach <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isuffi
   ## read info as characters to prevent small .mlinfo files with Al1 or Al2 all "T" alleles being coerced to logical
   names(mlinfo) <- sub("^AL", "Al", names(mlinfo)) # some old files have AL1,AL2
   stopifnot(all(c("SNP", "Al1", "Al2", "Freq1") %in% names(mlinfo)))
-  for (colname in intersect(c("Freq1", "MAF", "Quality", "Rsq"), names(mlinfo))) mlinfo[[colname]] <- as.real(mlinfo[[colname]]) # if present, coerce these columns to real
+  for (colname in intersect(c("Freq1", "MAF", "Quality", "Rsq"), names(mlinfo))) mlinfo[[colname]] <- as.double(mlinfo[[colname]]) # if present, coerce these columns to double
   ## we could use something like try(as.numeric(... to make this more general
   if (substr(dsuffix, nchar(dsuffix) - 2, nchar(dsuffix)) == ".gz") {
     mldose <- read.table(gzfile(paste(fileroot, dsuffix, sep = "")), header = FALSE, col.names = c("MACHID", "DATATYPE", paste(mlinfo$SNP, mlinfo$Al1, sep = "_")), as.is = TRUE)
@@ -22,7 +22,7 @@ read.snpdata.mach <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isuffi
   names(snpinfo) <- c("snp", "coded.allele", "noncoded.allele", "coded.freq")
   ## note Al1 is the coded.allele in the sense that mldose contains does of Al1
   ## however mach2qtl inverts effect directions
-  snpinfo <- cbind(snpinfo, subset(mlinfo, select = setdiff(names(mlinfo), c("SNP", "Al1", "Al2", "Freq1")))) # keep any other columns, user may have to coerce additional mini-mac columns back to real
+  snpinfo <- cbind(snpinfo, subset(mlinfo, select = setdiff(names(mlinfo), c("SNP", "Al1", "Al2", "Freq1")))) # keep any other columns, user may have to coerce additional mini-mac columns back to double
   if (!is.null(phenotypes)) {
     stopifnot(is.data.frame(phenotypes))
     stopifnot("MACHID" %in% names(phenotypes))
@@ -40,7 +40,7 @@ read.snpdata.minimac <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isu
 read.snpdata.plink <- function(fileroot, tol.af = 0.01, phenotypes = NULL) {
     frq <- read.table(paste(fileroot, "frq", sep = "."), header = TRUE, colClasses = "character") # read as characters to prevent small .frq files with A1 or A2 all "T" alleles being coerced to logical
   stopifnot(all(c("SNP", "A1", "A2", "MAF") %in% names(frq)))
-  for (colname in intersect(c("MAF", "NCHROBS"), names(frq))) frq[[colname]] <- as.real(frq[[colname]]) # if present, coerce these columns to real
+  for (colname in intersect(c("MAF", "NCHROBS"), names(frq))) frq[[colname]] <- as.double(frq[[colname]]) # if present, coerce these columns to double
   raw <- read.table(paste(fileroot, "raw", sep = "."), header = TRUE, as.is = TRUE, check.names = FALSE) # do not check.names since metabochip names like "chr1:11717263" will be broken
   stopifnot(all(paste(frq$SNP, frq$A1, sep = "_") == names(raw)[-6:-1])) # assume 6 columns before genotypes
   if (nrow(frq) > 0 && any(abs(frq$MAF - apply(raw[ , -6:-1], 2, mean, na.rm = TRUE)/2) > tol.af)) stop("frq/raw allele frequency mismatch") # check mean dose corresponds to MAF from frq file

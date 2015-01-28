@@ -1,6 +1,6 @@
 Package: gtx
-Version: 0.0.7
-Date: 2012-09-18
+Version: 0.0.8
+Date: 2012-09-20
 Title: Genetics ToolboX
 Author: Toby Johnson <Toby.x.Johnson@gsk.com>
 Maintainer: Toby Johnson <Toby.x.Johnson@gsk.com>
@@ -17,6 +17,6 @@ Description: Assorted tools for genetic association analyses.  The
         for using R to conduct other analyses not supported by specific
         GWAS analysis tools.
 License: GPL (>= 2)
-Packaged: 2012-09-18 20:53:35 UTC; tj357745
+Packaged: 2013-01-11 11:01:21 UTC; tj357745
 Repository: CRAN
-Date/Publication: 2012-09-19 12:46:20
+Date/Publication: 2013-01-11 12:26:06

@@ -28,10 +28,10 @@ stepup.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05, n
   if (class(myxtwxi) == "matrix") { # X'X is nonsingular
     myxty <- xtwx[nidx, lidx, drop = FALSE]
     if (is.null(vscale)) {
-      ssr <- as.real(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
+      ssr <- as.double(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
       vscale <- ssr/(n - length(nidx))
     }
-    ll.nidx <- as.real(t(myxty) %*% myxtwxi %*% myxty) / vscale
+    ll.nidx <- as.double(t(myxty) %*% myxtwxi %*% myxty) / vscale
   } else {
     stop("Smallest model has non-identifiable coefficients")
   }
@@ -47,10 +47,10 @@ stepup.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05, n
       if (class(myxtwxi) == "matrix") { # X'X is nonsingular
         myxty <- xtwx[widx, lidx, drop = FALSE]
         if (is.null(vscale)) {
-          ssr <- as.real(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
+          ssr <- as.double(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
           vscale <- ssr/(n - length(widx))
         }
-        delta[tidx] <- as.real(t(myxty) %*% myxtwxi %*% myxty) / vscale - ll.nidx
+        delta[tidx] <- as.double(t(myxty) %*% myxtwxi %*% myxty) / vscale - ll.nidx
       } # else X'X is singular, assume no improvement in model fit
     }
     if (any(!is.na(delta)) && max(delta, na.rm = TRUE) > chi2.thresh) {
@@ -93,10 +93,10 @@ stepdown.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05,
   if (class(myxtwxi) == "matrix") { # X'X is nonsingular
     myxty <- xtwx[nidx, lidx, drop = FALSE]
     if (is.null(vscale)) {
-      ssr <- as.real(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
+      ssr <- as.double(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
       vscale <- ssr/(n - length(nidx))
     }
-    ll.nidx <- as.real(t(myxty) %*% myxtwxi %*% myxty) / vscale
+    ll.nidx <- as.double(t(myxty) %*% myxtwxi %*% myxty) / vscale
   } else {
     stop("Biggest model has non-identifiable coefficients")
   }
@@ -112,10 +112,10 @@ stepdown.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05,
       if (class(myxtwxi) == "matrix") { # X'X is nonsingular
         myxty <- xtwx[widx, lidx, drop = FALSE]
         if (is.null(vscale)) {
-          ssr <- as.real(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
+          ssr <- as.double(xtwx[lidx, lidx, drop = TRUE] - t(myxty) %*% myxtwxi %*% myxty)
           vscale <- ssr/(n - length(widx))
         }
-        delta[tidx] <- ll.nidx - as.real(t(myxty) %*% myxtwxi %*% myxty) / vscale
+        delta[tidx] <- ll.nidx - as.double(t(myxty) %*% myxtwxi %*% myxty) / vscale
       } # else X'X is singular, this should not happen!!!
     }
     if (any(!is.na(delta)) && min(delta, na.rm = TRUE) <= chi2.thresh) {

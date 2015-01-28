@@ -78,7 +78,7 @@ est.moments2 <- function(xtwx, leftvar, rightvars, n = NULL, vscale = NULL) {
     myxtwy <- xtwx[ridx, lidx, drop = FALSE]
     betahat <- drop(myxtwxi %*% myxtwy)
     if (is.null(vscale)) {
-      ssr <- as.real(xtwx[lidx, lidx, drop = TRUE] - t(myxtwy) %*% myxtwxi %*% myxtwy)
+      ssr <- as.double(xtwx[lidx, lidx, drop = TRUE] - t(myxtwy) %*% myxtwxi %*% myxtwy)
       vscale <- ssr/(n - p)
     } else {
       ssr <- NA
@@ -109,7 +109,7 @@ est.moments2 <- function(xtwx, leftvar, rightvars, n = NULL, vscale = NULL) {
     myxtwy <- xtwx[uridx, lidx, drop = FALSE]
     betahat[match(uridx, ridx)] <- myxtwxi %*% myxtwy
     if (is.null(vscale)) {
-      ssr <- as.real(xtwx[lidx, lidx, drop = TRUE] - t(myxtwy) %*% myxtwxi %*% myxtwy)
+      ssr <- as.double(xtwx[lidx, lidx, drop = TRUE] - t(myxtwy) %*% myxtwxi %*% myxtwy)
       vscale <- ssr/(n - p)
     } else {
       ssr <- NA

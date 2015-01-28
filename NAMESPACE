@@ -12,17 +12,23 @@ export(test.subsample) ## hacky code, to deprecate
 ## hapmap.R
 export(hapmap.read.haplotypes, hapmap.snpdata)
 ## input.R
-export(read.snpdata.mach, read.snpdata.plink, read.snpdata.impute, allelesAB, align.snpdata.coding)
+export(read.snpdata.mach, read.snpdata.minimac, read.snpdata.plink, read.snpdata.impute, allelesAB, align.snpdata.coding)
+## manhatten.R
+export(contrasting.rainbow)
+## mincover.R
+export(mincover)
 ## moments2.R
 export(is.moments2, make.moments2, lm.moments2, est.moments2, combine.moments2)
 ## multimatch.R
 export(multimatch)
 ## multipheno.R
 export(multipheno.T2)
+## power.R
+export(chi2ncp)
 ## snpdata.R
 export(summary.snpdata, is.snpdata, as.snpdata)
 S3method(summary, snpdata)
-## stepwise.R
-export(stepup.moments2, stepdown.moments2)
 ## snphwe.R
 export(snphwe, snphweCounts)
+## stepwise.R
+export(stepup.moments2, stepdown.moments2)
