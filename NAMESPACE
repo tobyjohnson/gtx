@@ -4,6 +4,10 @@ import(beeswarm, survival, meta, rmeta)
 export(abf.normal, abf.t, abf.Wakefield)
 ## blat.R
 export(parse.snps, remap.q2t)
+## clinical.R
+export(clinical.import, clinical.derive, derivation.add)
+## demographics.R
+export(demographics, demographics.numeric, demographics.logical, demographics.factor, demographics.Surv, demographics.data.frame)
 ## fitmix.R
 export(fitmix.simulate, fitmix.r2, fitmix.plot, fitmix)
 ## fixna.R

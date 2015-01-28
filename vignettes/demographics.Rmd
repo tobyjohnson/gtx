@@ -1,0 +1,290 @@
+% Easy Demographics Tables
+% Toby Johnson <Toby.x.Johnson@gsk.com>
+% `r format(Sys.time(), "%d %B %Y")`
+
+<!--
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Easy Demographics Tables}
+-->
+
+```{r knitr-package, echo=FALSE}
+suppressPackageStartupMessages(library(knitr))
+```
+
+# Making demographics tables easily and painlessly
+
+A common component of both clinical and statistical genetics analyses
+is the generation of "demographics tables".  From a statistical or
+programming perspective, such tables are nothing more than summaries
+of (typically several) ``demographic'' variables, summarized for one
+or more groups of subjects.  A classic use case is summarising
+baseline characteristics by treatment arm in a randomized clinical
+study.  However, under the general definition used here, "demographics
+tables" could summarize analysis endpoints, explanatory variables such
+as genotypes, covariates, or indeed any other variable, by any set of
+groups.  The groups may be disjoint or may be overlapping, for example
+groups by genotype at a variant of interest, or one group for all
+subjects in a clinical study and a second group for the subset of
+subjects included in a genetic analysis.
+
+The `demographics` functions in the GSKStatGen package aim to make
+generation of demographics tables as easy as possible, given the
+following assumptions:
+
+* All analysis variables are already assembled into a single
+    data frame, with one row per subject
+* The variables in the data frame already have classes
+    appropriate to their intended use in the analysis, e.g. factor,
+    logical, numeric, or e.g. the `Surv` class for survival endpoint
+* The output is to be optimized for *human*-readability, not for
+    machine-readability, and hence a single cell in the output table
+    may contain a mean (followed by a SD or range in parentheses),
+    or a count (followed by a percentage in parentheses).
+
+All the `demographics` functions output *character* arrays, which are
+easily read in a fixed width font, and which may be easily inserted
+into dynamically generated documents using e.g. `knitr::kable` or
+`xtable::xtable`.
+
+Under these assumtions, with analysis variables in a data frame `x`,
+generating demographics by levels of the `TRTGRP` variable in `x` can be done as easily as:
+```{r example1, eval=FALSE}
+demographics(x, by = "TRTGRP")
+```
+For a more complicated example, generating demographics by two overlapping
+groups that are defined on the fly, could be done quite easily using:
+```{r example2, eval=FALSE}
+demographics(x, by = list("All subjects" = rep(TRUE, nrow(x)),
+                          Genotyped = x$ID %in% genotypes$ID))
+```
+
+Different styles of numerical summaries can be specified in a straightforward and intuitive
+way, both globally (here for all numeric variables) and for specific variables (here for AGE):
+```{r example3, eval=FALSE}
+demographics(x, by = list("All subjects" = rep(TRUE, nrow(x)),
+                          Genotyped = x$ID %in% genotypes$ID),
+             style = list(numeric = "Median (IQR)", AGE = "Median (Range)"))
+```
+
+The following sections describe in more detail how to use the `demographics` functions.
+
+## Specifying the demographic variables
+
+Specifying the demographic variables to be summarized is easy: Put
+them all in a dataframe and pass this as the first argument to
+`demographics()`.  To summarize a restricted set of variables, the
+data frame can be subsetted using base R functions `subset` or `[`
+before passing to `demographics()`.
+
+The behaviour of `demographics()` depends on the class(es) of its
+arguments.  Currently, meaningful summaries are only produced for
+classes `data.frame`, `logical`, `factor`, `numeric` and `Surv`.  In
+particular, no meaningful summary is produced for arguments of
+`character` class.  Therefore, variables in the input data frame must
+be converted or coerced to appropriate classes.
+
+An example of preparing suitable input, using the `aoex1` example
+dataset:
+```{r prepare}
+suppressPackageStartupMessages(library(GSKStatGen))
+suppressPackageStartupMessages(library(survival))
+data(aoex1)
+aoex1 <- within(aoex1, {
+  SEX <- factor(SEX) # convert to factor
+  Male <- SEX == "Male" # logical
+  OS <- Surv(SRVDY*12/365.25, SRVCFLCD) # survival, in months
+  Genotyped <- !is.na(rs123456) # logical
+})
+```
+
+## Specifying the subgroups
+
+The examples above illustrate the two principal ways that the `by`
+argument can be used, either as a character vector or as a list of
+logical vectors:
+
+* If `by` is a character vector, it is interpreted as names of columns
+    in `x`.  These columns must be either of logical or factor
+    vectors.  Each logical vector is used to define exactly one group.
+    Each factor vector is used to define one group per level of the
+    factor.
+* If `by` is a list of logical vectors, each is used to define exactly
+    one group.  This second approach allows group membership to be
+    determined without constructing additional columns in `x` and also
+    allows finer control of the group titles.
+
+# Demonstrations
+
+The following demonstrations all use the `aoex1` dataset as modified above.
+The `knitr::kable` function converts the character matrix produced by
+`demographics()` into a markdown table that is rendered nicely to
+appear in this vignette.
+
+## Demographics by arm for one clinical study
+
+In the first demonstration, we take a subset of rows in `aoex1` for
+subjects in study AO000001 only, and a subset of columns for the
+variables we want to summarize.  We define groups by `TRTGRP` which is
+one of the factors in the data frame.  Note that because `TRTGRP` is
+used to define groups it is automatically excluded from the variables
+actually summarized.  This demonstration also illustrates a difference
+between the summaries produced for factors (such as `SEX`) and for
+logicals (such as `Male`).
+```{r demo1, results="asis"}
+kable(demographics(subset(aoex1, STUDYID == "AO000002",
+                          select = c("SEX", "AGE", "Male", "bmi", "TRTGRP")),
+                   by = "TRTGRP"))
+```
+
+## Changing the summary style for one variable
+
+The summary style can be chosen by passing a named list as the
+optional `style` argument, where the names of the list must match the
+name of the variable for which the style is to be used (here `bmi`).
+The style can be an arbitrary character string, and is converted to
+produce the summary by simple text substitution.  Currently, the
+following *case sensitive* patterns are substituted with numeric data:
+"Mean", "Median", "SD", "Q1", "Q3", "Min", "Max", "IQR", "Range".
+Note that the style string is also used as part of the row label.
+```{r demo2, results="asis"}
+kable(demographics(subset(aoex1, STUDYID == "AO000002",
+                          select = c("SEX", "AGE", "bmi", "TRTGRP")),
+                   by = "TRTGRP",
+		   style = list(bmi = "Median (Range)")))
+```
+
+## Changing the summary style for all variables
+
+The `style` argument can also include elements named for classes of
+variables, namely logical, factor, numeric and Surv.  If a variable
+being sumamrized does not match `style` but does match by class, the
+specified style will be used.  Hence, in the following, the "Mean
+(IQR)" style will be used for all numeric variables except `bmi`, for
+which the "Median (IQR)" style will be used.
+```{r demo3, results="asis"}
+kable(demographics(subset(aoex1, STUDYID == "AO000002",
+                          select = c("SEX", "AGE", "bmi", "TRTGRP")),
+                   by = "TRTGRP",
+		   style = list(bmi = "Median (IQR)", numeric = "Mean (IQR)")))
+```
+
+## Defining more complex subgroups, by existing variables
+
+Multiple variables in the data frame can be used to construct
+subgroups, and they can be a mixture of factors (such as `STUDYID`)
+and logicals (such as `Genotyped`).  Note that factors generate one
+group per level in the factor, and logicals generate exactly one group
+corresponding to subjects for which the logical is true.
+```{r demo4, results="asis"}
+kable(demographics(subset(aoex1,
+                          select = c("bmi", "TRTGRP", "OS", "STUDYID", "Genotyped")),
+	           by = c("STUDYID", "Genotyped")))
+```
+
+## Defining more complex subgroups, on the fly
+
+Subgroups can also be constructed as a named list of logical vectors.
+One advantage of this method is that the group names that appear in
+the column names are constructed using the names of the list.  This
+allows finer control than the "VARIABLE=value" column names generated
+in the previous examples.  The names have to be quoted if they contain
+spaces.  This demonstration includes a deliberately empty group, which
+is automatically suppressed in the output (unless
+`options(GSKStatGen.demographics.omit0groups = FALSE)` is used).
+```{r demo5, results="asis"}
+bygroups <- list("All subjects" = rep(TRUE, nrow(aoex1)),
+                 "Study 1" = aoex1$STUDYID == "AO000001",
+                 "Study 2" = aoex1$STUDYID == "AO000002",
+                 "Men from Mars" = rep(FALSE, nrow(aoex1)))
+kable(demographics(subset(aoex1, select = c("bmi", "TRTGRP")),
+                   by = bygroups))
+```
+
+## No subgroups
+
+If no subgroups are specified deliberately, or if subgroups are
+improperly specified (names of variables not present in the first
+argument, logicals of hte wrong length, etc.), then a warning message
+is issued and a failsafe group called "All subjects" is used.  This
+demonstration also illustrates `demographics()` called on the whole
+`aoex1` dataframe.
+```{r demo6, results="asis"}
+kable(demographics(aoex1, by = "MisTypEdNAme"))
+```
+
+## Survival endpoints
+
+Variables of class `Surv` are handled in essentially a similar way to
+numeric variables.  A style argument can be used, and the following
+*case sensitive* patterns are substituted with numeric data: "Events",
+"Median", "95% LCL", "95% UCL", "95% CI".  Note that some of these
+patterns contain spaces.  This demonstration also illustrates that
+because styles work by text substitution, it is easy to change the
+style to use square brackets instead of parantheses.
+```{r demo7, results="asis"}
+kable(demographics(subset(aoex1,
+                          select = c("bmi", "TRTGRP", "OS", "STUDYID", "Genotyped")),
+                   by = bygroups,
+		   style = list(Surv = "Median [95% CI]", numeric = "Mean [Range]")))
+```
+
+# Internal workings and further customization
+
+`demographics` is a generic function and uses S3 method dispatching.
+All the examples and demonstrations above use the
+`demographics.data.frame()` method.  This method does some checking
+and conversion of the `by` argument, finds the most relevant element
+in the optional `style` argument, and then calls the generic
+`demographics` for each variable in the data frame in turn.
+Therefore, the user can in principle define new classes and write
+`demographics` methods for those classes.
+
+The `demographics` functions have some behaviours that are controlled
+by options that can be set by the user.  Currently, these control
+whether rows where all groups have zero count are omitted
+(GSKStatGen.demographics.omit0rows, default TRUE), and whether groups with no subjects are omitted 
+(GSKStatGen.demographics.omit0groups, default TRUE),
+
+In the future it is planned to provide automatic collapsing of levels
+for factors with many levels, and automagically printing descriptive
+variable names.
+
+# Why use the `demographics` functions?
+
+Some of what the `demographics` functions do is provided by existing
+functions such as `by`, `aggregate` and `summary.data.frame`.
+However, none of these functions can do in one or two lines what the
+`demographics` functions do, especially with regard to producing near
+publication ready output.  In particular, the `demographics` functions
+allow fine user control of how numerical data are summarised, and can
+summarise survival endpoints in the manner widely used in the clinical
+literature.
+
+No attempt has currently been made to accomodate the finer aspects of
+publication readiness.  Typically, some fine adjustment of spacing
+will be needed, but this adjustment will depend on factors such as the
+font used in the final publication, and therefore is difficult to
+implement within the R package.
+
+# About this document
+
+This document is written in [R
+Markdown](https://support.rstudio.com/hc/en-us/articles/200488468-R-Markdown),
+using the [Pandoc extended and revised version of
+Markdown](http://johnmacfarlane.net/pandoc/README.html#pandocs-markdown).
+To make persistent edits you *need* to edit the source (.Rmd) file, not
+any other files (such as the .md, .html or .docx file).  
+
+To compile this document as a .docx (document), run the following commands in R:
+
+    library(knitr)
+    knit("demographics.Rmd")`
+    pandoc("demographics.md", format = "docx")
+
+To compile this document as a .html (web page), run the following commands in R:
+
+    library(knitr)
+    knit2html("demographics.Rmd")
+
+This document was complied on `r date()` using `r R.version.string`
+
