@@ -145,3 +145,5 @@ fitmix <- function(x, k, tol = 1e-6, maxit = 100, restarts = 20,
   }
   return(list(p = p.best, mu = mu.best, sigma = sigma.best, loglik = loglik))
 }
+
+

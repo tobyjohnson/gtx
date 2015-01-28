@@ -10,11 +10,14 @@
   for each marker.
 }
 \usage{
-multipheno.T2(z)
+multipheno.T2(z, cor.use = NULL, cor.method = "spearman")
 }
 \arguments{
   \item{z}{a matrix of association Z statistics, with rows corresponding
     to markers and columns corresponding to phenotypes.}
+  \item{cor.use}{a logical vector of length nrow(z), indicating a
+    subset of markers to use to calculate the correlation matrix.}
+  \item{cor.method}{a method to calculate the correlation matrix.}
 }
 \details{
   The function is named for the close correspondence with Hotelling's T2
@@ -28,7 +31,10 @@ multipheno.T2(z)
   Rank deficient situations are currently not handled.
 }
 \value{
-  A list with two elements (both of length \code{nrow(z)}).
+  A list with three elements.  The first element,
+  \dQuote{\code{rmatrix}}, is the estimated test statistic correlation
+  matrix.  The second and third elements are both of length
+  \code{nrow(z)}; 
   \dQuote{\code{T2}} contains the test statistics, which are chi-squared
   with \code{ncol(z)} d.f. under the null, and \dQuote{\code{pval}}
   contains the P-values.

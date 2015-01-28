@@ -4,7 +4,8 @@
   Wakefield (2009).}
 \description{
   Calculates an approximation to the Bayes Factor for an alternative
-  model where the parameter beta is a priori normal, by approximating
+  model where the parameter beta is a priori normal, against a smaller
+  model where beta is zero, by approximating
   the likelihood function with a normal distribution.
 }
 \usage{

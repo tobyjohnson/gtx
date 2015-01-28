@@ -13,7 +13,7 @@ read.snpdata.mach(fileroot, tol.af = 0.01, phenotypes = NULL,
                   isuffix = ".mlinfo", dsuffix = ".mldose")
 }
 \arguments{
-  \item{fileroot}{a filename root to which suffixes (my default \code{.mlinfo} and \code{.mldose})
+  \item{fileroot}{a filename root to which suffixes (by default \code{.mlinfo} and \code{.mldose})
     will be appended.}
   \item{tol.af}{a tolerence for checking allele frequencies between the
     two files read.}

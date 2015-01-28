@@ -1,17 +1,3 @@
-## this is a hack and could be made more object oriented!
-coeff.extract <- function (object) {
-  if ("lm" %in% class(object)) { # includes glm
-    return(coefficients(summary(object))[ , 1:2]) # always Estimate and Std. Error
-  }
-  if (class(object) == "coxph") {
-    tmp <- data.frame(beta = object$coefficients, se = sqrt(diag(object$var)))
-    rownames(tmp) <- names(object$coefficients)
-    colnames(tmp) <- c("Estimate", "Std. Error")
-    return(tmp)
-  }
-  stop("no way to extract coefficients from object of class :", class(object))
-}
-  
 grs.onesnp.apply <- function (params, object, coeff.extract.fun = coeff.extract) {
   env = parent.frame() # to eval update in
   stopifnot(is.data.frame(params))

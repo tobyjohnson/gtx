@@ -33,7 +33,7 @@
 }
 \examples{
 data(magic.scores)
-with(subset(magic.scores, score = "FG2010"),
+with(subset(magic.scores, score == "FG2010"),
   grs.plot(beta_FG, beta_TG, se_TG, text = locus))
 }
 \source{

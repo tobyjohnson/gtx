@@ -5,11 +5,16 @@
   Compute minimum size of cover of overlapping intervals.
 }
 \usage{
-mincover(x.begin, x.end)
+mincover(x.begin, x.end, trunc.begin = NULL, trunc.end = NULL)
 }
 \arguments{
   \item{x.begin}{a vector of interval begin positions.}
   \item{x.end}{a vector of interval end positions.}
+  \item{trunc.begin}{truncaction value.}
+  \item{trunc.end}{truncation value.}
+}
+\details{
+Note all arguments are coerced to integers.
 }
 \value{
   An integer, the total size covered by the union of all intervals.

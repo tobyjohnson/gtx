@@ -1,8 +1,6 @@
 ## useful functions for mapping array annotation and mutation databases to
 ## a reference sequence
 
-sanitise.whitespace <- function(tt) return(gsub(" $", "", gsub("^ ", "", gsub("  ", " ", tt))))
-
 parse.snps <- function(seqs, seqnames = NULL) {
   tmp <- as.data.frame(t(sapply(seqs, function (seq) {
     remat <- regexpr("\\[[ACGT]\\/[ACGT]\\]", toupper(seq)) # =RegExp MATch
