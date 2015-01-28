@@ -12,7 +12,7 @@ pgx.exposure(d, exposure,
 \arguments{
   \item{d}{A data frame containing subject identifiers}
   \item{exposure}{A data frame containing therapy exposure records}
-  \item{eend}{Name of the variable in \code{exposure} that describes
+  \item{estart}{Name of the variable in \code{exposure} that describes
     exposure start time}
   \item{eend}{Name of the variable in \code{exposure} that describes
     exposure end time}
