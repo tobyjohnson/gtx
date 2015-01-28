@@ -1,0 +1,21 @@
+\name{grade}
+\alias{grade}
+\title{Convert numeric values to ordinal grades}
+\description{
+  Convenience function to convert numeric values to ordinal grades at
+  user defined threshold values.
+}
+\usage{
+grade(x, threshvals, strict = TRUE)
+}
+\arguments{
+  \item{x}{a vector of numeric values}
+  \item{strict}{Output must be strictly positive}
+}
+\value{
+  The vector with negative values replaced by NA.  If
+  \code{strict=TRUE}, zero values are also replaced by NA.
+}
+\author{
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
+}

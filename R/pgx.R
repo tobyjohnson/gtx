@@ -1,5 +1,6 @@
 grade <- function(x, threshvals, strict = TRUE) {
   g <- ifelse(!is.na(x), 0, NA)
+  threshvals <- sort(threshvals)
   if (strict) {
     for (ii in 1:length(threshvals)) g[x > threshvals[ii]] <- ii
   } else {

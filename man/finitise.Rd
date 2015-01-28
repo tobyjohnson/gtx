@@ -1,0 +1,18 @@
+\name{finitise}
+\alias{finitise}
+\title{Ensure numeric values are finite}
+\description{
+  Convenience function to convert infinite values to missing.
+}
+\usage{
+finitise(x)
+}
+\arguments{
+  \item{x}{a vector of numeric values}
+}
+\value{
+  The vector with (plus or minus) infinity replaced by NA.
+}
+\author{
+  Toby Johnson \email{Toby.x.Johnson@gsk.com}
+}
