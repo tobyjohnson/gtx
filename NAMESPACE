@@ -1,3 +1,5 @@
+import(beeswarm, survival, meta, rmeta)
+
 ## abf.R
 export(abf.normal, abf.t, abf.Wakefield)
 ## blat.R
@@ -21,6 +23,8 @@ export(test.subsample) ## hacky code, to deprecate
 export(hapmap.read.haplotypes, hapmap.snpdata)
 ## input.R
 export(read.snpdata.mach, read.snpdata.minimac, read.snpdata.plink, read.snpdata.impute, allelesAB, align.snpdata.coding)
+## kmplot.R
+export(kmplot, kmplot.character, kmplot.Surv)
 ## manhattan.R
 export(contrasting.rainbow, plotpos.by.chr, plotcol.by.chr, axis.by.chr)
 ## mincover.R
@@ -29,10 +33,6 @@ export(mincover)
 export(is.moments2, make.moments2, lm.moments2, est.moments2, combine.moments2)
 ## mps.R
 export(mps.driver, mps.driver1, mps.summary)
-## ssm.R
-export(ssm.null, ssm.QT, ssm.LM,
-       ssm.CC, ssm.CCpopulation, ssm.CCsample, ssm.GLM,
-       ssm.Surv, ssm.CoxPH)
 ## mpssurv.R
 export(trial.params)
 ## multimatch.R
@@ -45,14 +45,22 @@ export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 export(chi2ncp, chi2power)
 ## qq10.R
 export(qq10, qq10.new, qq10.envelope, qq10.points, gclambda)
+## qtplot.R
+export(qtplot, qtplot.character, qtplot.numeric)
 ## snpdata.R
 export(summary.snpdata, is.snpdata, as.snpdata)
 S3method(summary, snpdata)
 ## snphwe.R
 export(snphwe, snphweCounts)
+## ssm.R
+export(ssm.null, ssm.QT, ssm.LM,
+       ssm.CC, ssm.CCpopulation, ssm.CCsample, ssm.GLM,
+       ssm.Surv, ssm.CoxPH)
 ## stepwise.R
 export(stepup.moments2, stepdown.moments2)
 ## text.R
 export(sanitise.whitespace, text2factor)
 ## transform.R
 export(finitise, positivise, twopq, zise)
+## waterfall.R
+export(waterfall, waterfall.character, waterfall.numeric)
