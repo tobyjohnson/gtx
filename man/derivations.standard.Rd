@@ -1,10 +1,10 @@
 \name{derivations.standard}
 \alias{derivations.standard}
 \docType{data}
-\title{Standard rules for deriving genetic association analysis
-  variables from clinical data, v1}
+\title{Exploratory rules for deriving variables from clinical data}
 \description{
-A set of derivation rules for use with clinical.derive and associated functions
+  Some rules for deriving variables for genetic association analysis
+  from clinical data, for use with clinical.derive and associated functions.
 }
 \usage{data(derivations.standard)}
 \format{

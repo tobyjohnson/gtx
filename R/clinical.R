@@ -67,7 +67,8 @@ derive1 <- function(datalist, targets, types, deps, data, fun) {
   targetv <- unlist(strsplit(targets, '\\s+'))
   typev <- unlist(strsplit(types, '\\s+'))
   typev <- rep(typev, length.out = length(targetv)) # recycle or truncate silently
-  output1 <- with(datalist, eval(parse(text = data)))
+  output1 <- tryCatch(with(datalist, eval(parse(text = data))),
+                      error = function(e) stop(data, " failed with error ", e))
   stopifnot(is.data.frame(output1))
   stopifnot(usubjid %in% names(output1))
   u <- output1[ , usubjid, drop = TRUE]
@@ -90,6 +91,7 @@ derive1 <- function(datalist, targets, types, deps, data, fun) {
       storage.mode(foo[, idx + 1]) <- "character"
       foo[ , idx + 1] <- as.Date(foo[ , idx + 1], "%d%b%Y")
     } else {
+      ## should check typev[idx] is a valid storage mode
       storage.mode(foo[, idx + 1]) <- typev[idx]
     }
   }
@@ -113,7 +115,8 @@ clinical.derive <- function(datalist, derivations, verbose = TRUE, only) {
       if (verbose) cat("N = ", nrow(pgx), "\n", sep = "")
     }
   }
-  pgx <- subset(pgx, select = c(usubjid, only))
+  ## warn/error if setdiff(only, names(pgx)) nonempty
+  pgx <- subset(pgx, select = intersect(c(usubjid, only), names(pgx)))
   return(pgx)
 }
 
