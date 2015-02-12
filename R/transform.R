@@ -45,3 +45,22 @@ zise <- function (x, only = NULL, by = NULL) {
 zise.old <- function (x) {
   return(qnorm((rank(x, na.last = "keep") - 0.5) / sum(!is.na(x))))
 }
+
+##
+## usage: safe(min, x), etc.
+##
+safe <- function(FUN, x, ...) {
+  stopifnot(is.function(FUN))
+  x <- as.vector(x)
+  x <- x[!is.na(x)]
+  if (length(x) == 0) return(NA)
+  return(FUN(x, ...))
+}
+
+valuesof <- function(x, sep = ",", na.convert = NA) {
+  x <- as.vector(x)
+  x[is.na(x)] <- na.convert
+  x <- x[!is.na(x)]
+  if (length(x) == 0) return(NA)
+  paste(as.character(unique(x)), collapse = sep)
+}

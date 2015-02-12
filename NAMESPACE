@@ -1,5 +1,4 @@
 import(beeswarm, survival, meta, rmeta)
-
 ## abf.R
 export(abf.normal, abf.t, abf.Wakefield)
 ## blat.R
@@ -65,6 +64,6 @@ export(stepup.moments2, stepdown.moments2)
 ## text.R
 export(sanitise.whitespace, text2factor)
 ## transform.R
-export(finitise, positivise, twopq, zise)
+export(finitise, positivise, twopq, zise, safe, valuesof)
 ## waterfall.R
 export(waterfall, waterfall.character, waterfall.numeric)

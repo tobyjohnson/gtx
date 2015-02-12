@@ -61,7 +61,7 @@ derivation.add <- function(derivations, targets, types, deps, data, fun, aept.li
   stop("Intelligent construction not yet implemented")
 }
   
-derive1idsl <- function(datalist, targets, types, deps, data, fun) {
+derive1 <- function(datalist, targets, types, deps, data, fun) {
   usubjid <- getOption("clinical.usubjid")
   stopifnot(all(deps %in% names(datalist)))
   targetv <- unlist(strsplit(targets, '\\s+'))
@@ -98,27 +98,23 @@ derive1idsl <- function(datalist, targets, types, deps, data, fun) {
 
 clinical.derive <- function(datalist, derivations, verbose = TRUE, only) {
   usubjid <- getOption("clinical.usubjid")
-  if (identical(getOption("clinical.ClinicalFormat"), "IDSL")) {
-    stopifnot(all(c("targets", "types", "deps.IDSL", "data.IDSL", "fun.IDSL") %in% names(derivations)))
-    if (missing(only)) only <- derivations$targets
-    only <- unlist(strsplit(only, '\\s+'))
-    pgx <- subset(datalist[["pop"]], select = usubjid) # check this is robust
-    if (verbose) cat("Initial N = ", nrow(pgx), "\n", sep = "")
-    for (idx in 1:nrow(derivations)) {
-      targetv <- unlist(strsplit(derivations[idx, "targets"], '\\s+'))
-      if (length(intersect(targetv, only)) > 0) {
-        if (verbose) cat("Deriving ", derivations[idx, "targets"], "\n", sep = "")
-        pgx <- merge(pgx,
-                     with(derivations[idx, ], derive1idsl(datalist, targets = targets, types = types, deps = deps.IDSL, data = data.IDSL, fun = fun.IDSL)),
-                     all = TRUE)
-        if (verbose) cat("N = ", nrow(pgx), "\n", sep = "")
-      }
+  stopifnot(all(c("targets", "types", "deps", "data", "fun") %in% names(derivations)))
+  if (missing(only)) only <- derivations$targets
+  only <- unlist(strsplit(only, '\\s+'))
+  pgx <- subset(datalist[["pop"]], select = usubjid) # check this is robust
+  if (verbose) cat("Initial N = ", nrow(pgx), "\n", sep = "")
+  for (idx in 1:nrow(derivations)) {
+    targetv <- unlist(strsplit(derivations[idx, "targets"], '\\s+'))
+    if (length(intersect(targetv, only)) > 0) {
+      if (verbose) cat("Deriving ", derivations[idx, "targets"], "\n", sep = "")
+      pgx <- merge(pgx,
+                   with(derivations[idx, ], derive1(datalist, targets = targets, types = types, deps = deps, data = data, fun = fun)),
+                   all = TRUE)
+      if (verbose) cat("N = ", nrow(pgx), "\n", sep = "")
     }
-    pgx <- subset(pgx, select = c(usubjid, only))
-    return(pgx)
-  } else {
-    stop("Only IDSL format clinical data are currently supported")
   }
+  pgx <- subset(pgx, select = c(usubjid, only))
+  return(pgx)
 }
 
 
