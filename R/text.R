@@ -1,4 +1,9 @@
-sanitise.whitespace <- function(tt) return(gsub(" $", "", gsub("^ ", "", gsub("  ", " ", tt))))
+sanitise.whitespace <- function(tt) return(gsub(" $", "", gsub("^ ", "", gsub(" +", " ", tt))))
+
+tokenise.whitespace <- function(tt) {
+  tmp <- unlist(strsplit(unname(tt), '\\s+'))
+  return(tmp[tmp != ""])
+}
 
 text2factor <- function(t) return(as.factor(ifelse(t != "", t, NA)))
 
@@ -11,5 +16,5 @@ text2factor <- function(t) return(as.factor(ifelse(t != "", t, NA)))
 ## followup trials...
 
 my.usubjid <- function(studyid, subjid) {
-  return(paste(studyid, gsub(" ", "0", format(subjid, digits = 7, width = 7)), sep = "."))
+  return(paste(studyid, gsub(" ", "0", format(subjid, digits = 0, width = 7, scientific = FALSE)), sep = "."))
 }
