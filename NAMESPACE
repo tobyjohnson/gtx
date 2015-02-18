@@ -6,7 +6,7 @@ export(parse.snps, remap.q2t)
 ## clinical.R
 export(clinical.import, clinical.derive, derivation.add)
 ## demographics.R
-export(demographics, demographics.numeric, demographics.logical, demographics.factor, demographics.Surv, demographics.data.frame)
+export(demographics, demographics.numeric, demographics.logical, demographics.factor, demographics.Surv, demographics.data.frame, prettypc)
 ## fitmix.R
 export(fitmix.simulate, fitmix.r2, fitmix.plot, fitmix)
 ## fixna.R
@@ -62,7 +62,7 @@ export(ssm.null, ssm.QT, ssm.LM,
 ## stepwise.R
 export(stepup.moments2, stepdown.moments2)
 ## text.R
-export(sanitise.whitespace, text2factor)
+export(sanitise.whitespace, tokenise.whitespace, text2factor)
 ## transform.R
 export(finitise, positivise, twopq, zise, safe, valuesof)
 ## waterfall.R

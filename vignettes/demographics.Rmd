@@ -58,12 +58,13 @@ demographics(x, by = list("All subjects" = rep(TRUE, nrow(x)),
                           Genotyped = x$ID %in% genotypes$ID))
 ```
 
-Different styles of numerical summaries can be specified in a straightforward and intuitive
+For numerical summaries, different styles and decimal precisions can be specified in a straightforward and intuitive
 way, both globally (here for all numeric variables) and for specific variables (here for AGE):
 ```{r example3, eval=FALSE}
 demographics(x, by = list("All subjects" = rep(TRUE, nrow(x)),
                           Genotyped = x$ID %in% genotypes$ID),
-             style = list(numeric = "Median (IQR)", AGE = "Median (Range)"))
+             style = list(numeric = "Median (IQR)", AGE = "Median (Range)"),
+             digits = list(numeric = 2, AGE = 0))
 ```
 
 The following sections describe in more detail how to use the `demographics` functions.
@@ -74,7 +75,9 @@ Specifying the demographic variables to be summarized is easy: Put
 them all in a dataframe and pass this as the first argument to
 `demographics()`.  To summarize a restricted set of variables, the
 data frame can be subsetted using base R functions `subset` or `[`
-before passing to `demographics()`.
+before passing to `demographics()`.  If a single variable is to be
+summarized, it is generally better to pass it to `demographics()` as a
+single column data frame (subset with `drop=FALSE`).
 
 The behaviour of `demographics()` depends on the class(es) of its
 arguments.  Currently, meaningful summaries are only produced for
@@ -83,10 +86,15 @@ particular, no meaningful summary is produced for arguments of
 `character` class.  Therefore, variables in the input data frame must
 be converted or coerced to appropriate classes.
 
+An option `clinical.descriptors` can be used to provide a named
+list of descriptive names to substitute for the actual
+variable names.
+
 An example of preparing suitable input, using the `aoex1` example
 dataset:
 ```{r prepare}
 suppressPackageStartupMessages(library(gtx))
+options(clinical.usubjid = "USUBJID")
 suppressPackageStartupMessages(library(survival))
 data(aoex1)
 aoex1 <- within(aoex1, {
@@ -95,6 +103,8 @@ aoex1 <- within(aoex1, {
   OS <- Surv(SRVDY*12/365.25, SRVCFLCD) # survival, in months
   Genotyped <- !is.na(rs123456) # logical
 })
+options(clinical.descriptors = list(SEX = "Gender", OS = "Overall survival, Months",
+                                    AGE = "Age, Years", bmi = "BMI, kg/m2"))
 ```
 
 ## Specifying the subgroups
@@ -123,7 +133,7 @@ appear in this vignette.
 ## Demographics by arm for one clinical study
 
 In the first demonstration, we take a subset of rows in `aoex1` for
-subjects in study AO000001 only, and a subset of columns for the
+subjects in study AO000002 only, and a subset of columns for the
 variables we want to summarize.  We define groups by `TRTGRP` which is
 one of the factors in the data frame.  Note that because `TRTGRP` is
 used to define groups it is automatically excluded from the variables
@@ -146,11 +156,29 @@ produce the summary by simple text substitution.  Currently, the
 following *case sensitive* patterns are substituted with numeric data:
 "Mean", "Median", "SD", "Q1", "Q3", "Min", "Max", "IQR", "Range".
 Note that the style string is also used as part of the row label.
+Numerical precision can be controlled in a similar fashion by passing
+a named list as the options `digits` argument.
 ```{r demo2, results="asis"}
 kable(demographics(subset(aoex1, STUDYID == "AO000002",
                           select = c("SEX", "AGE", "bmi", "TRTGRP")),
                    by = "TRTGRP",
-		   style = list(bmi = "Median (Range)")))
+		   style = list(bmi = "Median (Range)"),
+		   digits = list(bmi = 1)))
+```
+
+For tabulated count data (objects of class `factor`), the style string
+substitutes *case sensitively* the patterns "N", "pc0", "pc1", and
+"pc2" and "pc", which are respectively the count, percentages to 0, 1
+and 2 decimals, and percentage to `digits` decimals.  The default
+style is "N (pc0%)".  When the row label is constructed from the style
+string, any "pc[012]*%*" patterns are changed to "%".  The style
+commonly used in clinical statistics (without any percent sign in the
+data columns) is like "N (pc1)".
+```{r demo2bis, results="asis"}
+kable(demographics(subset(aoex1, STUDYID == "AO000002",
+                          select = c("SEX", "AGE", "bmi", "TRTGRP")),
+                   by = "TRTGRP",
+		   style = list(SEX = "N (pc1%)")))
 ```
 
 ## Changing the summary style for all variables
@@ -158,14 +186,16 @@ kable(demographics(subset(aoex1, STUDYID == "AO000002",
 The `style` argument can also include elements named for classes of
 variables, namely logical, factor, numeric and Surv.  If a variable
 being sumamrized does not match `style` but does match by class, the
-specified style will be used.  Hence, in the following, the "Mean
-(IQR)" style will be used for all numeric variables except `bmi`, for
-which the "Median (IQR)" style will be used.
+specified style will be used.  The `digits` argument works similarly.
+Hence, in the following, the "Mean (IQR)" style and 0 decimal precision
+will be used for all numeric variables except `bmi`, for which the
+"Median (IQR)" style and 1 decimal precision will be used.
 ```{r demo3, results="asis"}
 kable(demographics(subset(aoex1, STUDYID == "AO000002",
                           select = c("SEX", "AGE", "bmi", "TRTGRP")),
                    by = "TRTGRP",
-		   style = list(bmi = "Median (IQR)", numeric = "Mean (IQR)")))
+		   style = list(bmi = "Median (IQR)", numeric = "Mean (IQR)"),
+		   digits = list(bmi = 1, numeric = 0)))
 ```
 
 ## Defining more complex subgroups, by existing variables
@@ -204,7 +234,7 @@ kable(demographics(subset(aoex1, select = c("bmi", "TRTGRP")),
 
 If no subgroups are specified deliberately, or if subgroups are
 improperly specified (names of variables not present in the first
-argument, logicals of hte wrong length, etc.), then a warning message
+argument, logicals of the wrong length, etc.), then a warning message
 is issued and a failsafe group called "All subjects" is used.  This
 demonstration also illustrates `demographics()` called on the whole
 `aoex1` dataframe.
@@ -242,12 +272,13 @@ Therefore, the user can in principle define new classes and write
 The `demographics` functions have some behaviours that are controlled
 by options that can be set by the user.  Currently, these control
 whether rows where all groups have zero count are omitted
-(demographics.omit0rows, default TRUE), and whether groups with no subjects are omitted 
-(demographics.omit0groups, default TRUE),
+(demographics.omit0rows, default TRUE), and whether groups with no
+subjects are omitted (demographics.omit0groups, default TRUE).
+
+
 
 In the future it is planned to provide automatic collapsing of levels
-for factors with many levels, and automagically printing descriptive
-variable names.
+for factors with many levels.
 
 # Why use the `demographics` functions?
 

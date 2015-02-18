@@ -1,7 +1,8 @@
-demographics <- function(object, by, style) UseMethod("demographics")
+demographics <- function(object, by, style, digits) UseMethod("demographics")
 
-demographics.numeric <- function(object, by, style) {
+demographics.numeric <- function(object, by, style, digits) {
   if (missing(style) || is.null(style)) style <- "Mean (SD)" # getOption?
+  if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
   ## nt = numeric table of summaries
   nt <- t(vapply(X = by, FUN = function(by1) {
     object1 <- object[by1]
@@ -22,7 +23,7 @@ demographics.numeric <- function(object, by, style) {
   ## FOLLOWING CODE ASSUMES MISSING IS COLUMN 1
   ## ntf = nt formatted
   ntf <- vapply(1:ncol(nt), function(icol) {
-    return(format(nt[ , icol], digits = getOption("demographics.digits", 4), scientific = FALSE))
+    return(formatC(nt[ , icol], digits = digits, format = "f", flag = "-"))
   }, character(nrow(nt)))
   if (!is.array(ntf)) ntf <- matrix(ntf, nrow = 1)
   dimnames(ntf) <- dimnames(nt)
@@ -44,8 +45,9 @@ demographics.numeric <- function(object, by, style) {
   return(dt)
 }
 
-demographics.factor <- function(object, by, style) {
-  if (missing(style) || is.null(style)) style <- "Count (%)" # getOption?
+demographics.factor <- function(object, by, style, digits) {
+  if (missing(style) || is.null(style)) style <- "N (pc0%)" # getOption?
+  if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
   ## ct = count table of summaries
   ct <- vapply(X = by, FUN = function(by1) {
     object1 <- object[by1]
@@ -53,17 +55,31 @@ demographics.factor <- function(object, by, style) {
     return(c(table(object1[!m]), Missing = sum(m)))
   },
                integer(length(levels(object)) + 1))
-  if (nrow(ct) > 0) rownames(ct) <- paste(rownames(ct), ", N", sep = "")
+  ctf <- apply(ct, 2, function(ct1) {
+    ## Note that pc must come after pc[012] for the pattern matching to work
+    tmp <- data.frame(N = formatC(ct1, digits = 0, format = "d"),
+                      pc0 = prettypc(ct1, digits = 0),
+                      pc1 = prettypc(ct1, digits = 1),
+                      pc2 = prettypc(ct1, digits = 2),
+                      pc = prettypc(ct1, digits = digits),
+                      stringsAsFactors = FALSE)
+    return(sapply(1:nrow(tmp), function(irow) {
+      style1 <- style
+      for (icol in 1:ncol(tmp)) style1 <- sub(colnames(tmp)[icol], tmp[irow, icol], style1, fixed = TRUE)
+      return(style1)
+    }))})
+  if (nrow(ctf) > 0) rownames(ctf) <- paste(rownames(ct), gsub("pc[0-9]*%*", "%", style), sep = ", ")
   ## remove rows of all zeros
-  if (getOption("demographics.omit0rows", TRUE)) ct <- ct[!apply(ct == 0, 1, all), , drop = FALSE]
+  if (getOption("demographics.omit0rows", TRUE)) ctf <- ctf[!apply(ct == 0, 1, all), , drop = FALSE]
   ## coerce to character?
 
-  return(ct)
+  return(ctf)
   ## add nice pretty pcs
 }
 
-demographics.Surv <- function(object, by, style) {
-  if (missing(style) || is.null(style)) style <- "Events, Median (95% CI)" # getOption?
+demographics.Surv <- function(object, by, style, digits) {
+  if (missing(style) || is.null(style)) style <- "Median (95% CI)" # getOption?
+  if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
   ## nt = numeric table of summaries
   nt <- t(vapply(X = by, FUN = function(by1) {
     object1 <- object[by1]
@@ -81,7 +97,7 @@ demographics.Surv <- function(object, by, style) {
   ## FOLLOWING CODE ASSUMES MISSING IS COLUMN 1
   ## ntf = nt formatted
   ntf <- vapply(1:ncol(nt), function(icol) {
-    return(format(nt[ , icol], digits = getOption("demographics.digits", 4), scientific = FALSE))
+    return(formatC(nt[ , icol], digits = digits, format = "f", flag = "-"))
   }, character(nrow(nt)))
   if (!is.array(ntf)) ntf <- matrix(ntf, nrow = 1)
   dimnames(ntf) <- dimnames(nt)
@@ -100,7 +116,8 @@ demographics.Surv <- function(object, by, style) {
   return(dt)
 }
 
-demographics.logical <- function(object, by, style) {
+demographics.logical <- function(object, by, style, digits) {
+  ## style and digits not used
   ## tmt = truth and missingness table
   tmt <- vapply(X = by, FUN = function(by1) {
     object1 <- object[by1]
@@ -116,7 +133,7 @@ demographics.logical <- function(object, by, style) {
 }
 
 
-demographics.default <- function(object, by, style) {
+demographics.default <- function(object, by, style, digits) {
   ## cmt = class and missingness table
   cmt <- vapply(X = by, FUN = function(by1) {
     object1 <- object[by1]
@@ -160,7 +177,7 @@ demographicsCheckBy <- function(object, by) {
 }
 
 
-demographics.data.frame <- function(object, by, style) {
+demographics.data.frame <- function(object, by, style, digits) {
   ## check by argument, modify if necessary
   if (missing(by)) by <- list("All subjects" = rep(TRUE, nrow(object))) # failsafe
   if (is.list(by)) {
@@ -202,22 +219,29 @@ demographics.data.frame <- function(object, by, style) {
 
   bylist <- demographicsCheckBy(object, bylist)
 
-  if (missing(style)) style <- list(numeric = "Mean (SD)", Surv = "Median (95% CI)")
+  ## Need something to pass into specialised functions which provide their own defaults
+  if (missing(style)) style <- list(NULL)
+  if (missing(digits)) digits <- list(NULL) 
 
   ## demographics table n(N) row
   n <- vapply(X = bylist, FUN = function(by1) return(sum(by1 == TRUE)), integer(1))
   dtn <- matrix(format(n, scientific = FALSE), nrow = 1)
   rownames(dtn) <- "N"
+
   ## demographics table all items
   dta <- do.call(rbind,
                  lapply(setdiff(names(object), getOption("clinical.usubjid", NULL)), 
                         function(oname) {
                           style1 <- style[[oname]]
                           if (is.null(style1)) style1 <- style[[class(object[[oname]])]]
-                          dt <- demographics(object[[oname]], by = bylist, style = style1)
+                          digits1 <- digits[[oname]]
+                          if (is.null(digits1)) digits1 <- digits[[class(object[[oname]])]]
+                          dt <- demographics(object[[oname]], by = bylist, style = style1, digits = digits1)
                           if (nrow(dt) > 0) {
-                            bstring <- paste(rep.int(".", nchar(oname)), collapse = "")
-                            rownames(dt) <- paste(c(oname, rep.int(bstring, nrow(dt) - 1)), rownames(dt), sep = ", ")
+                            odesc <- getOption("clinical.descriptors", list(NULL))[[oname]]
+                            if (is.null(odesc) || is.na(odesc)) odesc <- oname
+                            bstring <- paste(rep.int(".", nchar(odesc)), collapse = "")
+                            rownames(dt) <- paste(c(odesc, rep.int(bstring, nrow(dt) - 1)), rownames(dt), sep = ", ")
                           }
                           ## Alternatively support the style of a separate row for the variable name...?
                           return(dt)
@@ -229,22 +253,22 @@ demographics.data.frame <- function(object, by, style) {
   return(dta)
 }
 
-
-
-prettypc <- function(x) {
-  x <- as.integer(x)
-  pc <- round(100*x/sum(x, na.rm = TRUE))
-  pcf <- format(pc)
-  pcf[pc < 1 & x > 0] <- "<1"
-  pcf[pc > 99 & x != sum(x)] <- ">99"
+prettypc <- function(x, digits = 0) {
+  x <- as.integer(x)  
+  pc <- 100*x/sum(x, na.rm = TRUE)
+  pcr <- round(pc, digits = digits)
+  pcf <- formatC(pcr, digits = digits, format = "f", flag = "-") # add width = digits + 4 ?
+  pcf[pcr == 0 & pc > 0] <- paste("<", formatC(0.+10^-digits, digits = digits, format = "f", flag = "-"), sep = "") # <1
+  pcf[pcr == 100 & pc < 100] <- paste(">", formatC(100.-10^-digits, digits = digits, format = "f", flag = "-"), sep = "") # >99
   return(pcf)
 }
-
 
 #hlines <- function(x) {
 #  if (!("demographicstable" %in% class(x))) return (NULL)
 #  return(unique(sort(c(-1, 0, 1, nrow(x), which(x$variable[-nrow(x)] != x$variable[-1])))))
 #}
+
+  
 
 #n2pc <- function(x, digits = 1, 
 #                 excludeval = c("mean", "sd", "min", "max", "median", "0.95LCL", "0.95UCL")) {
