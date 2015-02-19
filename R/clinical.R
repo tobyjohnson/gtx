@@ -4,7 +4,7 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
                             only) {
   f <- dir(d, pattern = pattern) # list of files
   if (!missing(only)) {
-    only <- unlist(strsplit(only, '\\s+'))
+    only <- tokenise.whitespace(only)
     f <- intersect(f, paste(only, ".txt", sep = ""))
   }
   dl <- list() # empty list of data frames
@@ -102,7 +102,7 @@ clinical.derive <- function(datalist, derivations, verbose = TRUE, only) {
   usubjid <- getOption("clinical.usubjid")
   stopifnot(all(c("targets", "types", "deps", "data", "fun") %in% names(derivations)))
   if (missing(only)) only <- derivations$targets
-  only <- unlist(strsplit(only, '\\s+'))
+  only <- tokenise.whitespace(only)
   pgx <- subset(datalist[["pop"]], select = usubjid) # check this is robust
   if (verbose) cat("Initial N = ", nrow(pgx), "\n", sep = "")
   for (idx in 1:nrow(derivations)) {

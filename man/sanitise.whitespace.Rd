@@ -1,7 +1,7 @@
 \name{sanitise.whitespace}
 \alias{sanitise.whitespace}
-\title{Remove leading and trailing spaces; convert double spaces to
-  single spaces.}
+\title{Remove leading and trailing spaces and convert multiple to
+  single spaces}
 \description{
   Convenience function for a series of gsub() calls.
 }
@@ -16,7 +16,7 @@ sanitise.whitespace(tt)
   double spaces converted to single spaces.
 }
 \examples{
-sanitise.whitespace(c("  A to G", "A to  G", "A to G", "A   to G   "))
+sanitise.whitespace(c("  A to G", "A to  G", "A to G", "A    to G   "))
 }
 \author{
   Toby Johnson \email{Toby.x.Johnson@gsk.com}
