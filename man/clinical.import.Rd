@@ -8,7 +8,7 @@
 }
 \usage{
 clinical.import(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\\\.txt",
-                usubjid = getOption("clinical.usubjid"),
+                usubjid = getOption("clinical.usubjid", "USUBJID"),
                 verbose = TRUE,
                 only)
 }
@@ -21,6 +21,9 @@ clinical.import(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\\\.txt",
 }
 \details{
   Read the code or see the examples.
+
+  The variables named \code{usubjid} is imported as class character, all
+  other character variables are imported as factors.
 } 
 \examples{
 \dontrun{

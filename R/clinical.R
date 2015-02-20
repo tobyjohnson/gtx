@@ -1,5 +1,5 @@
 clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
-                            usubjid = getOption("clinical.usubjid"),
+                            usubjid = getOption("clinical.usubjid", "USUBJID"),
                             verbose = TRUE,
                             only) {
   f <- dir(d, pattern = pattern) # list of files
@@ -12,9 +12,10 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
     if (verbose) cat("Reading", f1, "...\n")
     tmp <- read.table(file.path(d, f1),
                       header = TRUE, sep = "\t", quote = "",
-                      as.is = TRUE, na.strings = ".", comment.char = "")
+                      na.strings = ".", comment.char = "")
     if (verbose) cat("  Read", nrow(tmp), "rows and", ncol(tmp), "columns\n")
     if (usubjid %in% names(tmp)) {
+      tmp[[usubjid]] <- as.character(tmp[[usubjid]])
       dl[[sub("\\.txt$", "", f1)]] <- tmp
     } else {
       warning("Data in file '", f1, "' was not imported because there was no usubjid column '", usubjid, "'")
