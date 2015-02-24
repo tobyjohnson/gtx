@@ -46,6 +46,19 @@ zise.old <- function (x) {
   return(qnorm((rank(x, na.last = "keep") - 0.5) / sum(!is.na(x))))
 }
 
+ile <- function (x, levels.out) {
+  x <- as.double(x)
+  ## if no levels.out specified, use three levels named 1,2,3
+  if (missing(levels.out)) levels.out <- 1:3
+  ## if levels.out is an integer of length 1, assume numbered levels
+  if (identical(length(levels.out), 1L)) levels.out <- 1:as.integer(levels.out)
+  n <- length(levels.out)
+  xd <- ceiling(n * (rank(x, na.last = "keep") - 0.5)/sum(!is.na(x)))
+  return(factor(levels.out[xd], levels.out))
+}
+
+
+
 ##
 ## usage: safe(min, x), etc.
 ##

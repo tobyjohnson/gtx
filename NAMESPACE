@@ -66,6 +66,6 @@ export(stepup.moments2, stepdown.moments2)
 ## text.R
 export(sanitise.whitespace, tokenise.whitespace, text2factor)
 ## transform.R
-export(finitise, positivise, twopq, zise, safe, valuesof)
+export(finitise, positivise, twopq, zise, ile, safe, valuesof)
 ## waterfall.R
 export(waterfall, waterfall.character, waterfall.numeric)
