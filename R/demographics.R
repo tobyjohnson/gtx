@@ -5,7 +5,7 @@ demographics.numeric <- function(object, by, style, digits) {
   if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
   ## nt = numeric table of summaries
   nt <- t(vapply(X = by, FUN = function(by1) {
-    object1 <- object[by1]
+    object1 <- object[which(by1)]
     m <- is.na(object1)
     if (all(m)) return(c(Missing = sum(m),
                          Mean = NA, Median = NA, 
@@ -41,6 +41,7 @@ demographics.numeric <- function(object, by, style, digits) {
   },
                character(2))
   rownames(dt) <- c(style, "Missing, N")
+  # if (getOption("demographics.omit0rows", TRUE) && all(dt["Missing, N", ] == "0")) dt <- dt[1, , drop = FALSE]
   colnames(dt) <- names(by)
   return(dt)
 }
@@ -50,7 +51,7 @@ demographics.factor <- function(object, by, style, digits) {
   if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
   ## ct = count table of summaries
   ct <- vapply(X = by, FUN = function(by1) {
-    object1 <- object[by1]
+    object1 <- object[which(by1)]
     m <- is.na(object1)
     return(c(table(object1[!m]), Missing = sum(m)))
   },
@@ -82,7 +83,7 @@ demographics.Surv <- function(object, by, style, digits) {
   if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
   ## nt = numeric table of summaries
   nt <- t(vapply(X = by, FUN = function(by1) {
-    object1 <- object[by1]
+    object1 <- object[which(by1)]
     m <- is.na(object1)
     if (all(m)) return(c(Missing = sum(m),
                          events = NA, median = NA,
@@ -120,7 +121,7 @@ demographics.logical <- function(object, by, style, digits) {
   ## style and digits not used
   ## tmt = truth and missingness table
   tmt <- vapply(X = by, FUN = function(by1) {
-    object1 <- object[by1]
+    object1 <- object[which(by1)]
     m <- is.na(object1)
     return(c(N = sum(object1[!m] == TRUE), Missing = sum(m)))
   },
@@ -136,7 +137,7 @@ demographics.logical <- function(object, by, style, digits) {
 demographics.default <- function(object, by, style, digits) {
   ## cmt = class and missingness table
   cmt <- vapply(X = by, FUN = function(by1) {
-    object1 <- object[by1]
+    object1 <- object[which(by1)]
     m <- is.na(object1)
     return(c(Class = class(object), Missing = format(sum(m))))
   },
@@ -170,6 +171,8 @@ demographicsCheckBy <- function(object, by) {
     if (any(bybad) > 0) warning("ignoring ", paste("by[[\"", names(by[bybad]), "\"]]", sep = "", collapse = ", "),
                                 " because length not equal to nrow(object)")
     by <- by[!bybad]
+    ## Replace any NA elements with FALSE
+    ## by <- lapply(by, function(x) return(is.na(x) & x))
   }
   if (identical(length(by), 0L)) by <- list("All subjects" = rep(TRUE, nrow(object))) # failsafe
   if (!is.list(by)) by <- list("All subjects" = rep(TRUE, nrow(object))) # failsafe
@@ -224,13 +227,13 @@ demographics.data.frame <- function(object, by, style, digits) {
   if (missing(digits)) digits <- list(NULL) 
 
   ## demographics table n(N) row
-  n <- vapply(X = bylist, FUN = function(by1) return(sum(by1 == TRUE)), integer(1))
+  n <- vapply(X = bylist, FUN = function(by1) return(sum(by1 == TRUE, na.rm = TRUE)), integer(1))
   dtn <- matrix(format(n, scientific = FALSE), nrow = 1)
   rownames(dtn) <- "N"
 
   ## demographics table all items
   dta <- do.call(rbind,
-                 lapply(setdiff(names(object), getOption("clinical.usubjid", NULL)), 
+                 lapply(setdiff(names(object), getOption("clinical.usubjid", "USUBJID")), 
                         function(oname) {
                           style1 <- style[[oname]]
                           if (is.null(style1)) style1 <- style[[class(object[[oname]])]]
