@@ -71,7 +71,8 @@ internal.kmplot <- function(y, x, ylab, xlab, ylim, xlim, col, lty,
     mtext(xlab, side = 1, line = 2)
     mtext("Numbers at risk:", side = 1, line = 3, at = min(xlim), adj = 0)
     xat <- pretty(xlim)
-
+    xat <- xat[xat >= xlim[1] & xat <= xlim[2]]
+    
     if (length(wlevels) == 1) {
       sf$strata <- sf$n # make dummy stratum for computing numbers at risk
     }
