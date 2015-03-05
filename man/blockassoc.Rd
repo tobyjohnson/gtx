@@ -11,7 +11,8 @@
   block.
 }
 \usage{
-blockassoc(qcall, data, minimac, usubjid = "USUBJID",
+blockassoc(qcall, data, minimac,
+usubjid = getOption("clinical.usubjid", "USUBJID"), 
 threshold.MAF = 0, threshold.Rsq = 0, out.signif = 6, use.compiled = FALSE)
 \method{blockstats}{lm}(m1, m0, coefname = "GENOTYPE")
 \method{blockstats}{glm}(m1, m0, coefname = "GENOTYPE")
