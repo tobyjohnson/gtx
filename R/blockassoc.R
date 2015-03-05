@@ -6,17 +6,17 @@ blockstats <- function(m1, m0, coefname = "GENOTYPE") {
 blockstats.lm <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- coef(m1)[coefname]
   se <- sqrt(vcov(m1)[coefname, coefname])
-  n <- length(na.omit(m1$residuals)) # best way to extract
+  n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract
   pval <- pt(-abs(beta)/se, df = m1$df.residual)*2
-  return(c(beta = beta, se = se, n = n, lrt = NA, pval = pval))
+  return(c(n = n, beta = beta, se = se, lrt = NA, pval = pval))
 }
 
 blockstats.glm <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- coef(m1)[coefname]
   se <- sqrt(vcov(m1)[coefname, coefname])
-  n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract#
+  n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract
   lrt <- max(m0$deviance - m1$deviance, 0)
-  return(c(beta = beta, se = se, n = n, lrt = lrt, pval = NA))
+  return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
 blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
@@ -24,7 +24,7 @@ blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
   se <- sqrt(vcov(m1)[coefname, coefname])
   lrt <- max(2*(m1$loglik[2] - m0$loglik[2]), 0)
   n <- m1$n
-  return(c(beta = beta, se = se, n = n, lrt = lrt, pval = NA))
+  return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
 blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
@@ -32,15 +32,16 @@ blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
   se <- sqrt(vcov(m1)[coefname, coefname])
   lrt <- max(2*(m1$logLik - m0$logLik), 0)
   n <- m1$n
-  return(c(beta = beta, se = se, n = n, lrt = lrt, pval = NA))
+  return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
 blockassoc <- function(qcall, data, minimac,
-                       usubjid = "USUBJID",
+                       usubjid = getOption("clinical.usubjid", "USUBJID"), 
                        threshold.MAF = 0, threshold.Rsq = 0, 
                        out.signif = 6, use.compiled = FALSE) {
-  stopifnot(is.call(qcall))
 
+  stopifnot(is.expression(qcall) || is.call(qcall))
+  
   if (use.compiled) {
     stop("Compiled functions not yet implemented")
     ## test for special cases that can be handled by compiled C++ code
@@ -95,6 +96,7 @@ blockassoc <- function(qcall, data, minimac,
   info2 <- data.frame(analysed.Freq1 = signif(0.5*xbar, out.signif),
                       analysed.Rsq = signif((x2bar - xbar^2)/(xbar*(1-0.5*xbar)), out.signif))
   ## which to analyse?
+  ## should there be an option to choose whether filtering on calculated or minimac-reported statistics?
   ww <- which(pmin(info2$analysed.Freq1, 1 - info2$analysed.Freq1) >= threshold.MAF & info2$analysed.Rsq >= threshold.Rsq)
   cat("Analysing ", length(ww), "/", nrow(info2), " variants with MAF >= ", threshold.MAF, " and Rsq >= ", threshold.Rsq, "\n", sep = "")
   
@@ -103,18 +105,18 @@ blockassoc <- function(qcall, data, minimac,
       data$GENOTYPE <- dose[ , idx]
       m1 <- suppressWarnings(update(m0, formula = . ~ . + GENOTYPE, data = data))
       blockstats(m1, m0, coefname = "GENOTYPE")},
-                    error = function(e) return(NA, NA, NA, NA, NA)))},
-                                  c(beta.allele = 0., SE.allele = 0., N.analysed= 0, LRT.allele = 0., pvalue.allele = 0.))))
-  if (all(is.na(assoc$pvalue.allele))) {
-    assoc$pvalue.allele <- signif(pchisq(assoc$LRT.allele, df = 1, lower.tail = FALSE), out.signif)
+                    error = function(e) return(c(NA, NA, NA, NA, NA))))},
+                                  c(analysed.N = 0L, beta = 0., SE = 0., LRT = 0., pvalue = 0.))))
+  if (all(is.na(assoc$pvalue))) {
+    assoc$pvalue <- signif(pchisq(assoc$LRT, df = 1, lower.tail = FALSE), out.signif)
   }
   assoc <- within(assoc, {
-    pwald.allele <- signif(pnorm(-abs(beta.allele)/SE.allele)*2, out.signif)
-    beta.allele <- signif(beta.allele, out.signif)
-    SE.allele <- signif(SE.allele, out.signif)
-    N.analysed <- signif(N.analysed, out.signif)
-    LRT.allele <- signif(LRT.allele, out.signif)
-    pvalue.allele <- signif(pvalue.allele, out.signif)
+    pwald <- signif(pnorm(-abs(beta)/SE)*2, out.signif)
+    beta <- signif(beta, out.signif)
+    SE <- signif(SE, out.signif)
+    analysed.N <- as.integer(analysed.N)
+    LRT <- signif(LRT, out.signif)
+    pvalue <- signif(pvalue, out.signif)
   })
   return(cbind(info[ww, ], info2[ww, ], assoc))
 }
