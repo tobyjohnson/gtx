@@ -5,6 +5,7 @@ export(abf.normal, abf.t, abf.Wakefield)
 export(parse.snps, remap.q2t)
 ## blockassoc.R
 export(blockassoc, blockstats, blockstats.lm, blockstats.glm, blockstats.coxph, blockstats.clm)
+# do we need to declare S3 methods?
 ## clinical.R
 export(clinical.import, clinical.derive, derivation.add)
 ## demographics.R
@@ -19,6 +20,7 @@ export(gls.approx.logistic)
 export(test.extract, test.extract.lm, test.extract.glm, test.extract.coxph)
 export(coeff.extract, coeff.extract.default)
 export(n.extract, n.extract.default, n.extract.lm)
+# do we need to declare S3 methods?
 ## gene.R
 export(gene.annotate, gene.nearest, gene.draw, prune.distance, prune.genes)
 ## grs.R
@@ -46,6 +48,8 @@ export(multimatch)
 export(multipheno.T2, multipheno.OBrien)
 ## pgx.R
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
+## pipeline.R
+export(pipeline)
 ## power.R
 export(chi2ncp, chi2power)
 ## qq10.R
