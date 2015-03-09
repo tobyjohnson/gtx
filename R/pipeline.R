@@ -287,7 +287,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
       ## Everything as paths relative to getwd() at runtime
 
-      message('Fitting model "', gtxpipe.models[modelid, "model"], '" in group "', agroup1, '"\n')
+      message("Fitting model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       mtmp <- eval(parse(text = gtxpipe.models[modelid, "fun"]), envir = adata)
       if (length(c(trtgrp.cov, names(ancestrypcs)[-1])) > 0) {
         m0 <- update(mtmp, formula = as.formula(paste("~ . +", paste(c(trtgrp.cov, names(ancestrypcs)[-1]), collapse = "+"))))
@@ -363,6 +363,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     
     agroups <- tokenise.whitespace(gtxpipe.models[modelid, "agroups"])
     res <- lapply(agroups, function(agroup1) {
+      message("Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], agroup1)
       res1 <- rbindlist(lapply(dir(adir, pattern = ".*\\.out\\.gz"), function(rfile) {
         tmp <- read.table(gzfile(file.path(adir, rfile)),
@@ -394,6 +395,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     
     contrasts1 <- tokenise.whitespace(gtxpipe.models[modelid, "contrasts"])
     resc <- lapply(contrasts1, function(contrast1) {
+      message("Collating results for model ", gtxpipe.models[modelid, "model"], " for contrast ", contrast1)
+
       ## Are we better to do each contrast as a join, or lam the whole lot up and delete the unwanted columns later?
       
       groups <- unlist(strsplit(contrast1, "/"))
