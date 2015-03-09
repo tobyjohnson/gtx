@@ -1,5 +1,8 @@
+# import should detect .txt.gz extensions and handle automatically
+# import might be nice to autodetect SAS exported dates
+
 clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
-                            usubjid = getOption("clinical.usubjid", "USUBJID"),
+                            usubjid = getOption("gtx.usubjid", "USUBJID"),
                             verbose = TRUE,
                             only) {
   f <- dir(d, pattern = pattern) # list of files
@@ -9,11 +12,11 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
   }
   dl <- list() # empty list of data frames
   for (f1 in f) {
-    if (verbose) cat("Reading", f1, "...\n")
+    if (verbose) message("Reading ", f1, " ...")
     tmp <- read.table(file.path(d, f1),
                       header = TRUE, sep = "\t", quote = "",
                       na.strings = ".", comment.char = "")
-    if (verbose) cat("  Read", nrow(tmp), "rows and", ncol(tmp), "columns\n")
+    if (verbose) message("  Read ", nrow(tmp), " rows and ", ncol(tmp), " columns ")
     if (usubjid %in% names(tmp)) {
       tmp[[usubjid]] <- as.character(tmp[[usubjid]])
       dl[[sub("\\.txt$", "", f1)]] <- tmp
@@ -23,6 +26,28 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
   }
   return(dl)
 }
+
+## pgx.models <- function(model, deps, fun, groups, contrasts) {
+##   models <- getOption("pgx.models", NULL)
+##   if (is.null(models)) {
+##     modelfile <- getOption("pgx.modelfile", "config/pgx.models")
+##     message("Reading pgx.models from [ ", modelfile, " ]")
+##     models <- tryCatch(suppressWarnings(read.csv(modelfile)),
+##                        error = function(e) return(data.frame(model = NULL, deps = NULL, fun = NULL, groups = NULL, contrasts = NULL)))
+##   }
+##   if (missing(model)) {
+##     options(pgx.models = models)
+##     return(models)
+##   }
+##   if (missing(deps) || missing(fun) || missing(groups
+  
+##   options(pgx.models = models)
+##   return(models)
+## }
+
+
+
+
 
 derivation.add <- function(derivations, targets, types, deps, data, fun, aept.list, verbose = TRUE) {
   ## If no existing derivations, create an empty data frame with required columns
@@ -63,26 +88,30 @@ derivation.add <- function(derivations, targets, types, deps, data, fun, aept.li
 }
   
 derive1 <- function(datalist, targets, types, deps, data, fun) {
-  usubjid <- getOption("clinical.usubjid")
+  usubjid <- getOption("gtx.usubjid", "USUBJID")
   stopifnot(all(deps %in% names(datalist)))
-  targetv <- unlist(strsplit(targets, '\\s+'))
-  typev <- unlist(strsplit(types, '\\s+'))
-  typev <- rep(typev, length.out = length(targetv)) # recycle or truncate silently
+  targetv <- tokenise.whitespace(targets)
+  typev <- rep(tokenise.whitespace(types), length.out = length(targetv)) # recycle or truncate silently
   output1 <- tryCatch(with(datalist, eval(parse(text = data))),
                       error = function(e) stop(data, " failed with error ", e))
   stopifnot(is.data.frame(output1))
   stopifnot(usubjid %in% names(output1))
   u <- output1[ , usubjid, drop = TRUE]
   uu <- unique(u)
-                                        #  stopifnot(identical(length(targetv), length(eval(parse(text = type)))))
+  ##  message('Deriving ', paste(targetv, collapse = ", "), ' for ', length(uu), ' subjects')
+  ## TO DO: Elegantly handle situation with 0 subjects
+  ##  stopifnot(identical(length(targetv), length(eval(parse(text = type)))))
   foo <- data.frame(uu, 
                     do.call(rbind, lapply(uu,
                                           FUN = function(u1) with(output1[which(u == u1), , drop = FALSE], eval(parse(text = fun))))),
                     stringsAsFactors = FALSE)
-##                           FUN.VALUE = eval(parse(text = type)))
+  ## try eval(...,envir=...)
+  if (ncol(foo) != length(targetv) + 1) {
+    stop('derivation function "', fun, '" returned length ', ncol(foo)-1, ' for targets ', paste(targetv, collapse = ", "))
+  }
+  ##  stopifnot() ???
+  ## cat(identical(ncol(foo), length(targetv) + 1), length(targetv) + 1, ncol(foo), names(foo), "\n")
   names(foo) <- c(usubjid, targetv)
-  #  stopifnot() ???
-  cat(identical(ncol(foo), length(targetv) + 1), length(targetv) + 1, ncol(foo), names(foo), "\n")
   ## coerce to types
   for (idx in 1:length(typev)) {
     if (identical(typev[idx], "factor")) { # special case
@@ -100,20 +129,20 @@ derive1 <- function(datalist, targets, types, deps, data, fun) {
 }
 
 clinical.derive <- function(datalist, derivations, verbose = TRUE, only) {
-  usubjid <- getOption("clinical.usubjid")
+  usubjid <- getOption("gtx.usubjid", "USUBJID")
   stopifnot(all(c("targets", "types", "deps", "data", "fun") %in% names(derivations)))
   if (missing(only)) only <- derivations$targets
   only <- tokenise.whitespace(only)
   pgx <- subset(datalist[["pop"]], select = usubjid) # check this is robust
-  if (verbose) cat("Initial N = ", nrow(pgx), "\n", sep = "")
+  ## if (verbose) cat("Initial N = ", nrow(pgx), "\n", sep = "")
   for (idx in 1:nrow(derivations)) {
-    targetv <- unlist(strsplit(derivations[idx, "targets"], '\\s+'))
+    targetv <- tokenise.whitespace(derivations[idx, "targets"])
     if (length(intersect(targetv, only)) > 0) {
-      if (verbose) cat("Deriving ", derivations[idx, "targets"], "\n", sep = "")
+      if (verbose) message("Deriving ", paste(targetv, collapse = ", "))
       pgx <- merge(pgx,
                    with(derivations[idx, ], derive1(datalist, targets = targets, types = types, deps = deps, data = data, fun = fun)),
                    all = TRUE)
-      if (verbose) cat("N = ", nrow(pgx), "\n", sep = "")
+      ## if (verbose) cat("N = ", nrow(pgx), "\n", sep = "")
     }
   }
   ## warn/error if setdiff(only, names(pgx)) nonempty

@@ -49,7 +49,7 @@ export(multipheno.T2, multipheno.OBrien)
 ## pgx.R
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 ## pipeline.R
-export(pipeline)
+export(gtxpipe)
 ## power.R
 export(chi2ncp, chi2power)
 ## qq10.R

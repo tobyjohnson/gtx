@@ -36,7 +36,7 @@ blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
 }
 
 blockassoc <- function(qcall, data, minimac,
-                       usubjid = getOption("clinical.usubjid", "USUBJID"), 
+                       usubjid = getOption("gtx.usubjid", "USUBJID"), 
                        threshold.MAF = 0, threshold.Rsq = 0, 
                        out.signif = 6, use.compiled = FALSE) {
 

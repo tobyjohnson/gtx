@@ -233,7 +233,7 @@ demographics.data.frame <- function(object, by, style, digits) {
 
   ## demographics table all items
   dta <- do.call(rbind,
-                 lapply(setdiff(names(object), getOption("clinical.usubjid", "USUBJID")), 
+                 lapply(setdiff(names(object), getOption("gtx.usubjid", "USUBJID")), 
                         function(oname) {
                           style1 <- style[[oname]]
                           if (is.null(style1)) style1 <- style[[class(object[[oname]])]]
