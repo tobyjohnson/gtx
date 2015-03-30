@@ -1,35 +1,36 @@
 blockstats <- function(m1, m0, coefname = "GENOTYPE") {
   stopifnot(all.equal(class(m1), class(m0)))
+  ## should handle special case where class(m0)=="coxph.null"
   UseMethod("blockstats", m1)
 }
 
 blockstats.lm <- function(m1, m0, coefname = "GENOTYPE") {
-  beta <- coef(m1)[coefname]
-  se <- sqrt(vcov(m1)[coefname, coefname])
+  beta <- unname(coef(m1)[coefname])
+  se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract
   pval <- pt(-abs(beta)/se, df = m1$df.residual)*2
   return(c(n = n, beta = beta, se = se, lrt = NA, pval = pval))
 }
 
 blockstats.glm <- function(m1, m0, coefname = "GENOTYPE") {
-  beta <- coef(m1)[coefname]
-  se <- sqrt(vcov(m1)[coefname, coefname])
+  beta <- unname(coef(m1)[coefname])
+  se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract
   lrt <- max(m0$deviance - m1$deviance, 0)
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
 blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
-  beta <- coef(m1)[coefname]
-  se <- sqrt(vcov(m1)[coefname, coefname])
+  beta <- unname(coef(m1)[coefname])
+  se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   lrt <- max(2*(m1$loglik[2] - m0$loglik[2]), 0)
   n <- m1$n
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
 blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
-  beta <- coef(m1)[coefname]
-  se <- sqrt(vcov(m1)[coefname, coefname])
+  beta <- unname(coef(m1)[coefname])
+  se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   lrt <- max(2*(m1$logLik - m0$logLik), 0)
   n <- m1$n
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
