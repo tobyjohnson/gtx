@@ -3,7 +3,7 @@
 
 clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
                             usubjid = getOption("gtx.usubjid", "USUBJID"),
-                            verbose = TRUE,
+                            verbose = TRUE, convert.YN = TRUE, 
                             only) {
   f <- dir(d, pattern = pattern) # list of files
   if (!missing(only)) {
@@ -15,10 +15,26 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
     if (verbose) message("Reading ", f1, " ...")
     tmp <- read.table(file.path(d, f1),
                       header = TRUE, sep = "\t", quote = "",
-                      na.strings = ".", comment.char = "")
+                      na.strings = ".", comment.char = "",
+                      stringsAsFactors = TRUE) # be sure to override any global setting
     if (verbose) message("  Read ", nrow(tmp), " rows and ", ncol(tmp), " columns ")
     if (usubjid %in% names(tmp)) {
       tmp[[usubjid]] <- as.character(tmp[[usubjid]])
+      ## Other than usubjid, all character columns are factors
+      for (colidx in names(which(sapply(tmp, class) == "factor"))) {
+        ## Replace empty strings with NA
+        ev <- which(tmp[[colidx]] == "")
+        if (length(ev) > 0) {
+          ## if (verbose) message(length(ev), " empty values in ", colidx, " converted to NA") # is very verbose
+          tmp[[colidx]][ev] <- NA
+        }
+        ## Convert strings that are all Y/N to logicals
+        if (convert.YN && all(grepl("^[YN]$", na.omit(tmp[[colidx]])))) {
+          ## if (verbose) message(colidx, " Y/N converted to logical") # is very verbose
+          tmp[[colidx]] <- tmp[[colidx]] == "Y"
+        }
+        ## FIXME grepl for "[0-9]{2}[A-Za-z]{3}[0-9]{4}", try as.Date and if works on >99% convert to Date
+      }
       dl[[sub("\\.txt$", "", f1)]] <- tmp
     } else {
       warning("Data in file '", f1, "' was not imported because there was no usubjid column '", usubjid, "'")
