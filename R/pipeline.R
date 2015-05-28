@@ -1,19 +1,25 @@
-## Using contrasts as a variable name shadows a base function !!
+## FIXME Using contrasts as a variable name shadows a base function !!
 
 ## option namespace should all be
 ## gtx.* or gtxpipe.*
 
-## pgx.eigenvec is actually list of genotyped subjects plus any covariates desired
+## pgx.eigenvec is actually used as a list of genotyped subjects plus any covariates desired
+
+## FIXME add direct hook for "user-derived" endpoints
 
 gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
-                    gtxpipe.groups = getOption("gtxpipe.groups"),
-                    gtxpipe.derivations = getOption("gtxpipe.derivations"),
+                    gtxpipe.groups = getOption("gtxpipe.groups", data.frame(group = 'ITT', deps = 'pop.PNITT', fun = 'pop.PNITT', stringsAsFactors = FALSE)),
+                    ## ugly to have this in the prototype (and hence verbatim in the man page)
+                    gtxpipe.derivations = getOption("gtxpipe.derivations", {data(derivations.standard.IDSL); derivations.standard.IDSL}),
                     gtxpipe.transformations = getOption("gtxpipe.transformations", data.frame(NULL)),
-                    gtxpipe.eigenvec) {
+                    gtxpipe.eigenvec,
+                    stop.before.make = FALSE) {
   ## arguments for project-specific
 
 
   message("gtxpipe() from package gtx version ", packageVersion("gtx"), " on ", R.version.string)
+
+  # R.version$os %in% c("linux-gnu", "cygwin")
   
   usubjid <- as.character(getOption("gtx.usubjid", "USUBJID"))[1] # variable name for unique subject identifier
   ## Replace this with a function getusubjid that prints warning messages, applies make.names() etc
@@ -25,8 +31,12 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   options(gtxpipe.clinical = as.character(getOption("gtxpipe.clinical", "clinical"))[1]) # directory containing clinical data
   options(gtxpipe.analyses = as.character(getOption("gtxpipe.analyses", "analyses"))[1]) # top level directory for analyses
   options(gtxpipe.outputs = as.character(getOption("gtxpipe.outputs", "outputs"))[1]) # target directory for outputs
-  dir.create(getOption("gtxpipe.outputs"), recursive = TRUE, showWarnings = FALSE) # throw error?
+  dir.create(getOption("gtxpipe.outputs"), recursive = TRUE, showWarnings = FALSE) # FIXME throw error if fails?
 
+  ## If user identity not specified, determine from USER environment variable
+  options(gtxpipe.user = as.character(getOption("gtxpipe.user", paste("USER", Sys.getenv("USER", unset = "unknown"), sep = ":")))[1])
+
+  
   ##
   ## Check gtxpipe.models
   ##
@@ -60,8 +70,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## Check gtxpipe.groups
   ##
   if (missing(gtxpipe.groups) || is.null(gtxpipe.groups)) {
+    ## This would not be needed if default in the function arg default
     warning("No groups specified.  Defaulting to a single (ITT) group.")
-    gtxpipe.groups <- data.frame(group = 'ITT', deps = 'pop.PNITT', fun = 'pop.PNITT == "Y"', stringsAsFactors = FALSE)
+    gtxpipe.groups <- data.frame(group = 'ITT', deps = 'pop.PNITT', fun = 'pop.PNITT', stringsAsFactors = FALSE)
   }
   gtxpipe.groups <- as.data.frame(gtxpipe.groups)
   if (nrow(gtxpipe.groups) < 1) stop("No groups specified.  You need to have at least one row in gtxpipe.groups")
@@ -73,12 +84,6 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   with(list(bg = !grepl("^[A-Za-z0-9]+$", gtxpipe.groups$group)),
        if (any(bg)) stop("Groups ", paste(groups[bm, "group"], collapse = ", "),
                          "have non-alphanumeric names.  You need to fix this in gtxpipe.groups"))
-  ## Could we robustly assume that enrolment corresponds to *some* flag pop.PNXXXX == "Y" for some value of XXXX
-  ## If no ITT group (assumed to be all subjects enrolled) is defined, add one
-  if (is.na(match("ITT", gtxpipe.groups$group))) {
-    gtxpipe.groups <- rbind(gtxpipe.groups,
-                            data.frame(group = 'ITT', deps = 'pop.PNITT', fun = 'pop.PNITT == "Y"', stringsAsFactors = FALSE))
-  }
   
   ##
   ## Check gtxpipe.derivations
@@ -123,6 +128,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                                           stringsAsFactors = FALSE))
                       })))
 
+  ## FIXME would be nice to use groupby to detect whether any contrasts use overlapping groups
+  ## In theory, GC should fix this (albeit not optimally)
+  
   ## The set of all variables we need for actual analysis
   ## Transformations -> new deps
 
@@ -134,10 +142,13 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       return(gtxpipe.transformations$deps[mm])
     }), collapse = " ")})
 
+  ## Should we do the same for group dependencies?
+  
   deps <- unique(tokenise.whitespace(c(gtxpipe.models$depsu, gtxpipe.groups$deps,
                                        "pop.TRTGRP", "demo.SEX", "demo.AGE", "demo.RACE", "demo.ETHNIC")))
   ## force in pop.PNITT even though this is not a mandated variable per dsm ?
-  ## allow a force in list.  sort by unique(forcelist, deps)
+  ## allow a force in list.
+  ## sort columns by unique(forcelist, deps) before computing demographics tables
 
   with(list(bd = setdiff(deps, tokenise.whitespace(gtxpipe.derivations$targets))),
        if (length(bd) > 0) stop("Required variable(s) ", paste(bd, collapse = ", "),
@@ -156,13 +167,41 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   
   with(list(bd = setdiff(ddeps, names(clindata))),
        if (length(bd) > 0) stop("Required dataset(s) not found"))
-  ## import should have only and require options??
+  ## FIXME would be nicer if clinical.import had its own error checking; should it have "only" and "require" options??
   
   #message("gtxpipe: Read clinical datasets OK")
   anal1 <- clinical.derive(clindata, gtxpipe.derivations, only = deps)
+  ## FIXME why is this so slow?
   message("gtxpipe: Computed derived variables OK")
 
-#  inc1 <- with(anal1, eval(parse(text = getOption("clinical.subset", 'pop.PNITT == "Y"'))))
+  write.csv(anal1, 
+            file = file.path(getOption("gtxpipe.outputs"), "subject_analysis_dataset.csv"))
+            
+  ## FIXME hook for user derived variables needed here (in case used in group defs etc)
+
+  ## Even though we will re-apply transformations on subsets, they all should work on the complete analysis dataset
+  if (nrow(gtxpipe.transformations) > 0) {
+    for (idx in 1:nrow(gtxpipe.transformations)) {
+      target <- gtxpipe.transformations$targets[idx]
+      if (target %in% names(anal1)) stop("Transformation overwrites existing variable ", target)
+      tryCatch(anal1[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = anal1),
+               error = function(e) 
+               stop("Error in transformation '", target, " <- ", gtxpipe.transformations$fun[idx], "':\n", e$message))
+    }
+  }
+
+  ## Order columns as follows:
+  ##   USUBJID is first
+  ##   if variable has a descriptor, include next, in the order appearing in clinical.descriptors
+  ##   the rest
+  anal1 <- anal1[ ,
+                 order(ifelse(names(anal1) == usubjid, 0, 1),
+                       match(names(anal1), names(getOption("clinical.descriptors", NULL))))]
+
+
+
+  
+#  inc1 <- with(anal1, eval(parse(text = getOption("clinical.subset", 'pop.PNITT'))))
 
   if (!missing(gtxpipe.eigenvec) && file.exists(gtxpipe.eigenvec)) {
     ancestrypcs <- read.table(gtxpipe.eigenvec, header = FALSE, sep = " ", as.is = TRUE)[ , -1] # drop first (FID) column
@@ -173,7 +212,21 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   }
   ## is.PGx indicates PGx only if gtxpipe.eigenvec is one-to-one list of PGx subjects
   anal1$is.PGx <- anal1[[usubjid]] %in% ancestrypcs[[usubjid]]
-  
+
+  ## gtxpipe needs to know number enrolled for the automagic report.
+  ## Making an additional "ITT" group would have meant that number enrolled/PGx
+  ## would automatically appear as a row in gtxpipe.groups, but then would
+  ## have to program around unwanted columns appearing in the demographics table,
+  ## and messy programming in the calculation of whether any groups overlap.
+  ## Hence, storing this information separately.  Percent PGx can be calculated downstream
+  ##
+  ## Conceptually what we want is all subjects enrolled, which may not always
+  ## be the same as the ITT population.  Could perhaps more robustly assume that
+  ## enrolment corresponds to *some* flag pop.XXXX and use an option to specify?
+  groupall <- with(anal1, list('All enrolled, ITT' = pop.PNITT,
+                               'All enrolled, PGx' = pop.PNITT & is.PGx))
+
+  ## FIXME tryCatch inside here
   groupby <- do.call(c, lapply(1:nrow(gtxpipe.groups), function(idx) {
     return(with(anal1, list(eval(parse(text = gtxpipe.groups$fun[idx])),
                             eval(parse(text = gtxpipe.groups$fun[idx])) & is.PGx)))
@@ -187,46 +240,53 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   gtxpipe.groups$N.PGx <- sapply(groupby[paste(gtxpipe.groups$group, "PGx", sep = ", ")], sum)
 
   ## Automagic report what arms (pop.TRTGRP groups) are actually included 
+  ## NOTE we are assuming the user plays nice and if they define an overwriting transform this still works
+  ## FIXME maybe we should not allow overwriting transforms?
+  ## FIXME instead a clinical.ordering list of preferred orders // sort by count otherwise?
   gtxpipe.groups <- cbind(gtxpipe.groups, 
     do.call(rbind, lapply(groupby[paste(gtxpipe.groups$group, "ITT", sep = ", ")], function(gl) {
       tmp <- table(anal1$pop.TRTGRP[gl])
       tmp <- tmp[tmp > 0]
       if (length(tmp) == 0) return(data.frame(arms = "None", adjust.arm = NA, stringsAsFactors = FALSE))
-      if (length(tmp) == 1) return(data.frame(arms = tmp, adjust.arm = FALSE, stringsAsFactors = FALSE))
+      if (length(tmp) == 1) return(data.frame(arms = names(tmp), adjust.arm = FALSE, stringsAsFactors = FALSE))
       return(data.frame(arms = paste(names(tmp), " (N=", tmp, ")", sep = "", collapse = ", "),
                         adjust.arm = TRUE, stringsAsFactors = FALSE))
     })))
 
+  snippets <- rbind(data.frame(value = format(sapply(groupall, sum)), # automatic row names
+                               stringsAsFactors = FALSE),
+                    data.frame(value = c(round(100*sum(groupall[[2]])/sum(groupall[[1]])),
+                                 if (any(rowSums(as.data.frame(groupby)) > 1)) "overlapping" else "non-overlapping",
+                                 if (any(gtxpipe.groups$adjust.arm, na.rm = TRUE)) "Yes" else "No"),
+                               ## rowSums all 0 or 1, no overlapping groups.  Any >1 implies overlapping groups
+                               ## Using Yes/No because output all text so downstream would have to parse even if logical
+                               row.names = c("Overall PGx percent", "PGx group overlap", "PGx combines arms")))
+  ## Should add the study name, groups, models, whether "efficacy" or "efficacy and safety" etc
+ 
   gtxpipe.groups$N.notPGx <-   gtxpipe.groups$N.ITT - gtxpipe.groups$N.PGx
 
-  ## FIXME: Compute ACTUAL number enrolled,
-  ## user can do this by making an ITT group
-  ## but gtxpipe needs to know for the purpose of automagic report.
-  ## Assume there will always be a group called "ITT" == enrolled???
-
-  
   ## source item 1, can we call this disposition?
   ## write into source subdir
+  rownames(gtxpipe.groups) <- gtxpipe.groups$group
   print(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")])
-  message('gtxpipe: Writing subject disposition to "', file.path(getOption("gtxpipe.outputs"), "01_subject_disposition.csv"), '"')
+  message('gtxpipe: Writing subject disposition to "', file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"), '"')
   write.csv(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")],
-              file = file.path(getOption("gtxpipe.outputs"), "01_subject_disposition.csv"),
-              row.names = FALSE)
+            file = file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"),
+            row.names = TRUE)
   
-              
-                                        # Percent PGx
+             
   # apply(gtxpipe.groups[ , c("N.notPGx", "N.PGx")], 1, prettypc)[2, , drop = TRUE]
 
-  any(rowSums(as.data.frame(groupby)) > 1) # TRUE => overlapping groups
-  ## rowSums all 0 or 1, no overlapping groups.  Any >1 implies overlapping groups
-  ## coercing logical to integer
 
+
+
+  
   ## allow a demographics sort list
   ## write into source subdir
-  message('gtxpipe: Writing subject demographics to "', file.path(getOption("gtxpipe.outputs"), "02_subject_demographics.csv"), '"')
+  message('gtxpipe: Writing subject demographics to "', file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"), '"')
   write.csv(demographics(anal1, by = groupby),
-            file = file.path(getOption("gtxpipe.outputs"), "02_subject_demographics.csv"),
-            row.names = FALSE)
+            file = file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"),
+            row.names = TRUE)
 
   ## There's a dataframe (here) and an option with the same name - FIXME
   gtxpipe.analyses <- do.call(rbind, lapply(1:nrow(gtxpipe.models), function(modelid) {
@@ -240,7 +300,14 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                       stringsAsFactors = FALSE))
   }))
 
-  adir0 <- "analyses" # this should be an option
+  ## Currently we compute analysis N's below.  We need to do that earlier
+  ## because trying to analyse N=0 groups causes lots of problems.
+  ## Need to solve circular argument that adjust.arm depends on whether multiple arms
+  ## in the analysis dataset and size of analysis dataset depends on number of subjects
+  ## with non-missing covariates (which may include arm).  (And note we may have studies with
+  ## missing TRTGRP or ATRTGRP)
+  
+  adir0 <- getOption("gtxpipe.analyses")
 
   sink("Makefile") # this should be an option
 
@@ -252,12 +319,25 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
   ## Loop over analyses not nested loops, set N in gtxpipe.analyses
   ## Write analysis datasets and Makefile as side effects
-  for (modelid in 1:nrow(gtxpipe.models)) {
-    for (agroup1 in tokenise.whitespace(gtxpipe.models[modelid, "agroups"])) {
+  analN <- do.call(rbind, lapply(1:nrow(gtxpipe.models), function(modelid) {
+    return(do.call(rbind, lapply(tokenise.whitespace(gtxpipe.models[modelid, "agroups"]), function(agroup1) {
       groupid <- match(agroup1, gtxpipe.groups$group)
+      ## FIXME next line throws an error if adjust.arm is NA (implies N=0 in ITT)
       trtgrp.cov <- if (gtxpipe.groups$adjust.arm[groupid]) "pop.TRTGRP" else NULL
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], gtxpipe.groups[groupid, "group"])
       dir.create(adir, recursive = TRUE, showWarnings = FALSE)
+      ## Ensure that relevant options set in this gtxpipe() call are available
+      ## to slave calls
+      sink(file.path(adir, "options.R")) # sink inside sink
+      cat('options(gtx.usubjid = "', usubjid, '")\n', sep = '')
+      cat('options(gtxpipe.genotypes = "', getOption("gtxpipe.genotypes"), '")\n', sep = '') # will break if not scalar!
+      cat('options(gtxpipe.threshold.MAF = ', getOption("gtxpipe.threshold.MAF", 0.01), ')\n', sep = '')
+      cat('options(gtxpipe.threshold.Rsq = ', getOption("gtxpipe.threshold.Rsq", 0.01), ')\n', sep = '')
+      ## FIXME need to pass through the names of any packages needed to run blockassoc inside pipeslave
+      sink() # options.R
+      
+
+
       adata <- merge(anal1[groupby[[paste(agroup1, ", PGx", sep = "")]],
                            c(usubjid,  
                              tokenise.whitespace(gtxpipe.models[modelid, "depsu"]),
@@ -269,9 +349,10 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       ## Apply transformations to *the analysis dataset*
       ## ONLY APPLY RELEVANT TRANSFORMATIONS depsu -> deps
       ## This should be done by slave...
-      for (idx in 1:nrow(gtxpipe.transformations)) {
+      for (idx in which(gtxpipe.transformations$targets %in% tokenise.whitespace(gtxpipe.models[modelid, "deps"]))) {
         target <- gtxpipe.transformations$targets[idx]
         if (target %in% names(adata)) stop("Transformation overwrites existing variable")
+        message(target, " <- ", gtxpipe.transformations$fun[idx])
         adata[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = adata)
       }
       adata <- adata[ , unique(c(usubjid, 
@@ -299,16 +380,6 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       ## NOTE THAT WITH EMPTY MODELS drop1() throws an unhelpful error message
       ## drop1(m0, test="Chisq")
 
-      ## Ensure that relevant options set in this gtxpipe() call are available
-      ## to slave calls
-      sink(file.path(adir, "options.R")) # sink inside sink
-      cat('options(gtx.usubjid = "', usubjid, '")\n', sep = '')
-      cat('options(gtxpipe.genotypes = "', getOption("gtxpipe.genotypes"), '")\n', sep = '') # will break if not scalar!
-      cat('options(gtxpipe.threshold.MAF = ', getOption("gtxpipe.threshold.MAF", 0.01), ')\n', sep = '')
-      cat('options(gtxpipe.threshold.Rsq = ', getOption("gtxpipe.threshold.Rsq", 0.01), ')\n', sep = '')
-
-      sink() # options.R
-      
       ## Should test and not overwrite, or clear out analyses if updating
 
       sink(file.path(adir, "analysis-dataset.csv")) # sink inside sink
@@ -329,12 +400,25 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       ## delete output, delete done file, run R, touch done file
       ## 		mkdir -p a1; rm -f $@; sleep 60; uname -a >$@; date >>$@
       alltarget <- c(alltarget, paste('$(MODEL', modelid, 'GROUP', groupid, ')', sep = ''))
-    }
-  }
+      
+      return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata), stringsAsFactors = FALSE))
+    })))
+  }))
 
   cat("all:\t", paste(alltarget, collapse = " "), "\n", sep = "") 
   sink() # Makefile
 
+  gtxpipe.analyses$index <- 1:nrow(gtxpipe.analyses)
+  gtxpipe.analyses <- merge(gtxpipe.analyses, analN, all.x = TRUE, all.y = FALSE)
+
+  ## FIXME Would be nice to automagically compute N or N1/N2 for contrasts.  Needs to be done within levels of model.
+
+  write.csv(snippets, 
+            file = file.path(getOption("gtxpipe.outputs"), "01_study_summary.csv"),
+            row.names = TRUE)
+  
+  if (stop.before.make) return(invisible(NULL))
+  
   ## Call "make all" using option for make command
   ## SGE_ARCH=lx24-amd64 qmake -v PATH -cwd -l qname=dl580 -- --jobs=4
   ## SGE_ARCH=lx24-amd64 nohup qmake -v PATH -cwd -l qname=dl580 -- --jobs=256 &
@@ -421,9 +505,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     })
     names(resc) <- contrasts1
     
-    ## Note that
-    resa <- c(res, resc)
-                                        # is not fast
+    ## Note that ...
+    resa <- c(res, resc) # ... is not fast
     
     ## Using the contrast names as part of column labels DOESN'T WORK
     return(do.call(rbind, lapply(names(resa), function(nn) {
@@ -443,22 +526,42 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   
   ## Best place to compute per-analysis N???
 
-  gtxpipe.analyses$index <- 1:nrow(gtxpipe.analyses)
   gtxpipe.results <- merge(gtxpipe.analyses, gtxpipe.results)
   gtxpipe.results <- gtxpipe.results[order(gtxpipe.results$index),]
+  rownames(gtxpipe.results) <- 1:nrow(gtxpipe.results)
   gtxpipe.results$index <- NULL
-
-
-  message('gtxpipe: Writing top level summary results to "', file.path(getOption("gtxpipe.outputs"), "03_summary_results.csv"), '"')
+  
+  ## set row names to something meaningful?
+  message('gtxpipe: Writing top level summary results to "', file.path(getOption("gtxpipe.outputs"), "04_summary_results.csv"), '"')
   write.csv(gtxpipe.results,
-            file = file.path(getOption("gtxpipe.outputs"), "03_summary_results.csv"),
-            row.names = FALSE)
+            file = file.path(getOption("gtxpipe.outputs"), "04_summary_results.csv"),
+            row.names = TRUE)
   
   ## contrasts, assume independent (user responsibility) but GC will roughly control for overlapping groups
   ## Note the GC coefficient is computed after groupwise GC
-  
 
-  ## (no need to read info files if no hits...)
+  ### 
+  ### Make "short" report, should switch on presence/absence of positive results
+  ###
+  if (file.exists(file.path(getOption("gtxpipe.outputs"), "report-short.Rmd"))) {
+    # do nothing
+  } else {
+    file.copy(system.file("templates/gtxpipe-report-negative.Rmd",
+                          package = "gtx", mustWork = TRUE),
+              file.path(getOption("gtxpipe.outputs"), "report-short.Rmd"))
+  }
+  tryCatch({
+    library(knitr)
+    oldwd <- getwd()
+    setwd(getOption("gtxpipe.outputs"))
+    knit2html("report-short.Rmd")
+    setwd(oldwd)
+  },
+           error = function(e) {
+             message("knitr failed")
+           })
+  
+  ## Note, no need to read info files if no hits...
 
   ## Default filtering on Rsq (at e.g. 0.05) would eliminate invariant dosages 0.3,...,0.3,...
   return(invisible(NULL))
