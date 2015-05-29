@@ -648,7 +648,7 @@ pipetable <- function(data, number, filename, title, mdata) {
   dev.off()
 
   return(rbind(mdata,
-               data.frame(Source_File_Name = paste(path, "txt", sep = "."), 
+               data.frame(Source_File_Name = paste(paste(number, filename, sep = "_"), "pdf", sep = "."), 
                           Display_Category = "PHARMACOGENETIC", 
                           Display_Type = "TABLE", 
                           Display_Number = number,

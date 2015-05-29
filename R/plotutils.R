@@ -23,9 +23,9 @@ textgrid <- function(tmat, x0 = 0, y0 = 0, x1 = x0 + 1, y1 = y0 + 1, colsep = 3,
     par(cex = newcex)
   }
 
-  xpos <- x0 + c(0, cumsum(xpos)[-ncol(tmat)])
-  ypos <- y1 - c(0, cumsum(ypos)[-nrow(tmat)])
-  for (idx in 1:nrow(data)) text(xpos, rep(ypos[idx], ncol(tmat)),
+  xpos <- unname(x0 + c(0, cumsum(xpos)[-ncol(tmat)]))
+  ypos <- unname(y1 - c(0, cumsum(ypos)[-nrow(tmat)]))
+  for (idx in 1:nrow(tmat)) text(xpos, rep(ypos[idx], ncol(tmat)),
                                  tmat[idx, ], adj = c(0, 1))
 
   par(cex = oldcex)
