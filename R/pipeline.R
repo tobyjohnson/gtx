@@ -566,14 +566,14 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
               file.path(getOption("gtxpipe.outputs"), "report-short.Rmd"))
   }
   tryCatch({
-    library(knitr)
+    requireNamespace("knitr")
     oldwd <- getwd()
     setwd(getOption("gtxpipe.outputs"))
-    knit2html("report-short.Rmd")
+    knitr::knit2html("report-short.Rmd")
     setwd(oldwd)
   },
            error = function(e) {
-             message("knitr failed")
+             message("knitr::knit2html failed")
            })
   
   ## Note, no need to read info files if no hits...
