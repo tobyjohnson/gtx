@@ -9,7 +9,8 @@ textgrid <- function(tmat, x0 = 0, y0 = 0, x1 = x0 + 1, y1 = y0 + 1, colsep = 3,
   
   ## Remember previous setting
   oldcex <- par("cex")
-
+  newcex <- oldcex
+  
   ## Adaptively scale since actual strwidth drops in steps at discrete cex values
   while(TRUE) {
     xpos <- apply(tmat, 2, function(x) max(strwidth(x, units = "user")) +
