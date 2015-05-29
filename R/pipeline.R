@@ -265,14 +265,19 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
  
   gtxpipe.groups$N.notPGx <-   gtxpipe.groups$N.ITT - gtxpipe.groups$N.PGx
 
-  ## source item 1, can we call this disposition?
+  ## source item 2, can we call this disposition?
   ## write into source subdir
   rownames(gtxpipe.groups) <- gtxpipe.groups$group
-  print(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")])
-  message('gtxpipe: Writing subject disposition to "', file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"), '"')
-  write.csv(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")],
-            file = file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"),
-            row.names = TRUE)
+#  print(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")])
+
+  ## first call, no metadata
+  metadata <- pipetable(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")],
+                        "02", "subject_disposition",
+                        "Disposition of subjects by PGx treatment group and availability of PGx data")
+#  message('gtxpipe: Writing subject disposition to "', file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"), '"')
+#  write.csv(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")],
+#            file = file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"),
+#            row.names = TRUE)
   
              
   # apply(gtxpipe.groups[ , c("N.notPGx", "N.PGx")], 1, prettypc)[2, , drop = TRUE]
@@ -283,10 +288,14 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   
   ## allow a demographics sort list
   ## write into source subdir
-  message('gtxpipe: Writing subject demographics to "', file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"), '"')
-  write.csv(demographics(anal1, by = groupby),
-            file = file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"),
-            row.names = TRUE)
+  metadata <- pipetable(demographics(anal1, by = groupby), 
+                        "03", "subject_demographics",
+                        "Demographics of subjects included in PGx analyses",
+                        metadata)
+#  message('gtxpipe: Writing subject demographics to "', file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"), '"')
+#  write.csv(demographics(anal1, by = groupby),
+#            file = file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"),
+#            row.names = TRUE)
 
   ## There's a dataframe (here) and an option with the same name - FIXME
   gtxpipe.analyses <- do.call(rbind, lapply(1:nrow(gtxpipe.models), function(modelid) {
@@ -413,9 +422,12 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
   ## FIXME Would be nice to automagically compute N or N1/N2 for contrasts.  Needs to be done within levels of model.
 
-  write.csv(snippets, 
-            file = file.path(getOption("gtxpipe.outputs"), "01_study_summary.csv"),
-            row.names = TRUE)
+  metadata <- pipetable(snippets,
+                        "01", "study_summary", "PGx study summary",
+                        metadata)
+#  write.csv(snippets, 
+#            file = file.path(getOption("gtxpipe.outputs"), "01_study_summary.csv"),
+#            row.names = TRUE)
   
   if (stop.before.make) return(invisible(NULL))
   
@@ -530,12 +542,15 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   gtxpipe.results <- gtxpipe.results[order(gtxpipe.results$index),]
   rownames(gtxpipe.results) <- 1:nrow(gtxpipe.results)
   gtxpipe.results$index <- NULL
-  
+
   ## set row names to something meaningful?
-  message('gtxpipe: Writing top level summary results to "', file.path(getOption("gtxpipe.outputs"), "04_summary_results.csv"), '"')
-  write.csv(gtxpipe.results,
-            file = file.path(getOption("gtxpipe.outputs"), "04_summary_results.csv"),
-            row.names = TRUE)
+  metadata <- pipetable(gtxpipe.results,
+                        "04", "summary_results", "PGx analysis summary",
+                        metadata)
+
+  write.csv(metadata,
+            file.path(getOption("gtxpipe.outputs"), "lela_metadata"))
+
   
   ## contrasts, assume independent (user responsibility) but GC will roughly control for overlapping groups
   ## Note the GC coefficient is computed after groupwise GC
@@ -613,3 +628,30 @@ pipeslave <- function(target) {
   return(invisible(NULL))
 }
         
+pipetable <- function(data, number, filename, title, mdata) {
+  if (missing(mdata)) mdata <- data.frame(NULL)
+
+  path <- file.path(getOption("gtxpipe.outputs"), paste(number, filename, sep = "_"))
+    message('gtxpipe: Writing ', title, ' to "', path, '.[csv|pdf]"')
+
+  write.csv(data,
+            file = paste(path, "csv", sep = "."),
+            row.names = TRUE) # ???
+
+  pdf(width = 8.3, height = 11.7,
+      file = paste(path, "pdf", sep = "."))
+  par(family="mono", cex.main = 1, cex.sub = 1)
+  plot.new()
+  plot.window(c(0, 1), c(0, 1))
+  textgrid(data)
+  title(main = title, sub = paste("Source table", number))
+  dev.off()
+
+  return(rbind(mdata,
+               data.frame(Source_File_Name = paste(path, "txt", sep = "."), 
+                          Display_Category = "PHARMACOGENETIC", 
+                          Display_Type = "TABLE", 
+                          Display_Number = number,
+                          Title = title,
+                          stringsAsFactors = FALSE)))
+}

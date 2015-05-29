@@ -50,6 +50,8 @@ export(multipheno.T2, multipheno.OBrien)
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 ## pipeline.R
 export(gtxpipe)
+## plotutils.R
+export(textgrid)
 ## power.R
 export(chi2ncp, chi2power)
 ## qq10.R
