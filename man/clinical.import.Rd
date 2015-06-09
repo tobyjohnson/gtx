@@ -8,8 +8,8 @@
 }
 \usage{
 clinical.import(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\\\.txt",
-                usubjid = getOption("clinical.usubjid", "USUBJID"),
-                verbose = TRUE,
+                usubjid = getOption("gtx.usubjid", "USUBJID"),
+                verbose = TRUE, convert.YN = TRUE, 
                 only)
 }
 \arguments{
@@ -17,6 +17,7 @@ clinical.import(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\\\.txt",
   \item{pattern}{Regular expression for files to be imported}
   \item{usubjid}{Name of variable used for unique subject identifier}
   \item{verbose}{Whether to print progress messages}
+  \item{convert.YN}{Whether to convert columns of Y and N to logical type}
   \item{only}{Character vector}
 }
 \details{
