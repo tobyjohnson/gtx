@@ -462,6 +462,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     res <- lapply(agroups, function(agroup1) {
       message("Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], agroup1)
+      ## Explain what this does!!!!
       res1 <- rbindlist(lapply(dir(adir, pattern = ".*\\.out\\.gz"), function(rfile) {
         tmp <- read.table(gzfile(file.path(adir, rfile)),
                           quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
@@ -549,13 +550,14 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                         "04", "summary_results", "PGx analysis summary",
                         metadata)
 
+  message('gtxpipe: Writing source display metadata')
   write.csv(metadata,
             file.path(getOption("gtxpipe.outputs"), "lela_metadata"))
-
   
   ## contrasts, assume independent (user responsibility) but GC will roughly control for overlapping groups
   ## Note the GC coefficient is computed after groupwise GC
 
+  message('gtxpipe: Generating report')
   ### 
   ### Make "short" report, should switch on presence/absence of positive results
   ###
@@ -567,7 +569,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
               file.path(getOption("gtxpipe.outputs"), "report-short.Rmd"))
   }
   tryCatch({
-    requireNamespace("knitr")
+    suppressMessages(requireNamespace("knitr")) || stop("knitr package not available")
     oldwd <- getwd()
     setwd(getOption("gtxpipe.outputs"))
     knitr::knit2html("report-short.Rmd")
