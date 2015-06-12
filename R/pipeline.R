@@ -628,7 +628,7 @@ pipeslave <- function(target) {
   ## Require pvalue always, beta and SE if being used for interaction contrasts
   ## Consider writing some comments to this file (blockassoc should return character vector instead of printing messages)
   write.table(res[ , c("SNP", "beta", "SE", "pvalue")], # should be an option to set outputs, esp analysed.*
-              row.names = FALSE, quote = FALSE, 
+              row.names = FALSE, quote = FALSE, sep = "\t",
               file = gzfile(file.path(adir, paste(job, "out.gz", sep = "."))))
   return(invisible(NULL))
 }
