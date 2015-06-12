@@ -19,5 +19,10 @@ to package building.
   git repository at \url{https://github.com/tobyjohnson/gtx}.  Therefore,
   printing the contents of \code{gtx.version} into analysis log files is
   an important part of documenting and ensuring reproducibility of the
-  analysis.  } \examples{ data(gtx.version) print(gtx.version) }
-  \keyword{datasets}
+  analysis.
+}
+\examples{
+data(gtx.version)
+print(gtx.version)
+}
+\keyword{datasets}
