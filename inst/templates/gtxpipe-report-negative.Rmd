@@ -1,0 +1,91 @@
+% PGx CSR insert
+% Toby Johnson
+% `r format(Sys.time(), "%d %B %Y")`
+
+```{r load-packages, echo=FALSE}
+suppressPackageStartupMessages(library(knitr))
+opts_chunk$set(dev = c("png", "pdf"), 
+               fig.width = 6, fig.height = 5, dpi = 300)
+suppressPackageStartupMessages(library(gtx)) 
+# the gtx package is available from https://github.com/tobyjohnson/gtx
+```
+
+```{r load-source-data, echo=FALSE}
+gtxpipe.summary <- read.csv("01_study_summary.csv", as.is = TRUE, row.names = 1)
+gtxpipe.groups <- read.csv("02_subject_disposition.csv", as.is = TRUE, row.names = 1)
+gtxpipe.demotable <- read.csv("03_subject_demographics.csv", as.is = TRUE, row.names = 1, check.names = FALSE)
+gtxpipe.results <- read.csv("04_summary_results.csv", as.is = TRUE) #, row.names = 1)
+# in pipeline should format(gtxpipe.results$thresh1) and thresh2
+gtxpipe.results$lambda <- formatC(gtxpipe.results$lambda, digits = 3, format = "f")
+gtxpipe.results$thresh1 <- formatC(gtxpipe.results$thresh1, digits = 2, format = "e")
+gtxpipe.results$thresh2 <- formatC(gtxpipe.results$thresh2, digits = 2, format = "e")
+```
+
+# Objective(s)
+
+The pharmacogenetic (PGx) study utilized data from this clinical study
+and genome-wide germline genetic data to test for association between
+genetic variants and differential efficacy response to [SPECIFY NAMES].
+
+# Summary
+
+Of `r gtxpipe.summary['All enrolled, ITT', 'value']`
+subjects enrolled in the clinical study, a total of
+`r gtxpipe.summary['All enrolled, PGx', 'value']`
+(`r gtxpipe.summary['Overall PGx percent', 'value']`%)
+subjects provided PGx consent, a sample for genetic analysis and were
+successfully genotyped.  For PGx analyses,
+`r gtxpipe.summary['PGx group overlap', 'value']`
+treatment group(s) were defined as listed in Table 1.
+Genotype-by-treatment interaction effects were estimated using
+contrasts between main effects estimated independently for each
+treatment group.
+
+Table 1.  Disposition of subjects by PGx treatment group and availability of PGx data.
+```{r table1, echo=FALSE, results="asis"}
+kable(subset(gtxpipe.groups, group %in% gtxpipe.results$group,
+             select = c("group", "arms", "N.ITT", "N.PGx")), 
+      row.names = FALSE)
+```
+
+Variables used in PGx analyses are summarized in Table 2.  For each
+variable, the distribution in all ITT subjects, and in the PGx sample,
+are compared, by treatment group.
+
+Table 2.  Demographics of subjects included in PGx analyses.
+```{r table2, echo=FALSE, results="asis"}
+kable(gtxpipe.demotable)
+```
+* [VARIABLE] was inverse normal transformed prior to association analysis. ** [VARIABLE] was derived by [insert brief summary].
+[IF NECESSARY COMMENT ON ANY GROSS IMBALANCES (see hidden text above for guidance)]
+
+PGx analyses conducted are summarized in Table 3.  The specific
+candidate genetic variants (CG) analysed are listed in Appendix Table
+1.  The number of significantly associated variants are summarised in
+total for each analysis.
+ 
+Table 3.  PGx analysis summary
+```{r table3, echo=FALSE, results="asis"}
+kable(subset(gtxpipe.results, primary,
+             select = c("model", "group", "lambda", "thresh1", "hits1", "thresh2", "hits2")),
+      row.names = FALSE)
+```
+
+* All analyses (whether with or without baseline clinical covariates)
+were adjusted for [number of] ancestry principal components to control
+for confounding by population structure (Price et al. 2006).  [If
+needed:] All analyses for Treatment Group 3 were additionally adjusted
+for study arm.  ** The genomic control coefficient λ, estimated from
+the genome-wide association scan (GWAS) results for each
+analysis/covariate/treatment group combination, provides a measure of
+test statistic calibration after covariate adjustment (expected value
+λ=1), and any residual test statistic inflation was corrected using
+the genomic control method (Devlin et al. 2001).
+
+# Conclusions
+
+None of the genetic variants investigated (neither GWAS nor candidate
+genetic variants), were significantly associated with any of the
+[EFFICACY and/or SAFETY] endpoint(s) investigated.
+
+# Appendix
