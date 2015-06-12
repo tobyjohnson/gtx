@@ -335,6 +335,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       trtgrp.cov <- if (gtxpipe.groups$adjust.arm[groupid]) "pop.TRTGRP" else NULL
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], gtxpipe.groups[groupid, "group"])
       dir.create(adir, recursive = TRUE, showWarnings = FALSE)
+      odir = file.path(getOption("gtxpipe.outputs"), gtxpipe.models[modelid,"model"], gtxpipe.groups[groupid, "group"])
+      dir.create(odir, recursive = TRUE, showWarnings = FALSE)
       ## Ensure that relevant options set in this gtxpipe() call are available
       ## to slave calls
       sink(file.path(adir, "options.R")) # sink inside sink
