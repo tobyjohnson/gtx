@@ -50,8 +50,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   gtxpipe.models$model <- gsub("\\s+", "", gtxpipe.models$model)
   ## Enforce alphanumeric names because they will be used as directory names
   with(list(bm = !grepl("^[A-Za-z0-9]+$", gtxpipe.models$model)),
-       if (any(bm)) stop("Models ", paste(models[bm, "model"], collapse = ", "),
-                         "have non-alphanumeric names.  You need to fix this in gtxpipe.models"))
+       if (any(bm)) stop("Models ", paste(gtxpipe.models[bm, "model"], collapse = ", "),
+                         " have non-alphanumeric names.  You need to fix this in gtxpipe.models"))
   if (is.na(match("groups", names(gtxpipe.models)))) {
     warning("Models do not have analysis group(s) specified.  Defaulting to ITT")
     gtxpipe.models$groups <- "ITT"
