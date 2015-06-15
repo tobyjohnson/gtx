@@ -410,9 +410,22 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat('\t@(echo "library(gtx); gtx:::pipeslave(target = \\"$@\\")" | R --vanilla && touch $@)\n\n', sep = '')
       ## delete output, delete done file, run R, touch done file
       ## 		mkdir -p a1; rm -f $@; sleep 60; uname -a >$@; date >>$@
+      ## Once all chunks "done", combine into a single tabix'd file
+      cat(adir, '/ALL.out.txt.gz: $(MODEL', modelid, 'GROUP', groupid, ')\n', sep='')
+      cat("\tzgrep -h '^SNP' ", adir, "/*out.gz | head -n 1 | awk 'BEGIN{FS=", '"\\t";OFS="\\t";} {print "#CHROM","POS",$$0;}', "' >", 
+          adir, '/ALL.out.txt\n', sep='')
+      cat("\tzgrep -h -v '^SNP' ", adir, "/*out.gz | awk 'BEGIN{FS=", '"\\t";OFS="\\t";} {split($$1,coord,"[:_]"); print coord[1],coord[2],$$0;}', 
+          "' | sort -T . -n -k 1,2 >>", adir, '/ALL.out.txt\n', sep='')
+      cat('\tbgzip -f ', adir, '/ALL.out.txt\n\n', sep='')
+      cat(adir, '/ALL.out.txt.gz.tbi: ', adir, '/ALL.out.txt.gz\n', sep='')
+      cat('\ttabix -f -b 2 -e 2 ', adir, '/ALL.out.txt.gz\n', sep='')
+      cat('\trm ', adir, '/*out.gz\n\n', sep='')
+      ## Run python script to generate genome-wide plots
+      cat(odir, '/qq.png: ', adir, '/ALL.out.txt.gz ', adir, '/ALL.out.txt.gz.tbi\n', sep='')
+      cat('\t', find.package('gtx'), '/python/plots.py -r ', adir, '/ALL.out.txt.gz -o ', odir, '\n\n', sep='')
       
       return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
-                        makevar = paste('$(MODEL', modelid, 'GROUP', groupid, ')', sep = ''),
+                        makevar = paste(odir, '/qq.png', sep = ''),
                         stringsAsFactors = FALSE))
     })))
   }))
@@ -464,13 +477,15 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     res <- lapply(agroups, function(agroup1) {
       message("Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], agroup1)
-      ## Explain what this does!!!!
-      res1 <- rbindlist(lapply(dir(adir, pattern = ".*\\.out\\.gz"), function(rfile) {
-        tmp <- read.table(gzfile(file.path(adir, rfile)),
+
+      ## Reading results which were compiled across chunks during make call
+      res1 <- read.table(gzfile(file.path(adir, "ALL.out.txt.gz")),
                           quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
-        stopifnot(all(c("SNP", "pvalue", "beta", "SE") %in% names(tmp)))
-        return(data.table(tmp[!is.na(tmp$pvalue), c("SNP", "pvalue", "beta", "SE"), drop = FALSE]))
-      }))
+      ## Confirm expected columns present
+      stopifnot(all(c("SNP", "pvalue", "beta", "SE") %in% names(res1)))
+      ## Convert to data table to improve efficiency retaining only needed columns and rows with non-missing pvalue
+      res1 <- data.table(res1[!is.na(res1$pvalue), c("SNP", "pvalue", "beta", "SE"), drop = FALSE])
+      ## Sort by SNP
       setkey(res1, SNP)
       ## Makes sense to apply GC and not store redundant (non-GCed) results here
       ## pvalue from 'best' method, LRT or F test
