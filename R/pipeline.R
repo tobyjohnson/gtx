@@ -406,7 +406,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       
       cat('# Analysis for model "', gtxpipe.models[modelid, "model"], '" in group "', gtxpipe.groups[groupid, "group"], '"\n', sep = '')
       cat('MODEL', modelid, 'GROUP', groupid, ' := $(patsubst ', getOption("gtxpipe.genotypes"), '/%.dose.gz,', adir, '/%.done,$(GENOTYPES))\n', sep = '')
-      cat('$(MODEL', modelid, 'GROUP', groupid, '):\t', adir, '/%.done:\t', getOption("gtxpipe.genotypes"), '/%.info.gz ', getOption("gtxpipe.genotypes"), '/%.dose.gz ', adir, '/options.R ', adir, '/analysis-dataset.csv\n', sep = '')
+      cat('$(MODEL', modelid, 'GROUP', groupid, '):\t', adir, '/%.done:\t', getOption("gtxpipe.genotypes"), '/%.info.gz ', getOption("gtxpipe.genotypes"), '/%.dose.gz\n', sep = '')
       cat('\t@(echo "library(gtx); gtx:::pipeslave(target = \\"$@\\")" | R --vanilla && touch $@)\n\n', sep = '')
       ## delete output, delete done file, run R, touch done file
       ## 		mkdir -p a1; rm -f $@; sleep 60; uname -a >$@; date >>$@
