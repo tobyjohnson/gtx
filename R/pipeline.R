@@ -416,7 +416,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat("\tzgrep -h '^SNP' ", adir, "/*out.gz | head -n 1 | awk 'BEGIN{FS=", '"\\t";OFS="\\t";} {print "#CHROM","POS",$$0;}', "' >", 
           adir, '/ALL.out.txt ; \\\n', sep='')
       cat("\tzgrep -h -v '^SNP' ", adir, "/*out.gz | awk 'BEGIN{FS=", '"\\t";OFS="\\t";} {split($$1,coord,"[:_]"); print coord[1],coord[2],$$0;}', 
-          "' | sort -T . -n -k 1,2 >>", adir, '/ALL.out.txt ; \\\n', sep='')
+          "' | sort -T . -k 1,1 -k 2,2n >>", adir, '/ALL.out.txt ; \\\n', sep='')
       cat('\tbgzip -f ', adir, '/ALL.out.txt\n\n', sep='')
       cat(adir, '/ALL.out.txt.gz.tbi: ', adir, '/ALL.out.txt.gz\n', sep='')
       cat('\ttabix -f -b 2 -e 2 ', adir, '/ALL.out.txt.gz ; \\\n', sep='')
