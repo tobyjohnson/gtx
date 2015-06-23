@@ -562,7 +562,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   gtxpipe.results <- gtxpipe.results[order(gtxpipe.results$index),]
   rownames(gtxpipe.results) <- 1:nrow(gtxpipe.results)
   gtxpipe.results$index <- NULL
-
+  gtxpipe.results$makevar <- NULL
+  
   ## set row names to something meaningful?
   metadata <- pipetable(gtxpipe.results,
                         "04", "summary_results", "PGx analysis summary",
