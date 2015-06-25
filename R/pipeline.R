@@ -427,7 +427,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat('\trm ', adir, '/*out.gz\n\n', sep='')
       ## Run python script to generate genome-wide plots
       cat(odir, '/qq.png: ', adir, '/ALL.out.txt.gz ', adir, '/ALL.out.txt.gz.tbi\n', sep='')
-      cat('\t', find.package('gtx'), '/python/plots.py -r ', adir, '/ALL.out.txt.gz -o ', odir, '\n\n', sep='')
+      cat('\t', getOption("gtxpipe.python", "python"), ' ', find.package('gtx'), '/python/plots.py -r ', adir, '/ALL.out.txt.gz -o ', odir, '\n\n', sep='')
       
       return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
                         makevar = paste(odir, '/qq.png', sep = ''),

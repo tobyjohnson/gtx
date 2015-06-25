@@ -1,4 +1,6 @@
-#!/GWD/appbase/tools/bin/python2.7
+
+
+# on GSK systems requires /GWD/appbase/tools/bin/python2.7
 
 from optparse import OptionParser
 ## deprecated, but argparse requires python >= 2.7 does not work on GSK servers
