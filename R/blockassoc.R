@@ -79,12 +79,12 @@ blockassoc <- function(qcall, data, minimac,
   data.machid <- paste(data[[usubjid]], data[[usubjid]], sep = "->")
 
   data.include <- apply(!is.na(data), 1, all) & data.machid %in% dose[ , 1]
-  cat("Analysing ", sum(data.include), "/", nrow(data),
+  cat(basename(minimac), ": Analysing ", sum(data.include), "/", nrow(data),
       " subjects with non-missing phenotypes, covariates, and genotypes\n", sep = "")
   data <- data[data.include, , drop = FALSE]
   data.machid <- paste(data[[usubjid]], data[[usubjid]], sep = "->") # update 
 
-  cat("Using ", length(data.machid), "/", nrow(dose),
+  cat(basename(minimac), ": Using ", length(data.machid), "/", nrow(dose),
       " genotyped subjects\n", sep = "")
   dose <- dose[match(data.machid, dose[ , 1]), 3:ncol(dose)]
   stopifnot(nrow(dose) == nrow(data))
@@ -99,7 +99,8 @@ blockassoc <- function(qcall, data, minimac,
   ## which to analyse?
   ## should there be an option to choose whether filtering on calculated or minimac-reported statistics?
   ww <- which(pmin(info2$analysed.Freq1, 1 - info2$analysed.Freq1) >= threshold.MAF & info2$analysed.Rsq >= threshold.Rsq)
-  cat("Analysing ", length(ww), "/", nrow(info2), " variants with MAF >= ", threshold.MAF, " and Rsq >= ", threshold.Rsq, "\n", sep = "")
+  cat(basename(minimac), ": Analysing ", length(ww), "/", nrow(info2), " non-candidate variants with MAF >= ", threshold.MAF, " and Rsq >= ", threshold.Rsq, "\n", sep = "")
+
   
   assoc <- as.data.frame(t(vapply(ww, function(idx) {
     return(tryCatch({
