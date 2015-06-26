@@ -208,7 +208,7 @@ demographics.data.frame <- function(object, by, style, digits) {
         }
       }))
       ## remove columns from object used to construct by
-      object <- object[ , -match(by, names(object))]
+      object <- object[ , -match(by, names(object)), drop = FALSE] #bugfix when reduced object only has one column left
       ## remake by as a list
       bylist <- lapply(colnames(bym), function(bym1) bym[ , bym1])
       names(bylist) <- colnames(bym)
@@ -235,10 +235,15 @@ demographics.data.frame <- function(object, by, style, digits) {
   dta <- do.call(rbind,
                  lapply(setdiff(names(object), getOption("gtx.usubjid", "USUBJID")), 
                         function(oname) {
+                          ## Note, S3 dispatching automatically dispatches to demographics.numeric for
+                          ## objects of class integer, but the style and digits lookups need to handle this
+                          ## as a special case
                           style1 <- style[[oname]]
                           if (is.null(style1)) style1 <- style[[class(object[[oname]])]]
+                          if (is.null(style1) && class(object[[oname]]) == "integer") style1 <- style[["numeric"]]
                           digits1 <- digits[[oname]]
                           if (is.null(digits1)) digits1 <- digits[[class(object[[oname]])]]
+                          if (is.null(digits1) && class(object[[oname]]) == "integer") digits1 <- digits[["numeric"]]
                           dt <- demographics(object[[oname]], by = bylist, style = style1, digits = digits1)
                           if (nrow(dt) > 0) {
                             odesc <- getOption("clinical.descriptors", list(NULL))[[oname]]
