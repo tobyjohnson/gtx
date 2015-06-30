@@ -657,12 +657,13 @@ pipeslave <- function(target) {
 pipetable <- function(data, number, filename, title, mdata) {
   if (missing(mdata)) mdata <- data.frame(NULL)
 
-  path <- file.path(getOption("gtxpipe.outputs"), paste(number, filename, sep = "_"))
-    message('gtxpipe: Writing ', title, ' to "', path, '.[csv|pdf]"')
+  path <- file.path(getOption("gtxpipe.outputs", "."), paste(number, filename, sep = "_"))
+  message('gtxpipe: Writing ', title, ' to "', path, '.[csv|pdf]"')
+  dir.create(getOption("gtxpipe.outputs", "."), recursive = TRUE, showWarnings = FALSE) # FIXME throw error if fails
 
   write.csv(data,
             file = paste(path, "csv", sep = "."),
-            row.names = TRUE) # ???
+            row.names = TRUE) # can fail silently if directory does not exist
 
   pdf(width = 8.3, height = 11.7,
       file = paste(path, "pdf", sep = "."))
