@@ -648,7 +648,7 @@ pipeslave <- function(target) {
                     stringsAsFactors = TRUE)
   adata[[usubjid]] <- as.character(adata[[usubjid]])
   ## ? could sink to .done file, blockassoc should use message() not cat()
-  res <- blockassoc(qcall = qcall, cvlist = cvlist, data = adata,
+  res <- blockassoc(qcall = qcall, cvlist = cvlist, data = adata, adir = adir,
                     minimac = file.path(getOption("gtxpipe.genotypes", "genotypes"), job),
                     threshold.MAF = getOption("gtxpipe.threshold.MAF", 0.01),
                     threshold.Rsq = getOption("gtxpipe.threshold.Rsq", 0.01))
