@@ -37,6 +37,12 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## If user identity not specified, determine from USER environment variable
   options(gtxpipe.user = as.character(getOption("gtxpipe.user", paste("USER", Sys.getenv("USER", unset = "unknown"), sep = ":")))[1])
 
+  ## Check genotypes directory contains at least one dose/info pair and enumerate for check against done files later
+  doses = gsub('\\.dose.gz$','',list.files(path = getOption("gtxpipe.genotypes"), pattern = '\\.dose.gz$'))
+  infos = gsub('\\.info.gz$','',list.files(path = getOption("gtxpipe.genotypes"), pattern = '\\.info.gz$'))
+  chunks = intersect(doses,infos)
+  if (length(chunks) < 1) stop("Needs to be at least one *.dose.gz/*.info.gz file pair in the genotypes directory [", 
+                                getOption("gtxpipe.genotypes"), "] you can set this directory as the gtxpipe.genotypes option")
   
   ##
   ## Check gtxpipe.models
@@ -466,9 +472,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     stop("make failed")
   }
 
-  ## make can silently fail, need to check for .done files
-  ## should know how many matched dose/info file pairs from earlier
-  
+
   gtxpipe.results <- do.call(rbind, lapply(1:nrow(gtxpipe.models), function(modelid) {
     alpha <- .05 # this should be an option
     cvlist <- if (!is.na(gtxpipe.models[modelid, "cvlist"])) tokenise.whitespace(gtxpipe.models[modelid, "cvlist"]) else NULL
@@ -485,6 +489,12 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     res <- lapply(agroups, function(agroup1) {
       message("Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], agroup1)
+
+      ## make can silently fail, need to check for .done files
+      dones = gsub('\\.done$','',list.files(path = adir,pattern = '\\.done$'))
+      if (length(dones) < length(chunks)) stop("Not all chunks analysed for model [", gtxpipe.models[modelid, "model"], 
+                                               "] in group [", agroup1, "]. Try re-running to capture the missing chunks [", 
+                                               paste(setdiff(chunks,dones), collapse=", "), "]")
 
       ## Reading results which were compiled across chunks during make call
       res1 <- read.table(gzfile(file.path(adir, "ALL.out.txt.gz")),
