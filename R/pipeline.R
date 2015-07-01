@@ -401,6 +401,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat('# call: ', as.character(as.expression(m0$call)), '\n', sep = '')
       ## consider adding transformations like '# where: osMonths <- Surv(SRVMO, SRVCFLCD)'
 
+      ## including candidate variant list to force analysis regardless of MAF and RSQR filters
+      cat('# cvlist: ', gtxpipe.models[modelid, "cvlist"], '\n', sep = '')
+
       sink()
       suppressWarnings(write.table(adata, sep = ",", row.names = FALSE, 
                                    file = file.path(adir, "analysis-dataset.csv"),
@@ -636,13 +639,16 @@ pipeslave <- function(target) {
   mc <- which(substr(adata0, 1, 8) == '# call: ') # match call, error if more than 1
   stopifnot(identical(length(mc), 1L))
   qcall <- parse(text = substr(adata0[mc], 9, nchar(adata0[mc]))) # quoted call
+  cvlist <- which(substr(adata0, 1, 10) == '# cvlist: ') # match cvlist, error if more than 1
+  stopifnot(identical(length(cvlist), 1L))
+  cvlist = tokenise.whitespace(substring(adata0[cvlist],11))
   ## in read.csv should force some settings (stringsAsFactors = TRUE) just in case user options
   ## try to override
   adata <- read.csv(textConnection(adata0[substr(adata0, 1, 1) != "#"]),
                     stringsAsFactors = TRUE)
   adata[[usubjid]] <- as.character(adata[[usubjid]])
   ## ? could sink to .done file, blockassoc should use message() not cat()
-  res <- blockassoc(qcall = qcall, data = adata,
+  res <- blockassoc(qcall = qcall, cvlist = cvlist, data = adata,
                     minimac = file.path(getOption("gtxpipe.genotypes", "genotypes"), job),
                     threshold.MAF = getOption("gtxpipe.threshold.MAF", 0.01),
                     threshold.Rsq = getOption("gtxpipe.threshold.Rsq", 0.01))
