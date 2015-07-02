@@ -36,7 +36,7 @@ blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
-blockassoc <- function(qcall, data, minimac,
+blockassoc <- function(qcall, cvlist, data, adir, minimac,
                        usubjid = getOption("gtx.usubjid", "USUBJID"), 
                        threshold.MAF = 0, threshold.Rsq = 0, 
                        out.signif = 6, use.compiled = FALSE) {
@@ -79,12 +79,12 @@ blockassoc <- function(qcall, data, minimac,
   data.machid <- paste(data[[usubjid]], data[[usubjid]], sep = "->")
 
   data.include <- apply(!is.na(data), 1, all) & data.machid %in% dose[ , 1]
-  cat(basename(minimac), ": Analysing ", sum(data.include), "/", nrow(data),
+  cat(adir, '/', basename(minimac), ": Analysing ", sum(data.include), "/", nrow(data),
       " subjects with non-missing phenotypes, covariates, and genotypes\n", sep = "")
   data <- data[data.include, , drop = FALSE]
   data.machid <- paste(data[[usubjid]], data[[usubjid]], sep = "->") # update 
 
-  cat(basename(minimac), ": Using ", length(data.machid), "/", nrow(dose),
+  cat(adir, '/', basename(minimac), ": Using ", length(data.machid), "/", nrow(dose),
       " genotyped subjects\n", sep = "")
   dose <- dose[match(data.machid, dose[ , 1]), 3:ncol(dose)]
   stopifnot(nrow(dose) == nrow(data))
@@ -95,11 +95,14 @@ blockassoc <- function(qcall, data, minimac,
   xbar <- colMeans(dose)
   x2bar <- colMeans(dose^2)
   info2 <- data.frame(analysed.Freq1 = signif(0.5*xbar, out.signif),
-                      analysed.Rsq = signif((x2bar - xbar^2)/(xbar*(1-0.5*xbar)), out.signif))
+                      analysed.Rsq = signif((x2bar - xbar^2)/(xbar*(1-0.5*xbar)), out.signif),
+                      SNP = info$SNP,
+                      stringsAsFactors = FALSE)
   ## which to analyse?
   ## should there be an option to choose whether filtering on calculated or minimac-reported statistics?
-  ww <- which(pmin(info2$analysed.Freq1, 1 - info2$analysed.Freq1) >= threshold.MAF & info2$analysed.Rsq >= threshold.Rsq)
-  cat(basename(minimac), ": Analysing ", length(ww), "/", nrow(info2), " non-candidate variants with MAF >= ", threshold.MAF, " and Rsq >= ", threshold.Rsq, "\n", sep = "")
+  #cat(basename(minimac), ": Analysing n candidate variants\n", sep = "")
+  ww <- which((pmin(info2$analysed.Freq1, 1 - info2$analysed.Freq1) >= threshold.MAF & info2$analysed.Rsq >= threshold.Rsq) | info2$SNP %in% cvlist)
+  cat(adir, '/', basename(minimac), ": Analysing ", length(ww), "/", nrow(info2), " variants\n", sep = "")
 
   
   assoc <- as.data.frame(t(vapply(ww, function(idx) {
