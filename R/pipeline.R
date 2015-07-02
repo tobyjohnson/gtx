@@ -509,13 +509,24 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       })
       setnames(res1, "pvalue", "pvalue.GC") # not named by group to facilitate later calcs
 
+      plotdata <- rbind(snippets["Project", , drop = FALSE],
+                        data.frame(value = c(lambda > 1., lambda,
+                                     gtxpipe.models[modelid,"model"],
+                                     agroup1,
+                                     res1[ , sum(!is.na(res1$pvalue))]), 
+                                   row.names = c("GenomicControl", "Lambda",
+                                     "Model",
+                                     "Subgroup",
+                                     "PValues"),
+                                   stringsAsFactors = FALSE))
+      
       ## Note, QQ and Manhattan plots are drawn *after* genomic control
       assign("metadata", pipeplot('res1[ , qq10(pvalue.GC, pch = 20)]',
                                   filename = paste("QQ", gtxpipe.models[modelid,"model"], agroup1, sep = "_"),
                                   ## temp filename to compare with previous output
                                   title = paste("QQ plot for", gtxpipe.models[modelid,"model"], "in group", agroup1),
                                   metadata,
-                                  number = 5), # *start* at 5 to leave space for 04_summary_results
+                                  number = 5, plotdata = plotdata), # *start* at 5 to leave space for 04_summary_results
              pos = parent.frame(n = 4))
       ## Have to use assign(..., pos = ) to update metadata from inside two levels of nested anonymous function
       assign("metadata", pipeplot('res1[ , manhattan(pvalue.GC, SNP, pch = 20)]', 
@@ -523,7 +534,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                                   ## temp filename to compare with previous output
                                   title = paste("Manhattan plot for", gtxpipe.models[modelid,"model"], "in group", agroup1),
                                   metadata,
-                                  number = 5), # *start* at 5 to leave space for 04_summary_results
+                                  number = 5, plotdata = plotdata), # *start* at 5 to leave space for 04_summary_results
              pos = parent.frame(n = 4))
 
       
@@ -723,7 +734,7 @@ pipetable <- function(data, filename, title, mdata, number) {
                           stringsAsFactors = FALSE)))
 }
 
-pipeplot <- function(plotfun, filename, title, mdata, number, width = 8.3, height = 11.7) {
+pipeplot <- function(plotfun, filename, title, mdata, number, plotdata, width = 8.3, height = 11.7) {
   if (missing(mdata)) mdata <- data.frame(NULL)
   ## number argument is the smallest allowable display number
   number.used <- c(0, as.integer(mdata$Display_Number))
@@ -758,6 +769,9 @@ pipeplot <- function(plotfun, filename, title, mdata, number, width = 8.3, heigh
   
   screen(scs[1])
   oldpar <- par(family="mono", cex.main = 1, cex.sub = 1, mar = c(5, 0, 4, 0) + 0.1)
+  plot.new()
+  plot.window(c(0, 1), c(0, 1))
+  textgrid(plotdata)
   title(main = title, sub = paste("Source figure", number))
   par(oldpar)
   
