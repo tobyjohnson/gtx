@@ -254,7 +254,12 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                         adjust.arm = TRUE, stringsAsFactors = FALSE))
     })))
 
-  snippets <- rbind(data.frame(value = format(sapply(groupall, sum)), # automatic row names
+  snippets <- rbind(data.frame(value = c(getOption("gtxpipe.project", "NA"),
+                                 getOption("gtxpipe.user", "NA"),
+                                 getOption("gtxpipe.email", "NA")),
+                               row.names = c("Project", "User", "Email"),
+                               stringsAsFactors = FALSE),
+                    data.frame(value = format(sapply(groupall, sum)), # automatic row names
                                stringsAsFactors = FALSE),
                     data.frame(value = c(round(100*sum(groupall[[2]])/sum(groupall[[1]])),
                                  if (any(rowSums(as.data.frame(groupby)) > 1)) "overlapping" else "non-overlapping",
@@ -273,8 +278,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
   ## first call, no metadata
   metadata <- pipetable(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")],
-                        "02", "subject_disposition",
-                        "Disposition of subjects by PGx treatment group and availability of PGx data")
+                        "subject_disposition",
+                        "Subject disposition by PGx analysis group",
+                        number = 2) # specifying number because first 4 tables are generated out-of-order
 #  message('gtxpipe: Writing subject disposition to "', file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"), '"')
 #  write.csv(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")],
 #            file = file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"),
@@ -290,9 +296,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## allow a demographics sort list
   ## write into source subdir
   metadata <- pipetable(demographics(anal1, by = groupby), 
-                        "03", "subject_demographics",
+                        "subject_demographics",
                         "Demographics of subjects included in PGx analyses",
-                        metadata)
+                        metadata, number = 3) # specifying number because first 4 tables are generated out-of-order
 #  message('gtxpipe: Writing subject demographics to "', file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"), '"')
 #  write.csv(demographics(anal1, by = groupby),
 #            file = file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"),
@@ -444,8 +450,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## FIXME Would be nice to automagically compute N or N1/N2 for contrasts.  Needs to be done within levels of model.
 
   metadata <- pipetable(snippets,
-                        "01", "study_summary", "PGx study summary",
-                        metadata)
+                        "study_summary", "PGx study summary",
+                        metadata,
+                        number = 1) # specifying number because first 4 tables are generated out-of-order
 #  write.csv(snippets, 
 #            file = file.path(getOption("gtxpipe.outputs"), "01_study_summary.csv"),
 #            row.names = TRUE)
@@ -501,6 +508,16 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
         ## overwrite, save memory
       })
       setnames(res1, "pvalue", "pvalue.GC") # not named by group to facilitate later calcs
+
+      assign("metadata", pipeplot('qq10(res1$pvalue.GC, pch = 20)',
+                                  filename = paste("QQ", gtxpipe.models[modelid,"model"], agroup1, sep = "_"),
+                                  ## temp filename to compare with previous output
+                                  title = paste("QQ plot for", gtxpipe.models[modelid,"model"], "in group", agroup1),
+                                  metadata,
+                                  number = 5), # *start* at 5 to leave space for 04_summary_results
+             pos = parent.frame(n = 4))
+      ## Have to use assign(..., pos = ) to update metadata from inside two levels of nested anonymous function
+
       ## pvalue from Wald test
       lambdaWald <- res1[ , gclambda(pchisq((beta/SE)^2, df = 1, lower.tail = FALSE))]
       setattr(res1, "lambdaWald", lambdaWald)
@@ -570,8 +587,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   
   ## set row names to something meaningful?
   metadata <- pipetable(gtxpipe.results,
-                        "04", "summary_results", "PGx analysis summary",
-                        metadata)
+                        "summary_results", "PGx analysis summary",
+                        metadata,
+                        number = 4) # specifying number because first 4 tables are generated out-of-order
 
   message('gtxpipe: Writing source display metadata')
   write.csv(metadata,
@@ -654,9 +672,14 @@ pipeslave <- function(target) {
   return(invisible(NULL))
 }
         
-pipetable <- function(data, number, filename, title, mdata) {
+pipetable <- function(data, filename, title, mdata, number) {
   if (missing(mdata)) mdata <- data.frame(NULL)
-
+  ## number argument is the smallest allowable display number
+  number.used <- c(0, as.integer(mdata$Display_Number))
+  if (missing(number) || number %in% number.used) number <- max(number.used) + 1
+  number <- gsub("^ ", "0", format(number, width = getOption("gtxpipe.display.numwidth", 2)))
+  ## Updates to code above should be made here and in pipeplot()
+  
   path <- file.path(getOption("gtxpipe.outputs", "."), paste(number, filename, sep = "_"))
   message('gtxpipe: Writing ', title, ' to "', path, '.[csv|pdf]"')
   dir.create(getOption("gtxpipe.outputs", "."), recursive = TRUE, showWarnings = FALSE) # FIXME throw error if fails
@@ -667,17 +690,75 @@ pipetable <- function(data, number, filename, title, mdata) {
 
   pdf(width = 8.3, height = 11.7,
       file = paste(path, "pdf", sep = "."))
-  par(family="mono", cex.main = 1, cex.sub = 1)
+  scs <- split.screen(matrix(c(1/8.3, # left margin
+                               1-1/8.3, # right margin
+                               1/11.7, # top margin
+                               1-1/11.7 # bottom margin
+                               ), nrow = 1))
+  screen(scs[1])
+  par(family="mono", cex.main = 1, cex.sub = 1, mar = c(5, 0, 4, 0) + 0.1)
   plot.new()
   plot.window(c(0, 1), c(0, 1))
   textgrid(data)
   title(main = title, sub = paste("Source table", number))
-  dev.off()
+  close.screen(scs); dev.off()
 
   return(rbind(mdata,
                data.frame(Source_File_Name = paste(paste(number, filename, sep = "_"), "pdf", sep = "."), 
                           Display_Category = "PHARMACOGENETIC", 
                           Display_Type = "TABLE", 
+                          Display_Number = number,
+                          Title = title,
+                          stringsAsFactors = FALSE)))
+}
+
+pipeplot <- function(plotfun, filename, title, mdata, number, width = 8.3, height = 11.7) {
+  if (missing(mdata)) mdata <- data.frame(NULL)
+  ## number argument is the smallest allowable display number
+  number.used <- c(0, as.integer(mdata$Display_Number))
+  if (missing(number) || number %in% number.used) number <- max(number.used) + 1
+  number <- gsub("^ ", "0", format(number, width = getOption("gtxpipe.display.numwidth", 2)))
+  ## Updates to code above should be made here and in pipetable()
+  
+  path <- file.path(getOption("gtxpipe.outputs", "."), paste(number, filename, sep = "_"))
+  dir.create(getOption("gtxpipe.outputs", "."), recursive = TRUE, showWarnings = FALSE) # FIXME throw error if fails
+  
+  if (all(capabilities(c("png", "cairo")))) {
+    png(type = "cairo", file = paste(path, "png", sep = "."),
+        width = width*300, height = height*300, res = 300)
+    message('gtxpipe: Plotting ', title, ' to "', path, '.png"')
+  } else if (suppressMessages(requireNamespace("Cairo", quietly = TRUE))) {
+    CairoPNG(file = paste(path, "png", sep = "."),
+             width = width*300, height = height*300, res = 300)
+    message('gtxpipe: Plotting ', title, ' to "', path, '.png"')
+  } else {
+    pdf(file = paste(path, "pdf", sep = "."),
+        width = width, height = height)
+    message('gtxpipe: Plotting ', title, ' to "', path, '.pdf"')
+  }
+
+  ## By default, all figures are A4 portrait with the bottom half devoted to plot metadata
+  ## Should (?) work even if plotfun subsequently alters e.g. par(mfrow)
+  scs <- split.screen(matrix(c(1/8.3, 1/8.3, # left margin
+                               1-1/8.3, 1-1/8.3, # right margin
+                               1/11.7, 0.5+0.25/11.7, # top margin
+                               0.5-0.25/11.7, 1-1/11.7 # bottom margin
+                               ), nrow = 2))
+  
+  screen(scs[1])
+  oldpar <- par(family="mono", cex.main = 1, cex.sub = 1, mar = c(5, 0, 4, 0) + 0.1)
+  title(main = title, sub = paste("Source figure", number))
+  par(oldpar)
+  
+  screen(scs[2])
+  eval.parent(parse(text = plotfun)) # was: eval(..., envir = parent.frame())
+
+  close.screen(scs); dev.off()
+  
+  return(rbind(mdata,
+               data.frame(Source_File_Name = paste(paste(number, filename, sep = "_"), "png", sep = "."), 
+                          Display_Category = "PHARMACOGENETIC", 
+                          Display_Type = "FIGURE", 
                           Display_Number = number,
                           Title = title,
                           stringsAsFactors = FALSE)))
