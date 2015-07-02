@@ -49,3 +49,23 @@ axis.by.chr <- function (chr, plotpos, side = 1, lines = 2) {
   for (lx in unique(lidx)) mtext(chrset[lidx == lx], side = side, line = lx, at = tickpos[lidx == lx])
   return(tickpos)
 }
+
+manhattan <- function(p, SNP, chr, pos, ...) {
+  if (!missing(SNP)) {
+    chr <- vapply(strsplit(SNP, ":"), function(ss) return(ss[1]), character(1))
+    pos <- as.integer(vapply(strsplit(SNP, "[:_]"), function(ss) return(ss[2]), character(1)))
+  }
+  plotpos <- plotpos.by.chr(chr, pos)
+  plot(plotpos, -log10(p),
+       col = plotcol.by.chr(chr, c("grey75", "cyan4")),
+       ylim = c(0, max(-log10(p))),
+       xaxt = "n", yaxt = "n", ann = FALSE, 
+       ...)
+  axis(2, las = 1)
+  axis.by.chr(chr, plotpos)
+  title(xlab = "Genomic position by chromosome", 
+        ylab = expression(-log[10](paste(italic(P), "-value"))))
+  box()
+}
+
+  

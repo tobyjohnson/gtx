@@ -33,7 +33,7 @@ export(read.snpdata.mach, read.snpdata.minimac, read.snpdata.plink, read.snpdata
 ## kmplot.R
 export(kmplot, kmplot.character, kmplot.Surv)
 ## manhattan.R
-export(contrasting.rainbow, plotpos.by.chr, plotcol.by.chr, axis.by.chr)
+export(contrasting.rainbow, plotpos.by.chr, plotcol.by.chr, axis.by.chr, manhattan)
 ## mincover.R
 export(mincover)
 ## moments2.R

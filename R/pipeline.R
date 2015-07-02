@@ -509,7 +509,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       })
       setnames(res1, "pvalue", "pvalue.GC") # not named by group to facilitate later calcs
 
-      assign("metadata", pipeplot('qq10(res1$pvalue.GC, pch = 20)',
+      ## Note, QQ and Manhattan plots are drawn *after* genomic control
+      assign("metadata", pipeplot('res1[ , qq10(pvalue.GC, pch = 20)]',
                                   filename = paste("QQ", gtxpipe.models[modelid,"model"], agroup1, sep = "_"),
                                   ## temp filename to compare with previous output
                                   title = paste("QQ plot for", gtxpipe.models[modelid,"model"], "in group", agroup1),
@@ -517,7 +518,17 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                                   number = 5), # *start* at 5 to leave space for 04_summary_results
              pos = parent.frame(n = 4))
       ## Have to use assign(..., pos = ) to update metadata from inside two levels of nested anonymous function
+      assign("metadata", pipeplot('res1[ , manhattan(pvalue.GC, SNP, pch = 20)]', 
+                                  filename = paste("Manhattan", gtxpipe.models[modelid,"model"], agroup1, sep = "_"),
+                                  ## temp filename to compare with previous output
+                                  title = paste("Manhattan plot for", gtxpipe.models[modelid,"model"], "in group", agroup1),
+                                  metadata,
+                                  number = 5), # *start* at 5 to leave space for 04_summary_results
+             pos = parent.frame(n = 4))
 
+      
+
+      
       ## pvalue from Wald test
       lambdaWald <- res1[ , gclambda(pchisq((beta/SE)^2, df = 1, lower.tail = FALSE))]
       setattr(res1, "lambdaWald", lambdaWald)
