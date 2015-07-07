@@ -766,7 +766,7 @@ pipeplot <- function(plotfun, filename, title, mdata, number, plotdata, width = 
         width = width*300, height = height*300, res = 300)
     message('gtxpipe: Plotting ', title, ' to "', path, '.png"')
   } else if (suppressMessages(requireNamespace("Cairo", quietly = TRUE))) {
-    CairoPNG(file = paste(path, "png", sep = "."),
+    Cairo::CairoPNG(file = paste(path, "png", sep = "."),
              width = width*300, height = height*300, res = 300)
     message('gtxpipe: Plotting ', title, ' to "', path, '.png"')
   } else {
