@@ -13,7 +13,8 @@
 \usage{
 blockassoc(qcall, data, minimac,
 usubjid = getOption("gtx.usubjid", "USUBJID"), 
-threshold.MAF = 0, threshold.Rsq = 0, out.signif = 6, use.compiled = FALSE)
+threshold.MAF = 0, threshold.Rsq = 0, threshold.pass = NULL,
+message.begin = "blockassoc", out.signif = 6, use.compiled = FALSE)
 \method{blockstats}{lm}(m1, m0, coefname = "GENOTYPE")
 \method{blockstats}{glm}(m1, m0, coefname = "GENOTYPE")
 \method{blockstats}{coxph}(m1, m0, coefname = "GENOTYPE")
@@ -26,6 +27,9 @@ threshold.MAF = 0, threshold.Rsq = 0, out.signif = 6, use.compiled = FALSE)
   \item{usubjid}{Name of the unique subject id variable in \code{data}}
   \item{threshold.MAF}{Minimum minor allele frequency (MAF) for inclusion in output}
   \item{threshold.Rsq}{Minimum imputation quality (Rsq) for inclusion in output}
+  \item{threshold.pass}{Character vector of SNP names to include in
+    output independent of MAF or Rsq}
+  \item{message.begin}{Optional text to begin each progress message with}
   \item{out.signif}{Number of significant digits for output}
   \item{use.compiled}{Flag whether to use fast C++ code for special cases}
   \item{m1}{Fitted model object with genotype term}

@@ -698,10 +698,13 @@ pipeslave <- function(target) {
                     stringsAsFactors = TRUE)
   adata[[usubjid]] <- as.character(adata[[usubjid]])
   ## ? could sink to .done file, blockassoc should use message() not cat()
-  res <- blockassoc(qcall = qcall, cvlist = cvlist, data = adata, adir = adir,
+  res <- blockassoc(qcall = qcall, data = adata, 
                     minimac = file.path(getOption("gtxpipe.genotypes", "genotypes"), job),
                     threshold.MAF = getOption("gtxpipe.threshold.MAF", 0.01),
-                    threshold.Rsq = getOption("gtxpipe.threshold.Rsq", 0.01))
+                    threshold.Rsq = getOption("gtxpipe.threshold.Rsq", 0.01),
+                    threshold.pass = cvlist,
+                    ## message specific to intended output file in subsequent write.table
+                    message.begin = paste("blockassoc(", file.path(adir, basename(job)), ")", sep = ""))
   ## Require pvalue always, beta and SE if being used for interaction contrasts
   ## Consider writing some comments to this file (blockassoc should return character vector instead of printing messages)
   write.table(res[ , c("SNP", "beta", "SE", "pvalue")], # should be an option to set outputs, esp analysed.*
