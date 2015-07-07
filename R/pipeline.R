@@ -539,15 +539,19 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                                   ## temp filename to compare with previous output
                                   title = paste("QQ plot for", gtxpipe.models[modelid,"model"], "in group", agroup1),
                                   metadata,
-                                  number = 5, plotdata = plotdata), # *start* at 5 to leave space for 04_summary_results
+                                  number = 5, # *start* at 5 to leave space for 04_summary_results
+                                  plotdata = plotdata,
+                                  plotpar = list(mar = c(4, 4, 0, 0) + 0.1)),
              pos = parent.frame(n = 4))
       ## Have to use assign(..., pos = ) to update metadata from inside two levels of nested anonymous function
-      assign("metadata", pipeplot('res1[ , manhattan(pvalue.GC, SNP, pch = 20)]', 
+      assign("metadata", pipeplot('res1[ , manhattan(pvalue.GC, SNP, pch = 20, cex = 0.5)]', 
                                   filename = paste("Manhattan", gtxpipe.models[modelid,"model"], agroup1, sep = "_"),
                                   ## temp filename to compare with previous output
                                   title = paste("Manhattan plot for", gtxpipe.models[modelid,"model"], "in group", agroup1),
                                   metadata,
-                                  number = 5, plotdata = plotdata), # *start* at 5 to leave space for 04_summary_results
+                                  number = 5, # *start* at 5 to leave space for 04_summary_results
+                                  plotdata = plotdata,
+                                  plotpar = list(mar = c(4, 4, 0, 0) + 0.1)),
              pos = parent.frame(n = 4))
 
       
@@ -713,8 +717,10 @@ pipeslave <- function(target) {
   return(invisible(NULL))
 }
         
-pipetable <- function(data, filename, title, mdata, number) {
-  if (missing(mdata)) mdata <- data.frame(NULL)
+pipetable <- function(data, filename, title,
+                      mdata = data.frame(NULL), number,
+                      width = 8.3, height = 11.7) {
+
   ## number argument is the smallest allowable display number
   number.used <- c(0, as.integer(mdata$Display_Number))
   if (missing(number) || number %in% number.used) number <- max(number.used) + 1
@@ -729,7 +735,7 @@ pipetable <- function(data, filename, title, mdata, number) {
             file = paste(path, "csv", sep = "."),
             row.names = TRUE) # can fail silently if directory does not exist
 
-  pdf(width = 8.3, height = 11.7,
+  pdf(width = width, height = height,
       file = paste(path, "pdf", sep = "."))
   scs <- split.screen(matrix(c(1/8.3, # left margin
                                1-1/8.3, # right margin
@@ -753,8 +759,11 @@ pipetable <- function(data, filename, title, mdata, number) {
                           stringsAsFactors = FALSE)))
 }
 
-pipeplot <- function(plotfun, filename, title, mdata, number, plotdata, width = 8.3, height = 11.7) {
-  if (missing(mdata)) mdata <- data.frame(NULL)
+pipeplot <- function(plotfun, filename, title,
+                     mdata = data.frame(NULL), number,
+                     plotdata, plotpar, 
+                     width = 8.3, height = 11.7) {
+
   ## number argument is the smallest allowable display number
   number.used <- c(0, as.integer(mdata$Display_Number))
   if (missing(number) || number %in% number.used) number <- max(number.used) + 1
@@ -790,13 +799,18 @@ pipeplot <- function(plotfun, filename, title, mdata, number, plotdata, width = 
   oldpar <- par(family="mono", cex.main = 1, cex.sub = 1, mar = c(5, 0, 4, 0) + 0.1)
   plot.new()
   plot.window(c(0, 1), c(0, 1))
-  textgrid(plotdata)
+  if (!missing(plotdata)) {
+    textgrid(plotdata)
+  } else {
+    text(0.5, 0.5, "MISSING PLOT METADATA")
+  }
   title(main = title, sub = paste("Source figure", number))
   par(oldpar)
   
   screen(scs[2])
+  if (!missing(plotpar)) oldpar <- do.call(par, as.list(plotpar)) else oldpar <- par()
   eval.parent(parse(text = plotfun)) # was: eval(..., envir = parent.frame())
-
+  par(oldpar)
   close.screen(scs); dev.off()
   
   return(rbind(mdata,
