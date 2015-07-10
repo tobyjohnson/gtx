@@ -16,9 +16,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                     stop.before.make = FALSE) {
   ## arguments for project-specific
 
-
-  message("gtxpipe() from package gtx version ", packageVersion("gtx"), " on ", R.version.string)
-
+  data(gtx.version)
+  message("gtxpipe() from package gtx version ", as.character(packageVersion("gtx")), " on ", R.version.string)
+  message("gtx package build: ", gtx.version[1])
   # R.version$os %in% c("linux-gnu", "cygwin")
   
   usubjid <- as.character(getOption("gtx.usubjid", "USUBJID"))[1] # variable name for unique subject identifier
@@ -260,10 +260,14 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                         adjust.arm = TRUE, stringsAsFactors = FALSE))
     })))
 
-  snippets <- rbind(data.frame(value = c(getOption("gtxpipe.project", "NA"),
+  snippets <- rbind(data.frame(value = c(
+                                 getOption("gtxpipe.project", "NA"),
                                  getOption("gtxpipe.user", "NA"),
-                                 getOption("gtxpipe.email", "NA")),
-                               row.names = c("Project", "User", "Email"),
+                                 getOption("gtxpipe.email", "NA"),
+                                 R.version.string,
+                                 as.character(packageVersion("gtx")),
+                                 gtx.version[1]),
+                               row.names = c("Project", "User", "Email", "R.version", "gtx.package.version", "gtx.package.build"),
                                stringsAsFactors = FALSE),
                     data.frame(value = format(sapply(groupall, sum)), # automatic row names
                                stringsAsFactors = FALSE),
