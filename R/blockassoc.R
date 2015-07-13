@@ -94,10 +94,10 @@ blockassoc <- function(qcall, data, minimac,
   stopifnot(!any(is.na(dose)))
 
   ## this will not match the Rsq calculated by minimac, because minimac calculates the *ALLELIC* r2hat
-  xbar <- colMeans(dose)
-  x2bar <- colMeans(dose^2)
-  info2 <- data.frame(analysed.Freq1 = signif(0.5*xbar, out.signif),
-                      analysed.Rsq = signif((x2bar - xbar^2)/(xbar*(1-0.5*xbar)), out.signif),
+  xbar <- colMeans(dose/2)
+  x2bar <- colMeans((dose/2)^2)
+  info2 <- data.frame(analysed.Freq1 = signif(xbar, out.signif),
+                      analysed.Rsq = signif((x2bar - xbar^2)/(2*xbar*(1-xbar)), out.signif),
                       SNP = info$SNP,
                       stringsAsFactors = FALSE)
   ## which to analyse?
