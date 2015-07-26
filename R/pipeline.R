@@ -362,6 +362,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat('options(gtxpipe.genotypes = "', getOption("gtxpipe.genotypes"), '")\n', sep = '') # will break if not scalar!
       cat('options(gtxpipe.threshold.MAF = ', getOption("gtxpipe.threshold.MAF", 0.01), ')\n', sep = '')
       cat('options(gtxpipe.threshold.Rsq = ', getOption("gtxpipe.threshold.Rsq", 0.01), ')\n', sep = '')
+      cat('options(gtxpipe.extended.output = ', getOption("gtxpipe.extended.output", TRUE), ')\n', sep = '')
       ## FIXME need to pass through the names of any packages needed to run blockassoc inside pipeslave
       sink() # options.R
       
@@ -715,7 +716,15 @@ pipeslave <- function(target) {
                     message.begin = paste("blockassoc(", file.path(adir, basename(job)), ")", sep = ""))
   ## Require pvalue always, beta and SE if being used for interaction contrasts
   ## Consider writing some comments to this file (blockassoc should return character vector instead of printing messages)
-  write.table(res[ , c("SNP", "beta", "SE", "pvalue")], # should be an option to set outputs, esp analysed.*
+  
+  ## Determine which values to write to results file:
+  if (getOption("gtxpipe.extended.output", TRUE)) {
+    out.columns = c("SNP", "beta", "SE", "pvalue","Al1","Al2","analysed.Freq1","analysed.Rsq")
+  }
+  else {
+    out.columns = c("SNP", "beta", "SE", "pvalue")
+  }
+  write.table(res[ , out.columns], 
               row.names = FALSE, quote = FALSE, sep = "\t",
               file = gzfile(file.path(adir, paste(job, "out.gz", sep = "."))))
   return(invisible(NULL))
