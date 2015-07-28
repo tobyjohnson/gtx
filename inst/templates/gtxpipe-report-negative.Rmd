@@ -13,7 +13,8 @@ suppressPackageStartupMessages(library(gtx))
 ```{r load-source-data, echo=FALSE}
 gtxpipe.summary <- read.csv("01_study_summary.csv", as.is = TRUE, row.names = 1)
 gtxpipe.groups <- read.csv("02_subject_disposition.csv", as.is = TRUE, row.names = 1)
-gtxpipe.demotable <- read.csv("03_subject_demographics.csv", as.is = TRUE, row.names = 1, check.names = FALSE)
+#Cannot read first column in as row.names - not guaranteed to be unique
+gtxpipe.demotable <- read.csv("03_subject_demographics.csv", as.is = TRUE, row.names = NULL, check.names = FALSE)
 gtxpipe.results <- read.csv("04_summary_results.csv", as.is = TRUE) #, row.names = 1)
 # in pipeline should format(gtxpipe.results$thresh1) and thresh2
 gtxpipe.results$lambda <- formatC(gtxpipe.results$lambda, digits = 3, format = "f")
