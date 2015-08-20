@@ -218,8 +218,8 @@ multi-SNP risk score values.  The required result
   \hat\alpha = \frac{\vec{z}'\vec{r}}{\vec{r}'\vec{r}}
   \simeq \frac{\sum_{j=1}^m{w_j\vec{z}'\vec{x}_j}}
   {\sum_{j=1}^m{w_j^2{\vec{x}_j}'\vec{x}_j}}
-  \simeq \frac{\sum_{j=1}^m{w_j\hat\beta_js_j^{-2}\,n\,(\vec{z}'\vec{z})^{-1}}}
-  {\sum_{j=1}^m{w_j^2s_j^{-2}\,n\,(\vec{z}'\vec{z})^{-1}}}\;=\;\tilde\alpha
+  \simeq \frac{\sum_{j=1}^m{w_j\hat\beta_js_j^{-2}\,n^{-1}\,\vec{z}'\vec{z}}}
+  {\sum_{j=1}^m{w_j^2s_j^{-2}\,n^{-1}\,\vec{z}'\vec{z}}}\;=\;\tilde\alpha
   \label{eq:proof-alphahat-tilde-alpha}
 \end{equation}
 has two necessary conditions: (i) that
