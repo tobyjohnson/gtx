@@ -439,7 +439,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat('\tif [ -e "', adir, '/ALL.out.txt.gz" ]; then zgrep -v ', "'^#CHROM' ", adir, '/ALL.out.txt.gz | gzip >>', adir, '/ALL.out.txt.gz0 ; fi ; \\\n', sep='')
       cat("\tzgrep -h -v '^SNP' ", adir, "/*out.gz | awk 'BEGIN{FS=", '"\\t";OFS="\\t";} {split($$1,coord,"[:_]"); print coord[1],coord[2],$$0;}', 
           "' | gzip >>", adir, '/ALL.out.txt.gz0 ; \\\n', sep='')
-      cat('\tzcat ', adir, '/ALL.out.txt.gz0 | sort -T . -k 1,1 -k 2,2n | bgzip -f >', adir, '/ALL.out.txt.gz ; \\\n', sep='')
+      cat('\tzcat ', adir, '/ALL.out.txt.gz0 | sort -T . -k 1,1 -k 2,2n | uniq | bgzip -f >', adir, '/ALL.out.txt.gz ; \\\n', sep='')
       cat('\trm ', adir, '/ALL.out.txt.gz0\n\n', sep='')
       cat(adir, '/ALL.out.txt.gz.tbi: ', adir, '/ALL.out.txt.gz\n', sep='')
       cat('\ttabix -f -b 2 -e 2 ', adir, '/ALL.out.txt.gz ; \\\n', sep='')
