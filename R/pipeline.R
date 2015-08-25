@@ -353,8 +353,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       trtgrp.cov <- if (gtxpipe.groups$adjust.arm[groupid]) "pop.TRTGRP" else NULL
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], gtxpipe.groups[groupid, "group"])
       dir.create(adir, recursive = TRUE, showWarnings = FALSE)
-      odir = file.path(getOption("gtxpipe.outputs"), gtxpipe.models[modelid,"model"], gtxpipe.groups[groupid, "group"])
-      dir.create(odir, recursive = TRUE, showWarnings = FALSE)
+
       ## Ensure that relevant options set in this gtxpipe() call are available
       ## to slave calls
       sink(file.path(adir, "options.R")) # sink inside sink
@@ -445,12 +444,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat(adir, '/ALL.out.txt.gz.tbi: ', adir, '/ALL.out.txt.gz\n', sep='')
       cat('\ttabix -f -b 2 -e 2 ', adir, '/ALL.out.txt.gz ; \\\n', sep='')
       cat('\trm ', adir, '/*out.gz\n\n', sep='')
-      ## Run python script to generate genome-wide plots
-      cat(odir, '/qq.png: ', adir, '/ALL.out.txt.gz ', adir, '/ALL.out.txt.gz.tbi\n', sep='')
-      cat('\t', getOption("gtxpipe.python", "python"), ' ', find.package('gtx'), '/python/plots.py -r ', adir, '/ALL.out.txt.gz -o ', odir, '\n\n', sep='')
-      
+
       return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
-                        makevar = paste(odir, '/qq.png', sep = ''),
+                        makevar = paste(adir, '/ALL.out.txt.gz.tbi', sep = ''),
                         stringsAsFactors = FALSE))
     })))
   }))
@@ -479,9 +475,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## consider adding -l h_data=4G
   ## consider a series of make comments run in series
   message("Running make now")
-  makesuccess <- system(getOption("gtxpipe.make", "make"))
+  makesuccess <- system(paste(getOption("gtxpipe.make", "make"), " 1>Makefile.out 2>Makefile.err", sep = ""))
   if (makesuccess != 0) {
-    stop("make failed")
+    stop("make failed, check Makefile.out and Makefile.err")
   }
 
 
