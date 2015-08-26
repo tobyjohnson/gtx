@@ -424,7 +424,21 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       suppressWarnings(write.table(adata, sep = ",", row.names = FALSE, 
                                    file = file.path(adir, "analysis-dataset.csv"),
                                    append = TRUE))
-      
+
+      #If cvlist specified, convert to bed file of regions +/- 500 kb for tabix extract of full genome results
+      if (!is.na(gtxpipe.models[modelid, "cvlist"]) && gtxpipe.models[modelid, "cvlist"] != '') {
+        cvs <- tokenise.whitespace(gtxpipe.models[modelid, "cvlist"])
+        chr <- vapply(strsplit(cvs, ":"), function(ss) return(ss[1]), character(1))
+        pos <- as.integer(vapply(strsplit(cvs, "[:_]"), function(ss) return(ss[2]), character(1)))
+        cvbed <- data.frame(chr = chr, s = pos - 500001, e = pos + 500000,SNP = cvs, stringsAsFactors=FALSE)
+        cvbed <- cvbed[order(cvbed$chr,cvbed$s),]
+        colnames(cvbed) <- c("#chrom","start","end","SNP")
+        #confirmed ok for replicate records in bed file, no need to uniquify for tabix
+        suppressWarnings(write.table(cvbed, quote=FALSE, sep = "\t", row.names = FALSE, 
+                                   file = file.path(adir, "CV.bed"),
+                                   append = FALSE))
+      }
+
       cat('# Analysis for model "', gtxpipe.models[modelid, "model"], '" in group "', gtxpipe.groups[groupid, "group"], '"\n', sep = '')
       cat('MODEL', modelid, 'GROUP', groupid, ' := $(patsubst ', getOption("gtxpipe.genotypes"), '/%.dose.gz,', adir, '/%.done,$(GENOTYPES))\n', sep = '')
       cat('$(MODEL', modelid, 'GROUP', groupid, '):\t', adir, '/%.done:\t', getOption("gtxpipe.genotypes"), '/%.info.gz ', getOption("gtxpipe.genotypes"), '/%.dose.gz\n', sep = '')
@@ -444,10 +458,19 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat(adir, '/ALL.out.txt.gz.tbi: ', adir, '/ALL.out.txt.gz\n', sep='')
       cat('\ttabix -f -b 2 -e 2 ', adir, '/ALL.out.txt.gz ; \\\n', sep='')
       cat('\trm ', adir, '/*out.gz\n\n', sep='')
-
-      return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
+      #If cvlist defined, extract results
+      if (!is.na(gtxpipe.models[modelid, "cvlist"]) && gtxpipe.models[modelid, "cvlist"] != '') {
+        cat(adir, '/CV.out.txt.gz: ', adir, '/ALL.out.txt.gz.tbi\n',sep='')
+        cat('\ttabix -hB ', adir, '/ALL.out.txt.gz ', adir, '/CV.bed | gzip > ', adir, '/CV.out.txt.gz\n\n', sep='')
+        return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
+                        makevar = paste(adir, '/CV.out.txt.gz', sep = ''),
+                        stringsAsFactors = FALSE))
+      }
+      else {
+        return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
                         makevar = paste(adir, '/ALL.out.txt.gz.tbi', sep = ''),
                         stringsAsFactors = FALSE))
+      }
     })))
   }))
 
