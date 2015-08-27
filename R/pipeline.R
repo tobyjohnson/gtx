@@ -397,7 +397,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
       ## Everything as paths relative to getwd() at runtime
 
-      message("Fitting model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
+      message("gtxpipe: Fitting model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       mtmp <- eval(parse(text = gtxpipe.models[modelid, "fun"]), envir = adata)
       if (length(c(trtgrp.cov, names(ancestrypcs)[-1])) > 0) {
         m0 <- update(mtmp, formula = as.formula(paste("~ . +", paste(c(trtgrp.cov, names(ancestrypcs)[-1]), collapse = "+"))))
@@ -427,16 +427,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
       #If cvlist specified, convert to bed file of regions +/- 500 kb for tabix extract of full genome results
       if (!is.na(gtxpipe.models[modelid, "cvlist"]) && gtxpipe.models[modelid, "cvlist"] != '') {
-        cvs <- tokenise.whitespace(gtxpipe.models[modelid, "cvlist"])
-        chr <- vapply(strsplit(cvs, ":"), function(ss) return(ss[1]), character(1))
-        pos <- as.integer(vapply(strsplit(cvs, "[:_]"), function(ss) return(ss[2]), character(1)))
-        cvbed <- data.frame(chr = chr, s = pos - 500001, e = pos + 500000,SNP = cvs, stringsAsFactors=FALSE)
-        cvbed <- cvbed[order(cvbed$chr,cvbed$s),]
-        colnames(cvbed) <- c("#chrom","start","end","SNP")
-        #confirmed ok for replicate records in bed file, no need to uniquify for tabix
-        suppressWarnings(write.table(cvbed, quote=FALSE, sep = "\t", row.names = FALSE, 
-                                   file = file.path(adir, "CV.bed"),
-                                   append = FALSE))
+        pipebed(snplist = tokenise.whitespace(gtxpipe.models[modelid, "cvlist"]),
+                flank = 500000, outfile = file.path(adir, "CV.bed"))
       }
 
       cat('# Analysis for model "', gtxpipe.models[modelid, "model"], '" in group "', gtxpipe.groups[groupid, "group"], '"\n', sep = '')
@@ -518,7 +510,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     
     agroups <- tokenise.whitespace(gtxpipe.models[modelid, "agroups"])
     res <- lapply(agroups, function(agroup1) {
-      message("Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
+      message("gtxpipe: Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], agroup1)
 
       ## make can silently fail, need to check for .done files
@@ -578,9 +570,20 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                                   plotpar = list(mar = c(4, 4, 0, 0) + 0.1)),
              pos = parent.frame(n = 4))
 
-      
+      #Create bed file to tabix out genome-wide significant results
+      if (sum(res1$pvalue.GC <= thresh1, na.rm = TRUE) > 0) {
+        pipebed(snplist = res1[res1$pvalue.GC <= thresh1,SNP], flank = 500000, 
+                outfile = file.path(adir, "GenomeWideSignif.bed"))
+        #Run tabix extraction
+        message("gtxpipe: Extracting genome-wide significant results now")
+        tabixsuccess <- system(paste("tabix -hB ", adir , "/ALL.out.txt.gz ",
+                                  adir , "/GenomeWideSignif.bed | gzip >", adir, 
+                                  "/GenomeWideSignif.out.txt.gz", sep = ""))
+        if (tabixsuccess != 0) {
+          warning("gtxpipe: tabix extraction of genome-wide significant results failed")
+        }
+      }
 
-      
       ## pvalue from Wald test
       lambdaWald <- res1[ , gclambda(pchisq((beta/SE)^2, df = 1, lower.tail = FALSE))]
       setattr(res1, "lambdaWald", lambdaWald)
@@ -595,7 +598,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     
     contrasts1 <- tokenise.whitespace(gtxpipe.models[modelid, "contrasts"])
     resc <- lapply(contrasts1, function(contrast1) {
-      message("Collating results for model ", gtxpipe.models[modelid, "model"], " for contrast ", contrast1)
+      message("gtxpipe: Collating results for model ", gtxpipe.models[modelid, "model"], " for contrast ", contrast1)
 
       ## Are we better to do each contrast as a join, or lam the whole lot up and delete the unwanted columns later?
       
@@ -852,4 +855,20 @@ pipeplot <- function(plotfun, filename, title,
                           Display_Number = number,
                           Title = title,
                           stringsAsFactors = FALSE)))
+}
+
+pipebed <- function(snplist, flank, outfile) {
+  #parse chromosomes and coordinates from snplist
+  chr <- vapply(strsplit(snplist, ":"), function(ss) return(ss[1]), character(1))
+  pos <- as.integer(vapply(strsplit(snplist, "[:_]"), function(ss) return(ss[2]), character(1)))
+  #create dataframe with 4 standard bed columns
+  cvbed <- data.frame(chr = chr, s = pos - flank - 1, e = pos + flank,SNP = snplist, stringsAsFactors=FALSE)
+  #sort by chromosome and start (since all single base coordinates, no need to sort on end)
+  cvbed <- cvbed[order(cvbed$chr,cvbed$s),]
+  #re-label columns with standard bed headers
+  colnames(cvbed) <- c("#chrom","start","end","SNP")
+  #confirmed ok for replicate records in bed file, no need to uniquify for tabix
+  suppressWarnings(write.table(cvbed, quote=FALSE, sep = "\t", row.names = FALSE, 
+                               file = file.path(outfile),
+                               append = FALSE))
 }
