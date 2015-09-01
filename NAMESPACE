@@ -1,4 +1,4 @@
-import(beeswarm, survival, meta, rmeta, data.table)
+import(beeswarm, survival, meta, rmeta, data.table, ordinal)
 ## abf.R
 export(abf.normal, abf.t, abf.Wakefield)
 ## blat.R

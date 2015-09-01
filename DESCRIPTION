@@ -6,7 +6,7 @@ Date: 2015-01-28
 Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"),
     email = "Toby.x.Johnson@gsk.com"))
 Imports:
-    beeswarm,survival,meta,rmeta
+    beeswarm,survival,meta,rmeta,ordinal
 Depends:
     data.table
 Suggests:
