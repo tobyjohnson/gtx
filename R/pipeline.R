@@ -801,10 +801,9 @@ pipeslave <- function(target) {
   
   ## Determine which values to write to results file:
   if (getOption("gtxpipe.extended.output", TRUE)) {
-    out.columns = c("SNP", "beta", "SE", "pvalue","Al1","Al2","analysed.Freq1","analysed.Rsq")
-  }
-  else {
-    out.columns = c("SNP", "beta", "SE", "pvalue")
+    out.columns <- c("SNP", "beta", "SE", "pvalue","Al1","Al2","analysed.Freq1","analysed.Rsq")
+  } else {
+    out.columns <- c("SNP", "beta", "SE", "pvalue")
   }
   write.table(res[ , out.columns], 
               row.names = FALSE, quote = FALSE, sep = "\t",
