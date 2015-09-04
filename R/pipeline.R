@@ -386,17 +386,19 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                      all = FALSE)
       ## Remove subjects with any missing data on any dependency variable
       adata <- adata[which(apply(!is.na(adata), 1, all)), ]
-      ## Apply transformations to *the analysis dataset*
+      ## Transformations must be applied to *the analysis dataset*
       ## ONLY APPLY RELEVANT TRANSFORMATIONS depsu -> deps
-      ## This should be done by slave...
-      for (idx in which(gtxpipe.transformations$targets %in% tokenise.whitespace(gtxpipe.models[modelid, "deps"]))) {
-        target <- gtxpipe.transformations$targets[idx]
-        if (target %in% names(adata)) stop("Transformation overwrites existing variable")
-        message(target, " <- ", gtxpipe.transformations$fun[idx])
-        adata[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = adata)
-      }
+      ## This is now done by gtxpipeslave so that transformations can create R classes such as factor, Surv etc
+      ## Original code was here as follows:
+      # for (idx in which(gtxpipe.transformations$targets %in% tokenise.whitespace(gtxpipe.models[modelid, "deps"]))) {
+      #   target <- gtxpipe.transformations$targets[idx]
+      #   if (target %in% names(adata)) stop("Transformation overwrites existing variable")
+      #   message(target, " <- ", gtxpipe.transformations$fun[idx])
+      #   adata[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = adata)
+      # }
+      ## Note previously, deps (not depsu) was in following to pass transformed variables
       adata <- adata[ , unique(c(usubjid, 
-                                 tokenise.whitespace(gtxpipe.models[modelid, "deps"]),
+                                 tokenise.whitespace(gtxpipe.models[modelid, "depsu"]), 
                                  trtgrp.cov,
                                  names(ancestrypcs)))]
 
@@ -424,11 +426,16 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
       sink(file.path(adir, "analysis-dataset.csv")) # sink inside sink
       cat('# Analysis dataset for model "', gtxpipe.models[modelid, "model"], '" in group "', gtxpipe.groups[groupid, "group"], '"\n', sep = '')
-      ## first 8 characters MUST be '# call : '
+      ## first 8 characters MUST be '# call : ' followed by call to fit null model
       cat('# call: ', as.character(as.expression(m0$call)), '\n', sep = '')
-      ## consider adding transformations like '# where: osMonths <- Surv(SRVMO, SRVCFLCD)'
 
+      ## optional lines for transformations, e.g. '# where: osMonths <- Surv(SRVMO, SRVCFLCD)'
+      for (idx in which(gtxpipe.transformations$targets %in% tokenise.whitespace(gtxpipe.models[modelid, "deps"]))) {
+        cat('# where: ', gtxpipe.transformations$targets[idx], ' <- ', gtxpipe.transformations$fun[idx], '\n', sep = '')
+      }
+      
       ## including candidate variant list to force analysis regardless of MAF and RSQR filters
+      ## Note that ideally this should be passed through the options.R file, not in the model/data spec
       cat('# cvlist: ', gtxpipe.models[modelid, "cvlist"], '\n', sep = '')
 
       sink()
@@ -738,10 +745,24 @@ pipeslave <- function(target) {
   adataf <- file.path(adir, "analysis-dataset.csv") # analysis data filename
   if (!file.exists(adataf)) stop('Analysis dataset "', adataf, '" does not exist')
   adata0 <- scan(file.path(adir, "analysis-dataset.csv"), sep = "\n", character(0), quiet = TRUE)
-  mc <- which(substr(adata0, 1, 8) == '# call: ') # match call, error if more than 1
+  ## match call, error if more than 1
+  mc <- which(substr(adata0, 1, 8) == '# call: ')
   stopifnot(identical(length(mc), 1L))
   qcall <- parse(text = substr(adata0[mc], 9, nchar(adata0[mc]))) # quoted call
-  cvlist <- which(substr(adata0, 1, 10) == '# cvlist: ') # match cvlist, error if more than 1
+  ## match transformations (can be any number) and build into dataframe
+  mt <- which(substr(adata0, 1, 9) == '# where: ')
+  if (length(mt) > 0) {
+    transformations <- do.call(rbind, lapply(strsplit(substr(adata0[mt], 10), ' <- ', fixed = TRUE), function(t1) {
+      if (!identical(length(t1), 2L)) {
+        stop('fatal error: "', t1, '" is not a transformation like "target <- fun"')
+      }
+      data.frame(targets = t1[1], fun = t1[2])
+    }))
+  } else {
+    transformations <- data.frame(targets = NULL, fun = NULL)
+  }
+  ## match cvlist, error if more than 1  FIXME should it be an error if there is no cvlist?
+  cvlist <- which(substr(adata0, 1, 10) == '# cvlist: ')
   stopifnot(identical(length(cvlist), 1L))
   cvlist = tokenise.whitespace(substring(adata0[cvlist],11))
   ## in read.csv should force some settings (stringsAsFactors = TRUE) just in case user options
@@ -749,6 +770,15 @@ pipeslave <- function(target) {
   adata <- read.csv(textConnection(adata0[substr(adata0, 1, 1) != "#"]),
                     stringsAsFactors = TRUE)
   adata[[usubjid]] <- as.character(adata[[usubjid]])
+  ## apply transformations
+  if (nrow(transformations) > 0) {
+    for (idx in 1:nrow(transformations)) {
+      target <- gtxpipe.transformations$targets[idx]
+      if (target %in% names(adata)) stop("Transformation overwrites existing variable")
+      message(target, " <- ", gtxpipe.transformations$fun[idx])
+      adata[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = adata)
+    }
+  }
   ## ? could sink to .done file, blockassoc should use message() not cat()
   res <- blockassoc(qcall = qcall, data = adata, 
                     minimac = file.path(getOption("gtxpipe.genotypes", "genotypes"), job),
