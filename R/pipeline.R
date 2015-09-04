@@ -20,6 +20,17 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   message("gtxpipe() from package gtx version ", as.character(packageVersion("gtx")), " on ", R.version.string)
   message("gtx package build: ", gtx.version[1])
   # R.version$os %in% c("linux-gnu", "cygwin")
+
+  ## Load any packages specified by gtxpipe.packages option, clean up ready to pass to pipeslave
+  packages <- intersect(getOption('gtxpipe.packages', NULL), rownames(installed.packages()))
+  for (package in packages) {
+    message("gtxpipe: loading package '", package, "'")
+    if (!require(package, character.only = TRUE, quietly = TRUE)) {
+      stop("gtxpipe: fatal error, unable to load package '", package, "'")
+    }
+  }
+  ## Note, any packages not available are silently ignored
+  options(gtxpipe.packages = packages)
   
   usubjid <- as.character(getOption("gtx.usubjid", "USUBJID"))[1] # variable name for unique subject identifier
   ## Replace this with a function getusubjid that prints warning messages, applies make.names() etc
@@ -362,10 +373,10 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat('options(gtxpipe.threshold.MAF = ', getOption("gtxpipe.threshold.MAF", 0.01), ')\n', sep = '')
       cat('options(gtxpipe.threshold.Rsq = ', getOption("gtxpipe.threshold.Rsq", 0.01), ')\n', sep = '')
       cat('options(gtxpipe.extended.output = ', getOption("gtxpipe.extended.output", TRUE), ')\n', sep = '')
-      ## FIXME need to pass through the names of any packages needed to run blockassoc inside pipeslave
+      cat('options(gtxpipe.packages = c(',
+          paste('\'', getOption("gtxpipe.packages", NULL), '\'', sep = '', collapse = ', '),
+          ')\n', sep = '')
       sink() # options.R
-      
-
 
       adata <- merge(anal1[groupby[[paste(agroup1, ", PGx", sep = "")]],
                            c(usubjid,  
@@ -708,6 +719,16 @@ pipeslave <- function(target) {
   } else {
     warning('Options file "', ofile, '" does not exist')
   }
+
+  ## gtxpipe.packages should have been cleaned up to match installed.packages by gtxpipe, but
+  ## check here in case pipeslave is running in a different environment
+  ## Note, any packages not available are silently ignored
+  for (package in intersect(getOption('gtxpipe.packages', NULL), rownames(installed.packages()))) {
+    if (!require(package, character.only = TRUE, quietly = TRUE)) {
+      stop("gtxpipe: fatal error, unable to load package '", package, "'")
+    }
+  }
+
   usubjid <- getOption("gtx.usubjid", "USUBJID")
   tmp <- unlist(strsplit(basename(target), ".", fixed = TRUE))
   if (length(tmp) < 2 || !identical(tmp[length(tmp)], "done")) stop ('Bad target "', target, '"')
