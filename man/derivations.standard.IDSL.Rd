@@ -1,5 +1,6 @@
 \name{derivations.standard.IDSL}
 \alias{derivations.standard.IDSL}
+\alias{definitions.standard.IDSL}
 \docType{data}
 \title{Rules for deriving variables from IDSL clinical data}
 \description{

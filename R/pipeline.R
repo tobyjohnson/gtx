@@ -10,6 +10,7 @@
 gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                     gtxpipe.groups = getOption("gtxpipe.groups", data.frame(group = 'ITT', deps = 'pop.PNITT', fun = 'pop.PNITT', stringsAsFactors = FALSE)),
                     ## ugly to have this in the prototype (and hence verbatim in the man page)
+                    ## Also R CMD CHECK thinks derivations.standard.IDSL is an unbound global variable
                     gtxpipe.derivations = getOption("gtxpipe.derivations", {data(derivations.standard.IDSL); derivations.standard.IDSL}),
                     gtxpipe.transformations = getOption("gtxpipe.transformations", data.frame(NULL)),
                     gtxpipe.eigenvec,
@@ -702,7 +703,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
               file.path(getOption("gtxpipe.outputs"), "report-short.Rmd"))
   }
   tryCatch({
-    suppressMessages(requireNamespace("knitr")) || stop("knitr package not available")
+    suppressMessages(requireNamespace("knitr", quietly = TRUE)) || stop("knitr package not available")
     oldwd <- getwd()
     setwd(getOption("gtxpipe.outputs"))
     knitr::knit2html("report-short.Rmd")
@@ -868,10 +869,11 @@ pipeplot <- function(plotfun, filename, title,
   dir.create(getOption("gtxpipe.outputs", "."), recursive = TRUE, showWarnings = FALSE) # FIXME throw error if fails
   
   if (all(capabilities(c("png", "cairo")))) {
-    png(type = "cairo", file = paste(path, "png", sep = "."),
+    png(type = "cairo", filename = paste(path, "png", sep = "."),
         width = width*300, height = height*300, res = 300)
     message('gtxpipe: Plotting ', title, ' to "', path, '.png"')
   } else if (suppressMessages(requireNamespace("Cairo", quietly = TRUE))) {
+    ## This generates an undeclared import warning with R CMD CHECK, not sure why.  FIXME
     Cairo::CairoPNG(file = paste(path, "png", sep = "."),
              width = width*300, height = height*300, res = 300)
     message('gtxpipe: Plotting ', title, ' to "', path, '.png"')

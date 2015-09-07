@@ -31,6 +31,7 @@ plotpos.by.chr <- function (chr, pos, gap = 5e7, chrset = c(1:22, "XY", "X", "Y"
 
 plotcol.by.chr <- function (chr, cols = NULL, col.missing = "black", chrset = c(1:22, "XY", "X", "Y", "M")) {
   chrset <- toupper(as.character(chrset))
+  ## We want to leave "gaps" for missing autosomes but not for missing sex/other
   chrnum <- match(sub("^CHR", "", toupper(as.character(chr))), chrset)
   cols <- if (is.null(cols)) contrasting.rainbow(length(chrset)) else rep(cols, length.out = length(chrset))
   chrnum[is.na(chrnum)] <- max(chrnum, na.rm = TRUE) + 1
@@ -66,6 +67,7 @@ manhattan <- function(p, SNP, chr, pos, ...) {
   title(xlab = "Genomic position by chromosome", 
         ylab = expression(-log[10](paste(italic(P), "-value"))))
   box()
+  return(invisible(NULL))
 }
 
   
