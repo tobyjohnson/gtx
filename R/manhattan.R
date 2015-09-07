@@ -59,7 +59,7 @@ manhattan <- function(p, SNP, chr, pos, ...) {
   plotpos <- plotpos.by.chr(chr, pos)
   plot(plotpos, -log10(p),
        col = plotcol.by.chr(chr, c("grey75", "cyan4")),
-       ylim = c(0, max(-log10(p))),
+       ylim = c(0, max(-log10(p), na.rm = TRUE)),
        xaxt = "n", yaxt = "n", ann = FALSE, 
        ...)
   axis(2, las = 1)
