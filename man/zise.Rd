@@ -6,22 +6,22 @@
   ranks of the data.
 }
 \usage{
-zise(x, only = NULL, by = NULL)
+zise(x, only, by)
 }
 \arguments{
   \item{x}{a vector of values to be transformed}
-  \item{only}{if not NULL, a logical vector of same length as x}
-  \item{by}{if not NULL, a factor of same length as x}
+  \item{only}{optional, logical vector of same length as x}
+  \item{by}{optional, factor of same length as x}
 }
 \details{
   The transformation is sometimes known as a normal quantile
   transform, an inverse normal transformation, or as a quantile-quantile
   normalisation of \code{x}.
 
-  If the argument \code{only} is not NULL, only the corresponding values
+  If the argument \code{only} is provided, only the corresponding values
   of \code{x} are transformed, and the remainder are returned as NA.
 
-  If the argument \code{by} is not NULL, it is coerced to a factor if
+  If the argument \code{by} is provided, it is coerced to a factor if
   necessary, and the transformation is applied separately 
   by subsets of \code{x} corresponding to each level of \code{by}.
 }

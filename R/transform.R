@@ -16,9 +16,9 @@ twopq <- function(p) return(2*p*(1 - p))
 ##
 ## zise() performs normal quantile transformation
 ##
-zise <- function (x, only = NULL, by = NULL) {
+zise <- function (x, only, by) {
   if (length(x) < 1) return(x)
-  if (is.null(only)) {
+  if (missing(only)) {
     only <- which(!is.na(x))
   } else {
     stopifnot(length(only) == length(x))
@@ -26,7 +26,7 @@ zise <- function (x, only = NULL, by = NULL) {
   }
   zx <- rep(NA, length(x))
   if (length(only) >= 1) {
-    if (is.null(by)) {
+    if (missing(by)) {
       zx[only] <- qnorm((rank(x[only]) - 0.5)/length(only))
     } else {
       stopifnot(length(by) == length(x))
