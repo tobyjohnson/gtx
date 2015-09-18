@@ -10,6 +10,12 @@ positivise <- function(x, strict = FALSE) {
   }
 }
 
+## convenience function to replace NA with something else
+replaceNA <- function(x, replacement = NA) {
+  x[is.na(x)] <- replacement
+  return(x)
+}
+
 ## convenience function 
 twopq <- function(p) return(2*p*(1 - p))
 
