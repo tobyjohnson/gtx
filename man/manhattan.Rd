@@ -10,7 +10,7 @@ manhattan(p, SNP, chr, pos, ...)
 }
 \arguments{
   \item{p}{A vector of P-values}
-  \item{SNP}{A vector of SNP names in chr:pos[_allele] format}
+  \item{SNP}{A vector of SNP names in chr:pos[:allele_allele] format}
   \item{chr}{A vector of chromosome locations}
   \item{pos}{A vector of positions within chromosomes}
   \item{...}{Additional arguments passed to points for plotting the p-values}

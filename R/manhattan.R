@@ -44,10 +44,11 @@ axis.by.chr <- function (chr, plotpos, side = 1, lines = 2) {
   chr <- sub("^CHR", "", toupper(as.character(chr)))
   chrset <- unique(chr[!is.na(plotpos)])
   tickpos <- sapply(chrset, function (cx) return(0.5*(min(plotpos[chr == cx], na.rm = TRUE) + max(plotpos[chr == cx], na.rm = TRUE))))
-  names(tickpos) <- chrset # is this needed
+  names(tickpos) <- chrset
+  tickpos <- sort(tickpos)
   axis(side = side, at = tickpos, labels = FALSE)
   lidx <- rep(1:lines, length.out = length(tickpos))
-  for (lx in unique(lidx)) mtext(chrset[lidx == lx], side = side, line = lx, at = tickpos[lidx == lx])
+  for (lx in unique(lidx)) mtext(names(tickpos[lidx == lx]), side = side, line = lx, at = tickpos[lidx == lx])
   return(tickpos)
 }
 
