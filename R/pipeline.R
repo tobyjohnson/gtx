@@ -49,6 +49,9 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## If user identity not specified, determine from USER environment variable
   options(gtxpipe.user = as.character(getOption("gtxpipe.user", paste("USER", Sys.getenv("USER", unset = "unknown"), sep = ":")))[1])
 
+  ## If date not specified, determine from system date
+  options(gtxpipe.date = as.character(getOption("gtxpipe.date", format(Sys.Date(), "%Y-%b-%d")))[1])
+  
   ## Check genotypes directory contains at least one dose/info pair and enumerate for check against done files later
   doses = gsub('\\.dose.gz$','',list.files(path = getOption("gtxpipe.genotypes"), pattern = '\\.dose.gz$'))
   infos = gsub('\\.info.gz$','',list.files(path = getOption("gtxpipe.genotypes"), pattern = '\\.info.gz$'))
@@ -166,6 +169,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   deps <- unique(tokenise.whitespace(c(gtxpipe.models$depsu, gtxpipe.groups$deps,
                                        "pop.TRTGRP", "demo.SEX", "demo.AGE", "demo.RACE", "demo.ETHNIC")))
   ## force in pop.PNITT even though this is not a mandated variable per dsm ?
+  ## Code below for groupall assumes pop.PNITT exists - there will be an error if not FIXME
   ## allow a force in list.
   ## sort columns by unique(forcelist, deps) before computing demographics tables
 
@@ -273,13 +277,15 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     })))
 
   snippets <- rbind(data.frame(value = c(
+                                 getOption("gtxpipe.protocol", "NA"),
                                  getOption("gtxpipe.project", "NA"),
                                  getOption("gtxpipe.user", "NA"),
                                  getOption("gtxpipe.email", "NA"),
+                                 getOption("gtxpipe.date", "NA"),
                                  R.version.string,
                                  as.character(packageVersion("gtx")),
                                  gtx.version[1]),
-                               row.names = c("Project", "User", "Email", "R.version", "gtx.package.version", "gtx.package.build"),
+                               row.names = c("Protocol", "Project", "User", "Email", "DataAsOf", "R.version", "gtx.package.version", "gtx.package.build"),
                                stringsAsFactors = FALSE),
                     data.frame(value = format(sapply(groupall, sum)), # automatic row names
                                stringsAsFactors = FALSE),
@@ -718,6 +724,10 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                         number = 4) # specifying number because first 4 tables are generated out-of-order
 
   message('gtxpipe: Writing source display metadata')
+  metadata <- metadata[order(as.integer(metadata$number)), ]
+  rownames(metadata) <- metadata$number
+  metadata$number <- NULL
+  ## FIXME, Should warn or truncate if titles >100 characters
   write.csv(metadata,
             file.path(getOption("gtxpipe.outputs"), "lela_metadata"))
   
@@ -847,14 +857,17 @@ pipeslave <- function(target) {
         
 pipetable <- function(data, filename, title,
                       mdata = data.frame(NULL), number,
-                      width = 8.3, height = 11.7) {
+                      width = 11.69, height = 8.27) {
+  ## FIXME allow option for row names to be suppressed in pdf, requires pass through option to textgrid()
 
+  
   ## number argument is the smallest allowable display number
-  number.used <- c(0, as.integer(mdata$Display_Number))
+  number.used <- c(0, as.integer(mdata$number))
   if (missing(number) || number %in% number.used) number <- max(number.used) + 1
   number <- gsub("^ ", "0", format(number, width = getOption("gtxpipe.display.numwidth", 2)))
+  number2 <- paste(c(getOption("gtxpipe.display.section", NULL), number), collapse = ".")
   ## Updates to code above should be made here and in pipeplot()
-  
+
   path <- file.path(getOption("gtxpipe.outputs", "."), paste(number, filename, sep = "_"))
   message('gtxpipe: Writing ', title, ' to "', path, '.[csv|pdf]"')
   dir.create(getOption("gtxpipe.outputs", "."), recursive = TRUE, showWarnings = FALSE) # FIXME throw error if fails
@@ -865,37 +878,44 @@ pipetable <- function(data, filename, title,
 
   pdf(width = width, height = height,
       file = paste(path, "pdf", sep = "."))
-  scs <- split.screen(matrix(c(1/8.3, # left margin
-                               1-1/8.3, # right margin
-                               1/11.7, # top margin
-                               1-1/11.7 # bottom margin
+  scs <- split.screen(matrix(c(1/11.69, # left margin will be 1" *if* a4 portrait
+                               1-1/11.69, # right margin
+                               1/8.27, # top margin
+                               1-1/8.27 # bottom margin
                                ), nrow = 1))
   screen(scs[1])
-  par(family="mono", cex.main = 1, cex.sub = 1, mar = c(5, 0, 4, 0) + 0.1)
+  par(family="mono", mar = c(0, 0, 4, 0) + 0.1)
   plot.new()
   plot.window(c(0, 1), c(0, 1))
   textgrid(data)
-  title(main = title, sub = paste("Source table", number))
+  mtext(paste("Protocol:", getOption("gtxpipe.protocol", "NA")), side = 3, line = 3, adj = 0)
+  mtext("Page 1 of 1", side = 3, line = 3, adj = 1)
+  mtext(paste("Population:", "ITT"), side = 3, line = 2, adj = 0) # hard coded to ITT
+  mtext(paste("Data as of:", getOption("gtxpipe.date", "NA")), side = 3, line = 2, adj = 1)
+  mtext(paste("Source table", number2), side = 3, line = 1, adj = 0.5)
+  mtext(title, side = 3, line = 0, adj = 0.5)
   close.screen(scs); dev.off()
 
   return(rbind(mdata,
                data.frame(Source_File_Name = paste(paste(number, filename, sep = "_"), "pdf", sep = "."), 
                           Display_Category = "PHARMACOGENETIC", 
                           Display_Type = "TABLE", 
-                          Display_Number = number,
+                          Display_Number = number2,
                           Title = title,
+                          number = number, 
                           stringsAsFactors = FALSE)))
 }
 
 pipeplot <- function(plotfun, filename, title,
                      mdata = data.frame(NULL), number,
                      plotdata, plotpar, 
-                     width = 8.3, height = 11.7) {
+                     width = 8.27, height = 11.69) {
 
   ## number argument is the smallest allowable display number
-  number.used <- c(0, as.integer(mdata$Display_Number))
+  number.used <- c(0, as.integer(mdata$number))
   if (missing(number) || number %in% number.used) number <- max(number.used) + 1
   number <- gsub("^ ", "0", format(number, width = getOption("gtxpipe.display.numwidth", 2)))
+  number2 <- paste(c(getOption("gtxpipe.display.section", NULL), number), collapse = ".")
   ## Updates to code above should be made here and in pipetable()
   
   path <- file.path(getOption("gtxpipe.outputs", "."), paste(number, filename, sep = "_"))
@@ -916,16 +936,16 @@ pipeplot <- function(plotfun, filename, title,
     message('gtxpipe: Plotting ', title, ' to "', path, '.pdf"')
   }
 
-  ## By default, all figures are A4 portrait with the bottom half devoted to plot metadata
+  ## By default, all figures are A4 portrait with the TOP half devoted to plot metadata
   ## Should (?) work even if plotfun subsequently alters e.g. par(mfrow)
-  scs <- split.screen(matrix(c(1/8.3, 1/8.3, # left margin
-                               1-1/8.3, 1-1/8.3, # right margin
-                               1/11.7, 0.5+0.25/11.7, # top margin
-                               0.5-0.25/11.7, 1-1/11.7 # bottom margin
+  scs <- split.screen(matrix(c(1/8.27, 1/8.27, # left margin
+                               1-1/8.27, 1-1/8.27, # right margin
+                               0.5+0.25/11.69, 1/11.69, # top margin
+                               1-1/11.69, 0.5-0.25/11.69 # bottom margin
                                ), nrow = 2))
   
   screen(scs[1])
-  oldpar <- par(family="mono", cex.main = 1, cex.sub = 1, mar = c(5, 0, 4, 0) + 0.1)
+  oldpar <- par(family="mono", mar = c(0, 0, 4, 0) + 0.1)
   plot.new()
   plot.window(c(0, 1), c(0, 1))
   if (!missing(plotdata)) {
@@ -933,7 +953,12 @@ pipeplot <- function(plotfun, filename, title,
   } else {
     text(0.5, 0.5, "MISSING PLOT METADATA")
   }
-  title(main = title, sub = paste("Source figure", number))
+  mtext(paste("Protocol:", getOption("gtxpipe.protocol", "NA")), side = 3, line = 3, adj = 0)
+  mtext("Page 1 of 1", side = 3, line = 3, adj = 1)
+  mtext(paste("Population:", "ITT"), side = 3, line = 2, adj = 0) # hard coded to ITT
+  mtext(paste("Data as of:", getOption("gtxpipe.date", "NA")), side = 3, line = 2, adj = 1)
+  mtext(paste("Source figure", number2), side = 3, line = 1, adj = 0.5)
+  mtext(title, side = 3, line = 0, adj = 0.5)
   par(oldpar)
   
   screen(scs[2])
@@ -946,8 +971,9 @@ pipeplot <- function(plotfun, filename, title,
                data.frame(Source_File_Name = paste(paste(number, filename, sep = "_"), "png", sep = "."), 
                           Display_Category = "PHARMACOGENETIC", 
                           Display_Type = "FIGURE", 
-                          Display_Number = number,
+                          Display_Number = number2,
                           Title = title,
+                          number = number,
                           stringsAsFactors = FALSE)))
 }
 
