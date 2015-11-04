@@ -572,7 +572,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       setnames(res1, "pvalue", "pvalue.GC") # not named by group to facilitate later calcs
 
       plotdata <- rbind(snippets["Project", , drop = FALSE],
-                        data.frame(value = c(lambda > 1., lambda,
+                        data.frame(value = c(lambda > 1., round(lambda, 4), 
                                      gtxpipe.models[modelid, "model"],
                                      agroup1,
                                      res1[ , sum(!is.na(res1$pvalue.GC))]), 
@@ -656,7 +656,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       ## Note we can't use '/' separated contrasts in filenames
       
       plotdata <- rbind(snippets["Project", , drop = FALSE],
-                        data.frame(value = c(lambda > 1., lambda,
+                        data.frame(value = c(lambda > 1., round(lambda, 4), 
                                      gtxpipe.models[modelid, "model"],
                                      paste(group1, group2, sep = " vs "), 
                                      res1[ , sum(!is.na(res1$pvalue.GC))]), 
@@ -716,6 +716,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   rownames(gtxpipe.results) <- 1:nrow(gtxpipe.results)
   gtxpipe.results$index <- NULL
   gtxpipe.results$makevar <- NULL
+  gtxpipe.results$lambda <- round(gtxpipe.results$lambda, 4)
   
   ## set row names to something meaningful?
   metadata <- pipetable(gtxpipe.results,
