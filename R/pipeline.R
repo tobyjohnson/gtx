@@ -197,6 +197,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## FIXME why is this so slow?
   message("gtxpipe: Computed derived variables OK")
 
+  ## FIXME ancestry PCs are not written here, note if merge, should merge all=TRUE since
+  ## we will want clinical data for non-PGx subjects
   write.csv(anal1, 
             file = file.path(getOption("gtxpipe.outputs"), "subject_analysis_dataset.csv"))
             
@@ -246,6 +248,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## Conceptually what we want is all subjects enrolled, which may not always
   ## be the same as the ITT population.  Could perhaps more robustly assume that
   ## enrolment corresponds to *some* flag pop.XXXX and use an option to specify?
+  ## The definition used here should be linked to the "Population: ITT" header in displays
   groupall <- with(anal1, list('All enrolled, ITT' = pop.PNITT,
                                'All enrolled, PGx' = pop.PNITT & is.PGx))
 
@@ -724,6 +727,17 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                         metadata,
                         number = 4) # specifying number because first 4 tables are generated out-of-order
 
+  if (all(c("demo.RACE", "demo.ETHNIC") %in% names(anal1)) &&
+      all(c("PC1", "PC2") %in% names(ancestrypcs))) {
+    adata <- merge(anal1, ancestrypcs, all = FALSE)
+    metadata <- pipeplot('pcaplot(adata)', 
+                         filename = "Ancestry_PC_plot", 
+                         title = "Ancestry principal component plot",
+                         metadata,
+                         plotdata = snippets["Project", , drop = FALSE],
+                         plotpar = list(mar = c(2, 2, 0, 0) + 0.1))
+  }
+  
   message('gtxpipe: Writing source display metadata')
   metadata <- metadata[order(as.integer(metadata$number)), ]
   rownames(metadata) <- metadata$number
@@ -993,3 +1007,45 @@ pipebed <- function(snplist, flank, outfile) {
                                file = file.path(outfile),
                                append = FALSE))
 }
+  
+pcaplot <- function(data) {
+  f <- paste(as.character(data$demo.RACE),
+             as.character(data$demo.ETHNIC), sep = "; ")
+  f <- factor(f, names(rev(sort(table(f)))))
+  o <- order(as.integer(f)) # find order so that smallest groups will be plotted on top
+  nlev <- length(levels(f))
+  colset <- alphaize(rainbow(nlev, start = 0, end = 0.7), alpha = 0.5)
+  # pchset <- rep(c(1, 0, 5, 2, 6), length.out = nlev) # open symbols
+  pchset <- rep(21:25, length.out = nlev) # transparency filled symbols
+
+  scs <- split.screen(c(2, 2)) # Must use split.screen, not par(mfrow) or other mechanisms inside pipeplot
+
+  screen(scs[1]); par(mar = c(2, 2, 0, 0) + 0.1)
+  plot(data$PC2[o], data$PC1[o],
+       pch = pchset[f][o], col = colset[f][o], bg = colset[f][o], 
+       xaxt = "n", yaxt = "n", ann = FALSE)
+  mtext("PC2", 1, 0); mtext("PC1", 2, 0)
+  screen(scs[2]); par(mar = c(2, 2, 0, 0) + 0.1)
+  plot(data$PC3[o], data$PC1[o],
+       pch = pchset[f][o], col = colset[f][o], bg = colset[f][o], 
+       xaxt = "n", yaxt = "n", ann = FALSE)
+  mtext("PC3", 1, 0); mtext("PC1", 2, 0)
+  screen(scs[3]); par(mar = c(2, 2, 0, 0) + 0.1)
+  plot.new()
+  plot.window(c(0, 1), c(0, 1))
+  tmp <- textgrid(matrix(paste(levels(f), " (n=", table(f), ")", sep = ""), ncol = 1),
+                  x0 = strwidth("M", units = "user", cex = 1),
+                  y0 = 0, x1 = 1, y1 = 1)
+  points(rep(0, nlev), tmp$ypos - 0.5*strheight("M", units = "user", cex = tmp$cex),
+         cex = tmp$cex, pch = pchset, col = colset, bg = colset)
+  mtext("Legend", 3, 0)
+  screen(scs[4]); par(mar = c(2, 2, 0, 0) + 0.1)
+  plot(data$PC3[o], data$PC2[o],
+       pch = pchset[f][o], col = colset[f][o], bg = colset[f][o], 
+       xaxt = "n", yaxt = "n", ann = FALSE)
+  mtext("PC3", 1, 0); mtext("PC2", 2, 0)
+  close.screen(scs)            
+
+  return(invisible(NULL))
+}
+  

@@ -32,3 +32,11 @@ textgrid <- function(tmat, x0 = 0, y0 = 0, x1 = x0 + 1, y1 = y0 + 1, colsep = 3,
   par(cex = oldcex)
   return(list(cex = newcex, xpos = xpos, ypos = ypos))
 }
+
+alphaize <- function(col, alpha = 0.5) {
+  return(apply(col2rgb(col, alpha = FALSE),
+               2,
+               function(rgbvals) return(do.call(rgb, as.list(c(rgbvals/255, alpha = alpha))))))
+}
+
+
