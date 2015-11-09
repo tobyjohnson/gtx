@@ -46,6 +46,8 @@ export(trial.params)
 export(multimatch)
 ## multipheno.R
 export(multipheno.T2, multipheno.OBrien)
+## pcaplot.R
+export(pcaplot)
 ## pgx.R
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 ## pipeline.R
