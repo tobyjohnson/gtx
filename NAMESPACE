@@ -55,7 +55,7 @@ export(gtxpipe)
 ## plotutils.R
 export(textgrid)
 ## power.R
-export(chi2ncp, chi2power)
+export(chi2ncp, chi2power, fupower)
 ## qq10.R
 export(qq10, qq10.new, qq10.envelope, qq10.points, gclambda)
 ## qtplot.R
