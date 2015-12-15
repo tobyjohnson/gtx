@@ -1,8 +1,10 @@
 kmplot <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
-                   legend.location = "topright", atrisk = FALSE, ...) UseMethod("kmplot", object)
+                   legend.location = "topright", legend.cex = 1,
+                   legend.median = FALSE, digits = 1, atrisk = FALSE, ...) UseMethod("kmplot", object)
 
 kmplot.character <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
-                             legend.location = "topright", atrisk = FALSE, ...) {
+                             legend.location = "topright", legend.cex = 1,
+                             legend.median = FALSE, digits = 1, atrisk = FALSE, ...) {
   stopifnot(is.data.frame(data))
   stopifnot(object %in% names(data))
   stopifnot(x %in% names(data))
@@ -15,11 +17,12 @@ kmplot.character <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
   ## exclude missing data BEFORE passing to internal function
   internal.kmplot(y[include], x[include],
                   ylab, xlab, ylim, xlim, col, lty,
-                  legend.location, atrisk, ...)
+                  legend.location, legend.cex, legend.median, digits, atrisk, ...)
 }  
 
 kmplot.Surv <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
-                        legend.location = "topright", atrisk = FALSE, ...) {
+                        legend.location = "topright", legend.cex = 1, 
+                        legend.median = FALSE, digits = 1, atrisk = FALSE, ...) {
   stopifnot(identical(nrow(object), length(x)))
   ## assert that x is a vector
   x <- as.factor(x)
@@ -27,11 +30,11 @@ kmplot.Surv <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
   include <- !is.na(object) & !is.na(x)
   internal.kmplot(object[include], x[include],
                   ylab, xlab, ylim, xlim, col, lty,
-                  legend.location, atrisk, ...)
+                  legend.location, legend.cex, legend.median, digits, atrisk, ...)
 }
 
 internal.kmplot <- function(y, x, ylab, xlab, ylim, xlim, col, lty,
-                            legend.location, atrisk, ...) {
+                            legend.location, legend.cex, legend.median, digits, atrisk, ...) {
   xcounts <- table(x)
   wlevels <- which(xcounts > 0) # which levels of x will be included in the fit
   nlevels <- length(levels(x)) # total levels including those with zero count
@@ -62,9 +65,27 @@ internal.kmplot <- function(y, x, ylab, xlab, ylim, xlim, col, lty,
        ann = FALSE, ...)
   
   n <- table(x)
-  legend(legend.location, lwd = 1, col = col, lty = lty,
-         legend = paste(levels(x), "N =", xcounts))
-
+  if (identical(tolower(legend.location), "none")) {
+    ## Don't plot legend
+  } else {
+    if (legend.median) {
+      sftf <- format(round(summary(sf)$table[ , c("median", "0.95LCL", "0.95UCL"), drop = FALSE], digits = digits))
+      sfl <- cbind(levels(x), xcounts, sftf[ , "median"],
+                   paste("(", sftf[ , "0.95LCL"], "-", sftf[ , "0.95UCL"], ")", sep = ""))
+      colnames(sfl) <- c("", "n", "Median", "(95% CI)")
+      oldcex <- par("cex")
+      par(cex = legend.cex)
+      legendgrid(legend.location, legend = sfl,
+                 xalign = c("l", "r", "r", "r"), colsep = 1, 
+                 lwd = 1, col = col, lty = lty)
+      par(cex = oldcex)
+    } else {
+      legend(legend.location, lwd = 1, col = col, lty = lty,
+             legend = paste(levels(x), "N =", xcounts),
+             cex = legend.cex)
+    }
+  }
+  
   mtext(ylab, side = 2, line = 3)
   
   if (atrisk) {

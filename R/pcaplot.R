@@ -35,11 +35,16 @@ pcaplot <- function(pcs, f) {
   screen(scs[3]); par(mar = c(2, 2, 0, 0) + 0.1)
   plot.new()
   plot.window(c(0, 1), c(0, 1))
-  tmp <- textgrid(matrix(paste(levels(f), " (n=", table(f), ")", sep = ""), ncol = 1),
-                  x0 = strwidth("M", units = "user", cex = 1),
-                  y0 = 0, x1 = 1, y1 = 1)
-  points(rep(0, nlev), tmp$ypos - 0.5*strheight("M", units = "user", cex = tmp$cex),
-         cex = tmp$cex, pch = pchset, col = colset, bg = colset)
+  ## FIXME replace with:
+  legendgrid("top",
+             legend = matrix(paste(levels(f), " (n=", table(f), ")", sep = ""), ncol = 1),
+             include.colnames = FALSE, 
+             pch = pchset, col = colset, bg = colset)
+#  tmp <- textgrid(matrix(paste(levels(f), " (n=", table(f), ")", sep = ""), ncol = 1),
+#                  x0 = strwidth("M", units = "user", cex = 1),
+#                  y0 = 0, x1 = 1, y1 = 1)
+#  points(rep(0, nlev), tmp$ypos - 0.5*strheight("M", units = "user", cex = tmp$cex),
+#         cex = tmp$cex, pch = pchset, col = colset, bg = colset)
   mtext("Legend", 3, 0)
   screen(scs[4]); par(mar = c(2, 2, 0, 0) + 0.1)
   plot(pcs[o, "PC3"], pcs[o, "PC2"],
