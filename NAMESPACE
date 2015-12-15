@@ -46,6 +46,8 @@ export(trial.params)
 export(multimatch)
 ## multipheno.R
 export(multipheno.T2, multipheno.OBrien)
+## otplot.R
+export(otplot, otplot.character, otplot.factor, otplot.numeric)
 ## pcaplot.R
 export(pcaplot)
 ## pgx.R
