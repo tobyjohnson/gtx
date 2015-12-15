@@ -123,9 +123,8 @@ legendgrid <- function(x, y = NULL,
       
   if (missing(include.colnames)) include.colnames <- !is.null(colnames(legend))
 
-  if (is.matrix(pch)) {
-    ## FIXME check col and bg atr
-
+  if (!missing(pch) && is.matrix(pch)) {
+    ## FIXME check col and bg 
     em <- paste(rep("M", ncol(pch)), collapse = "")
   } else {
     em <- "M"
