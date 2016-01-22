@@ -195,3 +195,15 @@ legendgrid <- function(x, y = NULL,
 ##            legend = as.data.frame(matrix(round(rnorm(9), 2), ncol = 3)),
 ##            xalign = rep(c("r", "l"), 5),
 ##            lty = "solid", pch = 1:10, col = rainbow(10))
+
+# misc utility function for plotting
+
+prettye <- function(x) {
+  x <- as.character(x)
+  return(sapply(x, function(x1) {
+    x1s <- unlist(strsplit(x1, "e"))
+    if (length(x1s) != 2) return(x1)
+    return(eval(substitute(expression(MMM %*% 10^EEE), list(MMM = as.numeric(x1s[1]), EEE = as.numeric(x1s[2])))))
+  }))
+}
+

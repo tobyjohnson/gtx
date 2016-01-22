@@ -57,7 +57,7 @@ export(gtxpipe)
 ## plantation.R
 export(plantation)
 ## plotutils.R
-export(textgrid)
+export(textgrid, prettye)
 ## power.R
 export(chi2ncp, chi2power, fupower)
 ## qq10.R
