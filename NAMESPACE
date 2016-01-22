@@ -54,6 +54,8 @@ export(pcaplot)
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 ## pipeline.R
 export(gtxpipe)
+## plantation.R
+export(plantation)
 ## plotutils.R
 export(textgrid)
 ## power.R
