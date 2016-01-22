@@ -83,3 +83,12 @@ valuesof <- function(x, sep = ",", na.convert = NA) {
   if (length(x) == 0) return(NA)
   paste(as.character(unique(x)), collapse = sep)
 }
+
+Surv2 <- function(tevent, tcensor) {
+  stopifnot(identical(length(tevent), length(tcensor)))
+  event <- !is.na(tevent) & tevent <= tcensor
+  return(Surv(time = ifelse(event, tevent, tcensor),
+              event = event,
+              type = 'right'))
+}
+
