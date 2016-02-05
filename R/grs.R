@@ -90,7 +90,7 @@ grs.filter.Qrs <- function (w, b, s, p.thresh = 0.05) {
     f[which.min(sapply(1:length(f), function(ii) {
       if (!f[ii]) return(NA)
       ff <- f & 1:length(f) != ii
-      sum((b[ff] * s[ff]^-1)^2) - sum(w[ff] * b[ff] * s[ff]^-2)/sum(w[ff]^2 * s[ff]^-2)^2 * sum(w[ff]^2 * s[ff]^-2)}))] <- FALSE
+      sum((b[ff] * s[ff]^-1)^2) - sum(w[ff] * b[ff] * s[ff]^-2)^2/sum(w[ff]^2 * s[ff]^-2)^2 * sum(w[ff]^2 * s[ff]^-2)}))] <- FALSE
   }
   return(f)
 }
