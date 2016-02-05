@@ -55,9 +55,9 @@
 \title{Efficient Calculation for Multi-SNP Genetic Risk Scores}
 \author{Toby Johnson \texttt{<Toby.x.Johnson@gsk.com>},
   GlaxoSmithKline, Stevenage, UK}
-\date{presented at the 
+\date{Poster presented at the 
   American Society of Human Genetics Annual Meeting,
-  San Francisco, November 6--10, 2012 }
+  San Francisco, November 6--10, 2012 (with correction, Feb 5, 2016)}
 \maketitle
 \thispagestyle{empty}
 
@@ -328,6 +328,8 @@ hdl.filter <- with(subset(lipid.cad.scores, score == "HDL"), grs.filter.Qrs(coef
 hdl.grs2 <- with(subset(lipid.cad.scores, score == "HDL"), grs.summary(coef[hdl.filter], beta_CAD[hdl.filter], se_CAD[hdl.filter], 38684 + 9633))
 tg.filter <- with(subset(lipid.cad.scores, score == "TG"), grs.filter.Qrs(coef, beta_CAD, se_CAD))
 tg.grs2 <- with(subset(lipid.cad.scores, score == "TG"), grs.summary(coef[tg.filter], beta_CAD[tg.filter], se_CAD[tg.filter], 38684 + 9633))
+stopifnot(with(subset(lipid.cad.scores, score == "HDL"), identical(sort(locus[!hdl.filter]), c("APOA5-A1", "LPL"))))
+stopifnot(with(subset(lipid.cad.scores, score == "TG"), identical(sort(locus[!tg.filter]), c("LPL"))))
 @ 
 
 \begin{center}
@@ -337,8 +339,7 @@ tg.grs2 <- with(subset(lipid.cad.scores, score == "TG"), grs.summary(coef[tg.fil
       $\mathsf{Q_\mathsf{rs}}$ at each step until there was no
       significant heterogeneity (at $\mathsf{P\le0.05}$), removed
       SNPs at the \textit{APOA5-A1} and \textit{LPL} loci for HDL, and
-      removed SNPs at the \textit{GCKR}, \textit{TRIB1} and
-      \textit{APOA5-A1} loci for triglycerides.  Estimated effects on
+      removed the SNP at the \textit{LPL} locus for triglycerides.  Estimated effects on
       CAD risk are plotted against estimated effect on serum lipid
       biomarkers for the remaining SNPs.  Corresponding estimates of
       casual effect of biomarker on CAD risk are represented by red
@@ -366,27 +367,32 @@ with(subset(lipid.cad.scores, score == "TG"), {
 \\
 \end{center}
 
-After removing SNPs that likely violate assumptions required for a
-Mendelian randomisation argument, multi-SNP risk score analyses
-suggest no causal effects of either HDL or triglycerides on CAD risk, with
-narrow 95\% CIs 
+By comparison with more sophisticated analyses based on summary statistics for larger
+numbers of SNPs and increased sample sizes
+\cite{voight12:_plasm_hdl_choles_risk_myocar_infar,
+burgess14:_using_multiv_mende_rando_disen}, 
+the heterogeneity test yields valid conclusions when applied
+to all SNPs in scope for analysis, but the \textit{ad hoc} 
+stepwise procedure for removing SNPs (\textsf{Figure 2}) cannot be
+recommended.
+The resulting multi-SNP risk score analyses
+suggest no causal effect for HDL on CAD risk, with
+narrow 95\% CI 
 (\Sexpr{oppc(hdl.grs2, +10, 0.025)}--\Sexpr{oppc(hdl.grs2, +10, 0.975)} 
 odds for CAD per 10\% HDL increase, 
-$P=\Sexpr{round(hdl.grs2$pval, 2)}$;
-\Sexpr{oppc(tg.grs2, -10, 0.975)}--\Sexpr{oppc(tg.grs2, -10, 0.025)} 
-odds for CAD per 10\% triglyceride decrease, 
-$P=\Sexpr{round(tg.grs2$pval, 2)}$).\vspace{11pt}
+$P=\Sexpr{round(hdl.grs2$pval, 2)}$ (likely a correct inference),
+but suggest stronger evidence for a causal effect for TG on CAD
+risk, \Sexpr{oppc(tg.grs2, +10, 0.5)} odds (95\% CI 
+\Sexpr{oppc(tg.grs2, +10, 0.975)}--\Sexpr{oppc(tg.grs2, +10, 0.025)})
+per 10\% triglyceride increase, 
+$P=\Sexpr{latexp(tg.grs2$pval)}$ (likely an incorrect inference).  An
+alternative ``MR-Egger'' approach is recommended 
+\cite{bowden15:_mende_rando_inval_instr}.
+\vspace{11pt}
 
-By constructing a genetic risk score for HDL, excluding
-``pleiotropic'' SNPs significantly associated (at $P\le0.01$) with
-either LDL or triglycerides,
-\cite{voight12:_plasm_hdl_choles_risk_myocar_infar} used the method
-described here to support a related conclusion, that HDL has no causal
-effect on myocardial infarction risk.  An advantage of the the
-goodness of fit approach described here is that SNPs with
-``pleiotropic'' effects on disease risk can be excluded from the risk
-score, even when suitable markers for the ``pleiotropic'' effects are
-not available.
+\textbf{Note:  The original version of this poster included
+  calculations with an error in the algorithm for stepwise removal of
+  SNPs, and incorrectly drew a more positive conclusion.}
 
 {\tiny\begin{raggedright}
     \newcommand{\etalchar}[1]{$^{#1}$}
@@ -395,6 +401,19 @@ not available.
   \providecommand{\doi}[1]{doi:\discretionary{}{}{}#1}\else
   \providecommand{\doi}{doi:\discretionary{}{}{}\begingroup
   \urlstyle{rm}\Url}\fi
+
+\bibitem[BDSB15]{bowden15:_mende_rando_inval_instr}
+\textsc{J.~Bowden} et~al. (2015) Mendelian
+  randomization with invalid instruments: {E}ffect estimation and bias
+  detection through {E}gger regression.
+\newblock \emph{Int.\ J.\ Epidemiol.} \textbf{44}:512--525.
+\newblock {doi}:10.1093/ije/dyv080.
+
+\bibitem[BFK{\etalchar{+}}14]{burgess14:_using_multiv_mende_rando_disen}
+\textsc{S.~Burgess} et~al. (2014) Using Multivariable Mendelian
+Randomization to Disentangle the Causal Effects of Lipid Fractions.
+\newblock \emph{PLoS ONE} \textbf{9}:e108891.
+\newblock {doi}:10.1371/journal.pone.0108891.
 
 \bibitem[DHT{\etalchar{+}}12]{dastani12:_novel_loci_adipon_level_their}
 \textsc{Z.~Dastani} et~al. (2012) Novel loci for adiponectin levels

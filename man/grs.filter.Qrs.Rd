@@ -17,6 +17,12 @@ grs.filter.Qrs(w, b, s, p.thresh = 0.05)
   \item{p.thresh}{P-value threshold}
 }
 \details{
+  \strong{A critical bug in this function was corrected in gtx
+  package version 0.0.10.  Output from previous versions should be
+  treated as incorrect.  Even with the bug fixed, the function
+  implements a method with no well defined statistical
+  properties.}
+
   When there are m SNPs in the risk score, the heterogeneity
   test is an (m-1) d.f. LRT comparing the 1 d.f. risk score model
   against the unconstrained m d.f. model, as reported by the Qrs
@@ -30,6 +36,7 @@ grs.filter.Qrs(w, b, s, p.thresh = 0.05)
   risk score only affect the outcome with effects proportional to their
   weights in the score (including the possibility of zero effects), and
   a minority of SNPs affect the outcome with non-proportional effects.
+  The working definition of \sQuote{minority} is unclear.
 
   When using a risk score to make causal inference, the application of
   this procedure (and indeed of any use of the heterogeneity test)
@@ -41,6 +48,15 @@ grs.filter.Qrs(w, b, s, p.thresh = 0.05)
   \code{\link{grs.summary}} and removing SNPs based on inspection of
   \code{\link{grs.plot}}, the \code{grs.filter.Qrs} procedure offers
   only convenience and (a modicum of) objectivity, and nothing more.
+
+  Since this heterogeneity test was initially proposed, a number of
+  alternative methods have been described that are likely to be
+  superior, including the MR-Egger approach of:
+
+  Bowden, J, Davey Smith, G, and Burgess, S (2015) Mendelian
+  randomization with invalid instruments: Effect estimation and bias
+  detection through Egger regression.  Int. J. Epidemiol. 44:512-525
+  \url{https://dx.doi.org/10.1093/ije/dyv080}
 }
 \value{
   A logical vector of the same length as \code{w}, set TRUE or FALSE

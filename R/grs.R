@@ -92,6 +92,7 @@ grs.filter.Qrs <- function (w, b, s, p.thresh = 0.05) {
       ff <- f & 1:length(f) != ii
       sum((b[ff] * s[ff]^-1)^2) - sum(w[ff] * b[ff] * s[ff]^-2)^2/sum(w[ff]^2 * s[ff]^-2)^2 * sum(w[ff]^2 * s[ff]^-2)}))] <- FALSE
   }
+  warning("grs.filter.Qrs() implements a method with no well defined statistical properties.  Have you read and understood the documentation?  Are you SURE you want to use this method?")
   return(f)
 }
 
