@@ -39,6 +39,7 @@ qq10.points <- function (p, ...) {
 
 qq10 <- function (p, pmin = NULL, alpha = 0.01, ...) {
   p <- p[!is.na(p)]
+  stopifnot(length(p) > 0)
   if (is.null(pmin)) pmin <- min(c(p, 0.5/length(p)))
   stopifnot(pmin > 0)
   qq10.new(pmin)
