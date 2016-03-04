@@ -628,7 +628,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       setnames(res1, "SE", "SE.GC")
       ## Set SE.GC to NA when mis-calibrated,
       ## working definition being Wald chisquare statistic > 2. times the LRT chisquare statistic
-      res1[(beta/SE.GC)^2 / qchisq(pvalue.GC, df = 1, lower.tail = FALSE) > 2., SE.GC <- NA]
+      res1[(beta/SE.GC)^2 / qchisq(pvalue.GC, df = 1, lower.tail = FALSE) > 2., SE.GC := NA]
 
       setnames(res1, "SE.GC", paste("SE.GC", agroup1, sep = "."))
       setnames(res1, "beta", paste("beta", agroup1, sep = ".")) # named by groups, used in clever join in constrasts
