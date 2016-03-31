@@ -167,7 +167,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## Should we do the same for group dependencies?
   
   deps <- unique(tokenise.whitespace(c(gtxpipe.models$depsu, gtxpipe.groups$deps,
-                                       "pop.TRTGRP", "demo.SEX", "demo.AGE", "demo.RACE", "demo.ETHNIC")))
+                                       "pop.PNITT", "pop.TRTGRP", "demo.SEX", "demo.AGE", "demo.RACE", "demo.ETHNIC")))
   ## force in pop.PNITT even though this is not a mandated variable per dsm ?
   ## Code below for groupall assumes pop.PNITT exists - there will be an error if not FIXME
   ## allow a force in list.
