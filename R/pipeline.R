@@ -104,7 +104,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   gtxpipe.groups$group <- gsub("\\s+", "", gtxpipe.groups$group)
   ## Enforce alphanumeric names because they will be used as directory names
   with(list(bg = !grepl("^[A-Za-z0-9]+$", gtxpipe.groups$group)),
-       if (any(bg)) stop("Groups ", paste(groups[bm, "group"], collapse = ", "),
+       if (any(bg)) stop("Groups ", paste(groups[bg, "group"], collapse = ", "),
                          "have non-alphanumeric names.  You need to fix this in gtxpipe.groups"))
   
   ##
