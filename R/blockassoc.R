@@ -63,8 +63,7 @@ blockassoc <- function(qcall, data, minimac,
     ## otherwise fall through to interpreted code
   }
 
-  m0 <- eval(qcall, envir = data)
-
+  
   if (!missing(minimac)) {
     ## should loop over multiple files if supplied
     info <- read.table(gzfile(paste(minimac, "info.gz", sep = ".")),
@@ -85,7 +84,7 @@ blockassoc <- function(qcall, data, minimac,
       " subjects with non-missing phenotypes, covariates, and genotypes\n", sep = "")
   data <- data[data.include, , drop = FALSE]
   data.machid <- paste(data[[usubjid]], data[[usubjid]], sep = "->") # update 
-
+  m0 <- eval(qcall, envir = data)
   cat(message.begin, ": Using ", length(data.machid), "/", nrow(dose),
       " genotyped subjects\n", sep = "")
   dose <- dose[match(data.machid, dose[ , 1]), 3:ncol(dose)]
