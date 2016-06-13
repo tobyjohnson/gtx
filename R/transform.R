@@ -19,6 +19,16 @@ replaceNA <- function(x, replacement = NA) {
 ## convenience function 
 twopq <- function(p) return(2*p*(1 - p))
 
+## convenience function for computing -log10(p) when p is very small
+## [such that -log10(pnorm(-abs(beta)/se)*2) fails because
+## pnorm() returns zero to machine precision]
+mlog10p <- function(beta, se) {
+  if (missing(se)) se <- rep(1, length(beta))
+  stopifnot(identical(length(beta), length(se)))
+  return(-(pnorm(-abs(beta)/se, log.p = TRUE) + log(2))/log(10))
+}
+
+
 ##
 ## zise() performs normal quantile transformation
 ##
@@ -92,3 +102,12 @@ Surv2 <- function(tevent, tcensor) {
               type = 'right'))
 }
 
+landmark <- function(s, tstart) {
+  stopifnot(identical(class(s), "Surv"))
+  if (identical(length(tstart), 1L)) {
+    tstart <- rep(tstart, nrow(s))
+  }
+  stopifnot(identical(length(tstart), nrow(s)))
+  inc <- s[ , "time"] >= tstart
+  return(Surv(ifelse(inc, s[ , "time"] - tstart, NA), ifelse(inc, s[ , "status"], NA)))
+}
