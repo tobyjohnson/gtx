@@ -8,6 +8,7 @@ blockstats.lm <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract
+  if(length(na.omit(residuals(m0))) != n) stop("Unequal sample size for m0 and m1!")
   pval <- pt(-abs(beta)/se, df = m1$df.residual)*2
   return(c(n = n, beta = beta, se = se, lrt = NA, pval = pval))
 }
@@ -16,6 +17,7 @@ blockstats.glm <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract
+  if(length(na.omit(residuals(m0))) != n) stop("Unequal sample size for m0 and m1!")
   lrt <- max(m0$deviance - m1$deviance, 0)
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
@@ -25,6 +27,7 @@ blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   lrt <- max(2*(m1$loglik[2] - m0$loglik[2]), 0)
   n <- m1$n
+  if(m0$n != n) stop("Unequal sample size for m0 and m1!")
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
@@ -33,6 +36,7 @@ blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
   lrt <- max(2*(m1$logLik - m0$logLik), 0)
   n <- m1$n
+  if(m0$n != n) stop("Unequal sample size for m0 and m1!")
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
