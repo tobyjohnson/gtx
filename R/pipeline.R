@@ -18,14 +18,14 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## arguments for project-specific
 
   data(gtx.version)
-  message("gtxpipe() from package gtx version ", as.character(packageVersion("gtx")), " on ", R.version.string)
-  message("gtx package build: ", gtx.version[1])
+  message(Sys.time(), " gtxpipe() from package gtx version ", as.character(packageVersion("gtx")), " on ", R.version.string)
+  message(Sys.time(), " gtx package build: ", gtx.version[1])
   # R.version$os %in% c("linux-gnu", "cygwin")
 
   ## Load any packages specified by gtxpipe.packages option, clean up ready to pass to pipeslave
   packages <- intersect(getOption('gtxpipe.packages', NULL), rownames(installed.packages()))
   for (package in packages) {
-    message("gtxpipe: loading package '", package, "'")
+    message(Sys.time(), " gtxpipe: loading package '", package, "'")
     if (!require(package, character.only = TRUE, quietly = TRUE)) {
       stop("gtxpipe: fatal error, unable to load package '", package, "'")
     }
@@ -176,26 +176,26 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   with(list(bd = setdiff(deps, tokenise.whitespace(gtxpipe.derivations$targets))),
        if (length(bd) > 0) stop("Required variable(s) ", paste(bd, collapse = ", "),
                                 " have no derivation rule(s) defined.  You need to add rules to gtxpipe.derivations"))
-  message("gtxpipe: Required variables: ", paste(deps, collapse = ", "))
+  message(Sys.time(), " gtxpipe: Required variables: ", paste(deps, collapse = ", "))
   
   ## which clinical datasets do we actually need?  clinical.derive *always* requires a pop dataset
   ddeps <- unique(c("pop", tokenise.whitespace(gtxpipe.derivations[sapply(1:nrow(gtxpipe.derivations), function(idx) {
     any(tokenise.whitespace(gtxpipe.derivations[idx, "targets"]) %in% deps)
   }), "deps"])))
 
-  message("gtxpipe: Required datasets: ", paste(ddeps, collapse = ", "))
+  message(Sys.time(), " gtxpipe: Required datasets: ", paste(ddeps, collapse = ", "))
 
-  message('gtxpipe: Looking for datasets in gtxpipe.clinical="', getOption("gtxpipe.clinical"), '"')
+  message(Sys.time(), ' gtxpipe Looking for datasets in gtxpipe.clinical="', getOption("gtxpipe.clinical"), '"')
   clindata <- clinical.import(getOption("gtxpipe.clinical"), only = ddeps)
   
   with(list(bd = setdiff(ddeps, names(clindata))),
        if (length(bd) > 0) stop("Required dataset(s) not found"))
   ## FIXME would be nicer if clinical.import had its own error checking; should it have "only" and "require" options??
   
-  #message("gtxpipe: Read clinical datasets OK")
+  #message(Sys.time(), " gtxpipe: Read clinical datasets OK")
   anal1 <- clinical.derive(clindata, gtxpipe.derivations, only = deps)
   ## FIXME why is this so slow?
-  message("gtxpipe: Computed derived variables OK")
+  message(Sys.time(), " gtxpipe: Computed derived variables OK")
 
   ## FIXME ancestry PCs are not written here, note if merge, should merge all=TRUE since
   ## we will want clinical data for non-PGx subjects
@@ -312,7 +312,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                         "subject_disposition",
                         "Subject disposition by PGx analysis group",
                         number = 2) # specifying number because first 4 tables are generated out-of-order
-#  message('gtxpipe: Writing subject disposition to "', file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"), '"')
+#  message(Sys.time(), ' gtxpipe Writing subject disposition to "', file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"), '"')
 #  write.csv(gtxpipe.groups[ , c("group", "arms", "N.ITT", "N.PGx")],
 #            file = file.path(getOption("gtxpipe.outputs"), "02_subject_disposition.csv"),
 #            row.names = TRUE)
@@ -330,7 +330,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                         "subject_demographics",
                         "Demographics of subjects included in PGx analyses",
                         metadata, number = 3) # specifying number because first 4 tables are generated out-of-order
-#  message('gtxpipe: Writing subject demographics to "', file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"), '"')
+#  message(Sys.time(), ' gtxpipe Writing subject demographics to "', file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"), '"')
 #  write.csv(demographics(anal1, by = groupby),
 #            file = file.path(getOption("gtxpipe.outputs"), "03_subject_demographics.csv"),
 #            row.names = TRUE)
@@ -423,14 +423,14 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
       ## Everything as paths relative to getwd() at runtime
 
-      message("gtxpipe: Fitting model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
+      message(Sys.time(), " gtxpipe: Fitting model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       mtmp <- eval(parse(text = gtxpipe.models[modelid, "fun"]), envir = adata)
       if (length(c(trtgrp.cov, names(ancestrypcs)[-1])) > 0) {
         m0 <- update(mtmp, formula = as.formula(paste("~ . +", paste(c(trtgrp.cov, names(ancestrypcs)[-1]), collapse = "+"))))
       } else {
         m0 <- mtmp
       }
-
+      
       ## Print model summary in Gx report.
       ## NOTE THAT WITH EMPTY MODELS drop1() throws an unhelpful error message
       ## drop1(m0, test="Chisq")
@@ -488,15 +488,17 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       cat('\trm ', adir, '/*out.gz\n\n', sep='')
       #If cvlist defined, extract results
       if (!is.na(gtxpipe.models[modelid, "cvlist"]) && gtxpipe.models[modelid, "cvlist"] != '') {
-        cat(adir, '/CV.out.txt.gz: ', adir, '/ALL.out.txt.gz.tbi\n',sep='')
-        cat('\ttabix -hB ', adir, '/ALL.out.txt.gz ', adir, '/CV.bed | gzip > ', adir, '/CV.out.txt.gz\n\n', sep='')
+        cat(adir, '/CV.flanking.out.txt.gz: ', adir, '/ALL.out.txt.gz.tbi\n',sep='')
+        cat('\ttabix -hB ', adir, '/ALL.out.txt.gz ', adir, '/CV.bed | gzip > ', adir, '/CV.flanking.out.txt.gz\n\n', sep='')
         return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
-                        makevar = paste(adir, '/CV.out.txt.gz', sep = ''),
+                        makevar = paste(adir, '/CV.flanking.out.txt.gz', sep = ''),
+                        modelCall= gsub("formula = ", "", as.character(as.expression(m0$call))),
                         stringsAsFactors = FALSE))
       }
       else {
         return(data.frame(model = gtxpipe.models[modelid, "model"], group = agroup1, N = nrow(adata),
                         makevar = paste(adir, '/ALL.out.txt.gz.tbi', sep = ''),
+                        modelCall= gsub("formula = ", "", as.character(as.expression(m0$call))),
                         stringsAsFactors = FALSE))
       }
     })))
@@ -507,7 +509,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
   gtxpipe.analyses$index <- 1:nrow(gtxpipe.analyses)
   gtxpipe.analyses <- merge(gtxpipe.analyses, analN, all.x = TRUE, all.y = FALSE)
-
+  
   ## FIXME Would be nice to automagically compute N or N1/N2 for contrasts.  Needs to be done within levels of model.
 
   metadata <- pipetable(snippets,
@@ -525,10 +527,10 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## SGE_ARCH=lx24-amd64 nohup qmake -v PATH -cwd -l qname=dl580 -- --jobs=256 &
   ## consider adding -l h_data=4G
   ## consider a series of make comments run in series
-  message("Running make now")
+  message(Sys.time(), " Running make now")
   makesuccess <- system(paste(getOption("gtxpipe.make", "make"), " 1>Makefile.out 2>Makefile.err", sep = ""))
   if (makesuccess != 0) {
-    stop("make failed, check Makefile.out and Makefile.err")
+    #stop("make failed, check Makefile.out and Makefile.err")
   }
 
 
@@ -536,17 +538,24 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     alpha <- .05 # this should be an option
     cvlist <- if (!is.na(gtxpipe.models[modelid, "cvlist"])) tokenise.whitespace(gtxpipe.models[modelid, "cvlist"]) else NULL
     if (length(cvlist) > 0) {
-                                        ## alpha spend 0.5 for GWAS, 0.5 for CV
+      ## alpha spend 0.5 for GWAS, 0.5 for CV
       thresh1 <- alpha*0.5*gtxpipe.models$alpha1[modelid]*1e-6
       thresh2 <- alpha*0.5*gtxpipe.models$alpha1[modelid]/length(cvlist)
     } else {
       thresh1 <- alpha*gtxpipe.models$alpha1[modelid]*1e-6
       thresh2 <- 0
     }
+    #user specified p value threshold
+    if("P_threshold_gwas" %in% names(gtxpipe.models) & !is.na(gtxpipe.models[modelid, "P_threshold_gwas"]))
+      thresh1 <- as.numeric(as.character(gtxpipe.models[modelid, "P_threshold_gwas"]))
+    if("P_threshold_cv" %in% names(gtxpipe.models) & !is.na(gtxpipe.models[modelid, "P_threshold_cv"]))
+      thresh2 <- as.numeric(as.character(gtxpipe.models[modelid, "P_threshold_cv"]))
     
+    
+    out.signif <- 6
     agroups <- tokenise.whitespace(gtxpipe.models[modelid, "agroups"])
     res <- lapply(agroups, function(agroup1) {
-      message("gtxpipe: Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
+      message(Sys.time(), " gtxpipe: Collating results for model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       adir <- file.path(adir0, gtxpipe.models[modelid, "model"], agroup1)
 
       ## make can silently fail, need to check for .done files
@@ -554,35 +563,94 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       if (length(dones) < length(chunks)) stop("Not all chunks analysed for model [", gtxpipe.models[modelid, "model"], 
                                                "] in group [", agroup1, "]. Try re-running to capture the missing chunks [", 
                                                paste(setdiff(chunks,dones), collapse=", "), "]")
-
+      
+      file.out <- file.path(adir, "ALL.out.txt.gz")
+      file.out.gc<- file.path(adir, "ALL.out.gc.txt.gz")
+      file.out.gc.sig <- file.path(adir, "GenomeWideSignif.out.gc.txt")
+      file.out.gc.sig.flanking <- file.path(adir, "GenomeWideSignif.flanking.out.gc.txt.gz")
+      file.out.gc.cv<- file.path(adir, "CV.out.gc.txt")
+      file.out.gc.cv.flanking<- file.path(adir, "CV.flanking.out.gc.txt.gz")
+      file.bed.cv<-file.path(adir, "CV.bed")
+      file.bed.sig<- file.path(adir, "GenomeWideSignif.bed")
+      
       ## Reading results which were compiled across chunks during make call
-      res1 <- read.table(gzfile(file.path(adir, "ALL.out.txt.gz")),
-                          quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
+      res1 <- read.table(gzfile(file.out), quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE, check.names=F)
       ## Confirm expected columns present
-      stopifnot(all(c("SNP", "pvalue", "beta", "SE") %in% names(res1)))
+      stopifnot(all(c("#CHROM", "SNP", "pvalue", "beta", "SE") %in% names(res1)))
+      #names(res1) <- gsub("X.", "", names(res1), fixed = T)
       ## Convert to data table to improve efficiency retaining only needed columns and rows with non-missing pvalue
-      res1 <- data.table(res1[!is.na(res1$pvalue), c("SNP", "pvalue", "beta", "SE"), drop = FALSE])
+      res1 <- data.table(res1[!is.na(res1$pvalue), ])
       ## Sort by SNP
       setkey(res1, SNP)
       ## Makes sense to apply GC and not store redundant (non-GCed) results here
       ## pvalue from 'best' method, LRT or F test
       lambda <- res1[ , gclambda(pvalue)]
       setattr(res1, "lambda", lambda)
+      invisible(if (lambda <= 1.) res1[ , pvalue.GC := pvalue])
       invisible(if (lambda > 1.) {
-        res1[ , pvalue := pchisq(qchisq(pvalue, df = 1, lower.tail = FALSE)/lambda, df = 1, lower.tail = FALSE)]
-        ## overwrite, save memory
+        res1[ , pvalue.GC := signif(pchisq(qchisq(pvalue, df = 1, lower.tail = FALSE)/lambda, 
+                                           df = 1, lower.tail = FALSE), digits = out.signif  )]
       })
-      setnames(res1, "pvalue", "pvalue.GC") # not named by group to facilitate later calcs
-
+      
+      ## Apply GC to SEs using pvalues from Wald test
+      lambdaWald <- res1[ , gclambda(pchisq((beta/SE)^2, df = 1, lower.tail = FALSE))]
+      setattr(res1, "lambdaWald", lambdaWald)
+      invisible(if (lambdaWald <= 1.) res1[ , SE.GC := SE])
+      invisible(if (lambdaWald > 1.) {
+        res1[ , SE.GC := signif(SE*sqrt(lambdaWald), digits = out.signif  )] 
+      })
+      
+      ## Set SE.GC to NA when mis-calibrated,
+      ## working definition being Wald chisquare statistic > 2. times the LRT chisquare statistic
+      res1[(beta/SE.GC)^2 / qchisq(pvalue.GC, df = 1, lower.tail = FALSE) > 2., SE.GC := NA]
+      
+      #output gc results
+      message(Sys.time(), ": Writing GWAS results to ", file.out.gc)
+      write.table(res1, file=gzfile(file.out.gc), sep = "\t", row.names = F, quote = F)
+      if(system(paste("zcat", file.out.gc,  "| sort -T . -k 1,1 -k 2,2n | uniq | bgzip -f >", paste(file.out.gc, "0", sep =""))) ==0) {
+        system(paste("mv", "-f", paste(file.out.gc, "0", sep =""), file.out.gc))
+        if(system(paste("tabix -f -b 2 -e 2", file.out.gc))!= 0)
+          warning("gtxpipe: tabix ", file.out.gc, " failed")
+      }
+      else warning("gtxpipe: bgzip ", file.out.gc, " failed")
+      
+      #Create bed file to tabix out genome-wide significant results
+      if (sum(res1$pvalue.GC <= thresh1, na.rm = TRUE) > 0) {
+        snplist<- res1[res1$pvalue.GC <= thresh1,SNP]
+        pipebed(snplist = snplist, flank = 500000, outfile = file.bed.sig)
+        #Run tabix extraction
+        message(Sys.time(), ": Writing GWAS significant results to ", file.out.gc.sig)
+        write.table(res1[snplist,names(res1), with = FALSE], file=file.out.gc.sig, sep = "\t", row.names = F, quote = F)
+        message(Sys.time(), ": Writing GWAS significant results plus flanking region to ", file.out.gc.sig.flanking)
+        tabixsuccess <- system(paste("tabix -hB", file.out.gc, file.bed.sig, "| gzip >", file.out.gc.sig.flanking))
+        if (tabixsuccess != 0) {
+          warning("gtxpipe: tabix extraction of genome-wide significant results failed for ", file.out.gc.sig.flanking)
+        }
+      }
+      
+      if (length(cvlist) > 0) {
+        snplist<- intersect(cvlist, res1$SNP)
+        message(Sys.time(), ": Writing candiate gene results to ",file.out.gc.cv)
+        write.table(res1[snplist, names(res1), with = FALSE], file=file.out.gc.cv, sep = "\t", row.names = F, quote = F)
+        message(Sys.time(), ": Writing candidate gene results plus flanking region to ", file.out.gc.cv.flanking)
+        tabixsuccess <- system(paste("tabix -hB", file.out.gc, file.bed.cv, "| gzip >", file.out.gc.cv.flanking))
+        if (tabixsuccess != 0) {
+          warning("gtxpipe: tabix extraction of candidate gene gc results failed for ", file.out.gc.cv.flanking)
+        }
+      }
+      
+      setnames(res1, "SE.GC", paste("SE.GC", agroup1, sep = "."))
+      setnames(res1, "beta", paste("beta", agroup1, sep = ".")) # named by groups, used in clever join in constrasts
+      
+      
       plotdata <- rbind(snippets["Project", , drop = FALSE],
                         data.frame(value = c(lambda > 1., round(lambda, 4), 
                                      gtxpipe.models[modelid, "model"],
+                                     analN[analN$model == gtxpipe.models[modelid, "model"] & analN$group==agroup1, "modelCall"],
                                      agroup1,
                                      res1[ , sum(!is.na(res1$pvalue.GC))]), 
                                    row.names = c("GenomicControl", "Lambda",
-                                     "Model",
-                                     "Subgroup",
-                                     "PValues"),
+                                     "Model", "Call","Subgroup","PValues"),
                                    stringsAsFactors = FALSE))
       
       ## Note, QQ and Manhattan plots are drawn *after* genomic control
@@ -605,40 +673,13 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
              pos = parent.frame(n = 4))
       ## Have to use assign(..., pos = ) to update metadata from inside two levels of nested anonymous function
 
-      #Create bed file to tabix out genome-wide significant results
-      if (sum(res1$pvalue.GC <= thresh1, na.rm = TRUE) > 0) {
-        pipebed(snplist = res1[res1$pvalue.GC <= thresh1,SNP], flank = 500000, 
-                outfile = file.path(adir, "GenomeWideSignif.bed"))
-        #Run tabix extraction
-        message("gtxpipe: Extracting genome-wide significant results now")
-        tabixsuccess <- system(paste("tabix -hB ", adir , "/ALL.out.txt.gz ",
-                                  adir , "/GenomeWideSignif.bed | gzip >", adir, 
-                                  "/GenomeWideSignif.out.txt.gz", sep = ""))
-        if (tabixsuccess != 0) {
-          warning("gtxpipe: tabix extraction of genome-wide significant results failed")
-        }
-      }
-
-      ## Apply GC to SEs using pvalues from Wald test
-      lambdaWald <- res1[ , gclambda(pchisq((beta/SE)^2, df = 1, lower.tail = FALSE))]
-      setattr(res1, "lambdaWald", lambdaWald)
-      invisible(if (lambdaWald > 1.) {
-        res1[ , SE := SE*sqrt(lambdaWald)] # overwrite, save memory
-      })
-      setnames(res1, "SE", "SE.GC")
-      ## Set SE.GC to NA when mis-calibrated,
-      ## working definition being Wald chisquare statistic > 2. times the LRT chisquare statistic
-      res1[(beta/SE.GC)^2 / qchisq(pvalue.GC, df = 1, lower.tail = FALSE) > 2., SE.GC := NA]
-
-      setnames(res1, "SE.GC", paste("SE.GC", agroup1, sep = "."))
-      setnames(res1, "beta", paste("beta", agroup1, sep = ".")) # named by groups, used in clever join in constrasts
-      return(res1)
+        return(res1)
     })
     names(res) <- agroups
     
     contrasts1 <- tokenise.whitespace(gtxpipe.models[modelid, "contrasts"])
     resc <- lapply(contrasts1, function(contrast1) {
-      message("gtxpipe: Collating results for model ", gtxpipe.models[modelid, "model"], " for contrast ", contrast1)
+      message(Sys.time(), " gtxpipe: Collating results for model ", gtxpipe.models[modelid, "model"], " for contrast ", contrast1)
 
       ## Are we better to do each contrast as a join, or lam the whole lot up and delete the unwanted columns later?
       
@@ -655,23 +696,38 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       lambda <- res1[ , median(chi2, na.rm = TRUE)/qchisq(0.5, df = 1, lower.tail = FALSE)]
       setattr(res1, "lambda", lambda) # This is a Wald-like test but it's the primary one for the contrast
       invisible(if (lambda > 1.) {
-        res1[ , pvalue.GC := pchisq(chi2/lambda, df = 1, lower.tail = FALSE)]
+        res1[ , pvalue.GC := signif(pchisq(chi2/lambda, df = 1, lower.tail = FALSE), digits = out.signif  )]
       } else {
-        res1[ , pvalue.GC := pchisq(chi2, df = 1, lower.tail = FALSE)]
+        res1[ , pvalue.GC := signif(pchisq(chi2, df = 1, lower.tail = FALSE), digits = out.signif  )]
       })
       res1[ , chi2 := NULL]
+      setkey(res1, SNP)
+      
+      adir <- file.path(adir0, gtxpipe.models[modelid, "model"])
+      file.out.contrast<- file.path(adir, paste("ALL.", group1, "_vs_", group2, ".out.gc.txt.gz", sep= ""))
+      file.out.contrast.sig<- file.path(adir, paste("GenomeWideSignif.", group1, "_vs_", group2, ".out.gc.txt", sep= ""))
+      file.out.contrast.cv<- file.path(adir, paste("CV.", group1, "_vs_", group2, ".out.gc.txt", sep= ""))
+      message(Sys.time(), ": Writing contrast result to ", file.out.contrast)
+      write.table(res1, file=gzfile(file.out.contrast),  sep = "\t", row.names = F, quote = F)
+      if (sum(res1$pvalue.GC <= thresh1, na.rm = TRUE) > 0) {
+        snplist<- res1[res1$pvalue.GC <= thresh1,SNP]
+        message(Sys.time(), ": Writing GWAS significant contrast results to ", file.out.contrast.sig)
+        write.table(res1[snplist,], file=file.out.gc.sig, sep = "\t", row.names = F, quote = F)
+      }    
+      if (length(snplist<- intersect(cvlist, res1$SNP)) > 0) {
+        message(Sys.time(), ": Writing candiate gene contrast results to ",file.out.contrast.cv)
+        write.table(res1[snplist,], file=file.out.contrast.cv, sep = "\t", row.names = F, quote = F)
+      }
+      
 
       ## Note we can't use '/' separated contrasts in filenames
-      
       plotdata <- rbind(snippets["Project", , drop = FALSE],
                         data.frame(value = c(lambda > 1., round(lambda, 4), 
                                      gtxpipe.models[modelid, "model"],
                                      paste(group1, group2, sep = " vs "), 
                                      res1[ , sum(!is.na(res1$pvalue.GC))]), 
                                    row.names = c("GenomicControl", "Lambda",
-                                     "Model",
-                                     "Contrast",
-                                     "PValues"),
+                                     "Model", "Contrast","PValues"),
                                    stringsAsFactors = FALSE))
       
       assign("metadata", pipeplot('res1[ , qq10(pvalue.GC, pch = 20)]',
@@ -780,7 +836,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     }
   }
     
-  message('gtxpipe: Writing source display metadata')
+  message(Sys.time(), ' gtxpipe Writing source display metadata')
   metadata <- metadata[order(as.integer(metadata$number)), ]
   rownames(metadata) <- metadata$number
   metadata$number <- NULL
@@ -791,7 +847,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   ## contrasts, assume independent (user responsibility) but GC will roughly control for overlapping groups
   ## Note the GC coefficient is computed after groupwise GC
 
-  message('gtxpipe: Generating report')
+  message(Sys.time(), ' gtxpipe Generating report')
   ### 
   ### Make "short" report, should switch on presence/absence of positive results
   ###
@@ -810,7 +866,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     setwd(oldwd)
   },
            error = function(e) {
-             message("knitr::knit2html failed")
+             message(Sys.time(), " knitr::knit2html failed")
            })
   
   ## Note, no need to read info files if no hits...
@@ -926,7 +982,7 @@ pipetable <- function(data, filename, title,
   ## Updates to code above should be made here and in pipeplot()
 
   path <- file.path(getOption("gtxpipe.outputs", "."), paste(number, filename, sep = "_"))
-  message('gtxpipe: Writing ', title, ' to "', path, '.[csv|pdf]"')
+  message(Sys.time(), ' gtxpipe Writing ', title, ' to "', path, '.[csv|pdf]"')
   dir.create(getOption("gtxpipe.outputs", "."), recursive = TRUE, showWarnings = FALSE) # FIXME throw error if fails
 
   write.csv(data,
@@ -981,16 +1037,16 @@ pipeplot <- function(plotfun, filename, title,
   if (all(capabilities(c("png", "cairo")))) {
     png(type = "cairo", filename = paste(path, "png", sep = "."),
         width = width*300, height = height*300, res = 300)
-    message('gtxpipe: Plotting ', title, ' to "', path, '.png"')
+    message(Sys.time(), ' gtxpipe Plotting ', title, ' to "', path, '.png"')
   } else if (suppressMessages(requireNamespace("Cairo", quietly = TRUE))) {
     ## This generates an undeclared import warning with R CMD CHECK, not sure why.  FIXME
     Cairo::CairoPNG(file = paste(path, "png", sep = "."),
              width = width*300, height = height*300, res = 300)
-    message('gtxpipe: Plotting ', title, ' to "', path, '.png"')
+    message(Sys.time(), ' gtxpipe Plotting ', title, ' to "', path, '.png"')
   } else {
     pdf(file = paste(path, "pdf", sep = "."),
         width = width, height = height)
-    message('gtxpipe: Plotting ', title, ' to "', path, '.pdf"')
+    message(Sys.time(), ' gtxpipe Plotting ', title, ' to "', path, '.pdf"')
   }
 
   ## By default, all figures are A4 portrait with the TOP half devoted to plot metadata
