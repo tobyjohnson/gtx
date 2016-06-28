@@ -64,7 +64,7 @@ PGx analyses conducted are summarized in Table 3.  The specific
 candidate genetic variants (CG) analysed are listed in Appendix Table
 1.  The number of significantly associated variants are summarised in
 total for each analysis.
- 
+
 Table 3.  PGx analysis summary
 ```{r table3, echo=FALSE, results="asis"}
 kable(subset(gtxpipe.results, primary,
