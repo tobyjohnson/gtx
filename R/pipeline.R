@@ -546,10 +546,13 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       thresh2 <- 0
     }
     #user specified p value threshold
-    if("P_threshold_gwas" %in% names(gtxpipe.models) & !is.na(gtxpipe.models[modelid, "P_threshold_gwas"]))
-      thresh1 <- as.numeric(as.character(gtxpipe.models[modelid, "P_threshold_gwas"]))
-    if("P_threshold_cv" %in% names(gtxpipe.models) & !is.na(gtxpipe.models[modelid, "P_threshold_cv"]))
-      thresh2 <- as.numeric(as.character(gtxpipe.models[modelid, "P_threshold_cv"]))
+     if("P_threshold_gwas" %in% names(gtxpipe.models)) 
+      if(!is.na(gtxpipe.models[modelid, "P_threshold_gwas"]))
+        thresh1 <- as.numeric(as.character(gtxpipe.models[modelid, "P_threshold_gwas"]))
+    if("P_threshold_cv" %in% names(gtxpipe.models))
+      if (!is.na(gtxpipe.models[modelid, "P_threshold_cv"]))
+        thresh2 <- as.numeric(as.character(gtxpipe.models[modelid, "P_threshold_cv"]))
+   
     
     
     out.signif <- 6
