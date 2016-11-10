@@ -645,11 +645,13 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       setnames(res1, "SE.GC", paste("SE.GC", agroup1, sep = "."))
       setnames(res1, "beta", paste("beta", agroup1, sep = ".")) # named by groups, used in clever join in constrasts
       
-      
+      call.curr<- gsub(" ", "", analN[analN$model == gtxpipe.models[modelid, "model"] & analN$group==agroup1, "modelCall"])
+      if(length(names(ancestrypcs)[-1]) > 1)
+        call.curr<- gsub(paste(names(ancestrypcs)[-1], collapse = "+"), paste("PC1-", length(names(ancestrypcs)[-1]), sep=""), call.curr, fixed = T)
       plotdata <- rbind(snippets["Project", , drop = FALSE],
                         data.frame(value = c(lambda > 1., round(lambda, 4), 
                                      gtxpipe.models[modelid, "model"],
-                                     analN[analN$model == gtxpipe.models[modelid, "model"] & analN$group==agroup1, "modelCall"],
+                                     call.curr,
                                      agroup1,
                                      res1[ , sum(!is.na(res1$pvalue.GC))]), 
                                    row.names = c("GenomicControl", "Lambda",
