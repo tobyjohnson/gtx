@@ -717,7 +717,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       if (sum(res1$pvalue.GC <= thresh1, na.rm = TRUE) > 0) {
         snplist<- res1[res1$pvalue.GC <= thresh1,SNP]
         message(Sys.time(), ": Writing GWAS significant contrast results to ", file.out.contrast.sig)
-        write.table(res1[snplist,], file=file.out.gc.sig, sep = "\t", row.names = F, quote = F)
+        write.table(res1[snplist,], file=file.out.contrast.sig, sep = "\t", row.names = F, quote = F)
       }    
       if (length(snplist<- intersect(cvlist, res1$SNP)) > 0) {
         message(Sys.time(), ": Writing candiate gene contrast results to ",file.out.contrast.cv)
