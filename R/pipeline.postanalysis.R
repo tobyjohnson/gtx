@@ -1,44 +1,3 @@
-################################################################
-## Example config file for post-analysis data processing and plotting
-## Output (default): merged clinical and dosage data
-## Output (if option plot = T): Region plot, Pheno by geno plot
-## Input: please provide papameters listed below
-
-##project label for use in reports
-#project=Example Analysis Study ABC123456
-
-##analyst name & e-mail for use in reports
-#user=FirstName LastName
-#email=name@XXXXX.com
-
-##absolute path to your study directory where analysis were run
-##LD and dosage data will be saved under subfolder "data"
-##Combined clinical/geno data and plots will be saved under subfolder subfolder "data"
-#dir=/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/ABC123456/Analysis
-
-##absolute path to directory with all *.dose.gz and *.info.gz files including HIBAG results
-#genotypes=/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/ABC123456/AnalysisReadyData/imputed-20120314
-
-##absolute path to file listing subjects for LD calculation, no header, ID as first column
-##Empty, NA or NULL: all subjects will be used for LD calculation
-#ldsubjects=/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/ABC123456/AnalysisReadyData/ABC123456-subjects.ld.txt
-
-##absolute path to file listing analysis, groups, varlist, contrasts as columns
-##analysis: name of analysis corresponding to your original analysis
-##groups: one or multiple groups for the named analysis
-##varlist: file with absolute path or under dir listing variants for plotting etc
-#postanalysis=/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/postanalysis.txt
-
-##generate plots under subfolder "plot"
-#plot=TRUE
-##flanking region size in bp
-#flanking=500000 
-
-## Marker filters
-#threshold.MAF=0.01
-#threshold.Rsq=0.01
-################################################################
-
 postanalysis.pipeline<- function(configFile){
   #load config
   config <- read.table(configFile, sep ="=", as.is = T, strip.white = TRUE,stringsAsFactors = FALSE, quote = "", row.names = 1)
@@ -47,6 +6,11 @@ postanalysis.pipeline<- function(configFile){
   options(gtxpipe.email = config["email", 1])
   options(gtxpipe.date = as.character(getOption("gtxpipe.date", format(Sys.Date(), "%Y-%b-%d")))[1])
   
+  if (!is.null(config["chunkMb", 1]) & !is.na(config["chunkMb", 1])) {
+    chunkMb <- as.numeric(as.character(config["chunkMb", 1]))
+  } else {
+    chunkMb <- 4
+  }
   genodir <-  config["genotypes",1]
   threshold.MAF <- as.numeric(as.character(config["threshold.MAF", 1]))
   threshold.Rsq <- as.numeric(as.character(config["threshold.Rsq", 1]))
@@ -64,26 +28,34 @@ postanalysis.pipeline<- function(configFile){
   library(survival)
   library(ordinal)
   
-  GC <- T # use GCed results
+  if (!is.null(config["GC", 1]) & !is.na(config["GC", 1])) {
+    GC<- as.logical(config["GC",1])
+  } else {
+    GC <- F # use GCed results
+    
+  }
+  
+  
   
   #set working directory, should be the folder with analyses, input, outputs subfolders
   if(!is.null(config["dir", 1]) & !is.na(config["dir", 1]))  wkdir <-config["dir", 1] 
-  else     wkdir <- getwd()
+  else     {wkdir <- getwd()}
   setwd(wkdir)
   
   if(plot) {
     dir.create("plot")
-    load("/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/recombHapMapII_GRCh37.RData")#change to gtx location
-    load("/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/hg19.GENCODE19.RData")#change to gtx location
-   }
+    load("/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/package_update/lili/recombHapMapII_GRCh37.RData")#change to gtx location
+    load("/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/package_update/lili/hg19.GENCODE19.RData")#change to gtx location
+    source("/GWD/appbase/projects/statgen/GXapp/G-P_assoc_pipeline/GDCgtx/package_update/lili/regionplot.R")
+  }
   
   #obtain list of subjects for LD calculation
   ld.subj <- NULL
   if(!is.null(config["ldsubjects", 1]) & !is.na(config["ldsubjects", 1]) & file.exists(config["ldsubjects", 1])){
     ld.subj<- read.table(config["ldsubjects", 1], as.is = T)[[1]]
     message("Using subjects from ", config["ldsubjects", 1], " for LD calculation.")
-  }
-  else message("Using all subjects for LD calculation.")
+  }  else{ 
+    message("Using all subjects for LD calculation.")}
   
   #load post analysis file
   models <- NULL
@@ -117,7 +89,7 @@ postanalysis.pipeline<- function(configFile){
   #obtain dose data and LD info for all variants
   dir.create("data")
   chrBeginEndDir<-"/GWD/appbase/projects/statgen/RD-MDD-GX_PUBLIC/1KG/share.sph.umich.edu/1000genomes/fullProject/2013.05.02" #/GWD/appbase/projects
-  chunkMb<- 4 #7 #4
+  #chunkMb<- 4 #7 #4
   dose.all <-Reduce(function(x, y) merge(x, y, all = T), 
                     lapply(1:length(varlist.all), function (idx){
     prefix.curr <- paste("data", gsub("[:*]",".", varlist.all[idx]), sep = "/")
@@ -154,7 +126,7 @@ postanalysis.pipeline<- function(configFile){
     #obtain meta data for each group:modelname, groupname, modelcall, phenotype, association results
     agroups <- unique(c(groups, unlist(strsplit(acontrasts, "/"))))
     gres <- lapply(agroups, function(group){
-      curr<- padata.permodelgroup(paste("analyses",model, group,"ALL.out.gc.txt.gz", sep ="/" ),  
+      curr<- padata.permodelgroup(paste("analyses",model, group,ifelse(GC, "ALL.out.gc.txt.gz", "ALL.out.txt.gz"), sep ="/" ),  
                                   varlist, flanking,  threshold.MAF, threshold.Rsq, GC = GC)
       cols.curr<- c("pvalue", "beta", "SE",  "analysed.Freq1", "analysed.Rsq", "MAF")
       if(GC) cols.curr<- c(cols.curr, c("pvalue.GC",  "SE.GC"))
@@ -219,6 +191,7 @@ postanalysis.pipeline<- function(configFile){
         pos <- as.numeric(as.character(unlist(strsplit(snp, ":"))[2]))
         assoc.curr<- assoc[assoc$CHROM == chr & assoc$POS >= pos-flanking & assoc$POS <= pos + flanking,   ]
         assoc.curr[, R2_LD:=ld$R2_LD[match(assoc.curr$SNP, ld$SNP)]]
+        assoc.curr[assoc.curr$CHROM == chr & assoc.curr$POS == pos & assoc.curr$SNP != snp,  POS:= pos + 1]
         if(nrow(assoc.curr[snp,nomatch=0])>0 &nrow(assoc.curr) > 0) {
           prefix.curr <-  paste( prefix.curr,model, sep =".")
           pdf.file <- paste("plot/",prefix.curr, ".pdf", sep = "")
@@ -240,7 +213,7 @@ postanalysis.pipeline<- function(configFile){
                              ", Freq1=", format(freq1, digit = 3),  ", Rsq_imp=", format(rsq,  digit = 3),sep = "")
           
           par(mfcol =c(1,1),mar = c(4, 4, 4, 4) + 0.1, oma = c(6,0,6,0)) 
-          regionplot.multiP (assoc.curr, chr, pos, flanking = 250, col.r2="R2_LD",
+          regionplot.multiP (assoc.curr, chr, pos, flanking = flanking, col.r2="R2_LD",
                              col.pvals = col.pvals, 
                              plabel = gsub(".","/", gsub(ifelse(GC,"pvalue.GC.", "pvalue."),"", col.pvals, fixed = T), fixed = T), 
                              gencode = genetable, recomb=recomb,
@@ -265,24 +238,24 @@ postanalysis.pipeline<- function(configFile){
             se<-unlist(assoc.curr[snp, paste(ifelse(GC, "SE.GC","SE"), group, sep ="."),with = FALSE])
             ci<-beta+c(-1, 1) *qnorm(0.975)*se
             main <- paste(model," in ",group, ": ", snp, sep ="")
-            main.sub<- paste(c("Freq1", "Rsq_imp",ifelse(GC, "P.GC", "P")),  
+            main.sub<- paste(c(paste("Freq_",alleles[1], sep =""),  "Rsq_imp",ifelse(GC, "P.GC", "P")),  
                              format(assoc.curr[snp, paste(c("analysed.Freq1", "analysed.Rsq", 
                               ifelse(GC, "pvalue.GC","pvalue")), group, sep ="."), with = FALSE], digit = 3), 
                              sep = "=", collapse = ", ")
             if(detail$type == "qt") {
               qtplot(detail$pheno, snp, data.plot, xlab = NULL)
-              main.sub<- paste(main.sub,  ", eff(CI)=", format(beta, digit = 2), "(",
+              main.sub<- paste(main.sub,  ", eff_",alleles[1],  "(CI)=", format(beta, digit = 2), "(",
                                paste(format(ci, digit = 2), collapse =","), ")", sep ="")
             }
             if(detail$type %in% c("binary", "ordinal")) {
               otplot(detail$pheno, snp, data.plot, xlab = NULL)
-              main.sub<- paste(main.sub,  ", OR(CI)=", format(exp(beta), digit = 2), "(",
+              main.sub<- paste(main.sub,  ", OR_",alleles[1],  "(CI)=", format(exp(beta), digit = 2), "(",
                                paste(format(exp(ci), digit = 2), collapse =","), ")", sep ="")
             }
             if(detail$type == "survival") {
               data.plot$srv <- Surv(as.numeric(data.plot[[detail$pheno[1]]]), as.numeric(data.plot[[detail$pheno[2]]]))
               kmplot("srv", snp, data.plot, xlab =detail$pheno[1], ulab = "Survival Probability" )
-              main.sub<- paste(main.sub,  ", HR(CI)=", format(exp(beta), digit = 2), "(",
+              main.sub<- paste(main.sub,  ", HR_",alleles[1],  "(CI)=", format(exp(beta), digit = 2), "(",
                                paste(format(exp(ci), digit = 2), collapse =","), ")", sep ="")
             }
             title(main, line = 2)  
@@ -353,6 +326,8 @@ padata.permodelgroup <- function(retFile, varlist, flanking,  threshold.MAF, thr
 
 ##get phenotype name(s) and type from a formula call
 getCallDetail<- function(qcall) {
+  #qcall: coxph(formula = Surv(Pheno.SRVMO, Pheno.SRVCFLCD) ~ demo.AGE + demo.SEX + PC1)
+  #qcall: glm(formula = Pheno.altcc ~ pop.TRTGRP + PC1, family = "binomial")
   tmp<- unlist(strsplit(as.character(qcall), split="[(+, =)\"]"))
   tmp<- tmp[nchar(tmp)>0]
   mtype <- tmp[1]
