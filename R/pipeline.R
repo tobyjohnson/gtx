@@ -58,7 +58,6 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   chunks = intersect(doses,infos)
   if (length(chunks) < 1) stop("Needs to be at least one *.dose.gz/*.info.gz file pair in the genotypes directory [", 
                                 getOption("gtxpipe.genotypes"), "] you can set this directory as the gtxpipe.genotypes option")
-  
   ##
   ## Check gtxpipe.models
   ##
@@ -165,10 +164,12 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     }), collapse = " ")})
 
   ## Should we do the same for group dependencies?
-  
-  deps <- unique(tokenise.whitespace(c(gtxpipe.models$depsu, gtxpipe.groups$deps,
+ 
+  deps <- unique(tokenise.whitespace(c(gtxpipe.derivations$targets[!gtxpipe.derivations$deps %in% c("pop", "demo")],  ##Add all variables back to be derived.
+                                       gtxpipe.models$depsu, gtxpipe.groups$deps,
                                        "pop.PNITT", "pop.TRTGRP", "demo.SEX", "demo.AGE", "demo.RACE", "demo.ETHNIC")))
-  ## force in pop.PNITT even though this is not a mandated variable per dsm ?
+  
+   ## force in pop.PNITT even though this is not a mandated variable per dsm ?
   ## Code below for groupall assumes pop.PNITT exists - there will be an error if not FIXME
   ## allow a force in list.
   ## sort columns by unique(forcelist, deps) before computing demographics tables
@@ -194,6 +195,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
   
   #message(Sys.time(), " gtxpipe: Read clinical datasets OK")
   anal1 <- clinical.derive(clindata, gtxpipe.derivations, only = deps)
+  anal1$pop.PNITT[is.na(anal1$pop.PNITT)]<- F
   ## FIXME why is this so slow?
   message(Sys.time(), " gtxpipe: Computed derived variables OK")
 
@@ -204,17 +206,6 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
             
   ## FIXME hook for user derived variables needed here (in case used in group defs etc)
 
-  ## Even though we will re-apply transformations on subsets, they all should work on the complete analysis dataset
-  if (nrow(gtxpipe.transformations) > 0) {
-    for (idx in 1:nrow(gtxpipe.transformations)) {
-      target <- gtxpipe.transformations$targets[idx]
-      if (target %in% names(anal1)) stop("Transformation overwrites existing variable ", target)
-      tryCatch(anal1[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = anal1),
-               error = function(e) 
-               stop("Error in transformation '", target, " <- ", gtxpipe.transformations$fun[idx], "':\n", e$message))
-    }
-  }
-
   ## Order columns as follows:
   ##   USUBJID is first
   ##   if variable has a descriptor, include next, in the order appearing in clinical.descriptors
@@ -224,8 +215,6 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                        match(names(anal1), names(getOption("clinical.descriptors", NULL))))]
 
 
-
-  
 #  inc1 <- with(anal1, eval(parse(text = getOption("clinical.subset", 'pop.PNITT'))))
 
   if (!missing(gtxpipe.eigenvec) && file.exists(gtxpipe.eigenvec)) {
@@ -235,9 +224,28 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
     warning("PGx eigenvectors not available.  Continuing imperfectly")
     ancestrypcs <- anal1[ , usubjid, drop = FALSE]
   }
+  npcs <- min(getOption("gtxpipe.no.PCs"), ncol(ancestrypcs)-1)
+  if (npcs == 0) pcs.cov <- names(ancestrypcs)[-1][npcs]
+  else pcs.cov <- names(ancestrypcs)[-1][1:npcs]  # list of pcs as default covs
+  
+  
+  ## Even though we will re-apply transformations on subsets, they all should work on the complete analysis dataset
+ if (nrow(gtxpipe.transformations) > 0) {
+    anal2<- merge(anal1, ancestrypcs, all = T )
+    options(na.action="na.exclude")
+    for (idx in 1:nrow(gtxpipe.transformations)) {
+      target <- gtxpipe.transformations$targets[idx]
+      if (target %in% names(anal1)) stop("Transformation overwrites existing variable ", target)
+      tryCatch(anal2[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = anal2),
+               error = function(e) 
+                 stop("Error in transformation '", target, " <- ", gtxpipe.transformations$fun[idx], "':\n", e$message))
+    }
+  }
+  
+   
   ## is.PGx indicates PGx only if gtxpipe.eigenvec is one-to-one list of PGx subjects
   anal1$is.PGx <- anal1[[usubjid]] %in% ancestrypcs[[usubjid]]
-
+  
   ## gtxpipe needs to know number enrolled for the automagic report.
   ## Making an additional "ITT" group would have meant that number enrolled/PGx
   ## would automatically appear as a row in gtxpipe.groups, but then would
@@ -293,8 +301,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                     data.frame(value = format(sapply(groupall, sum)), # automatic row names
                                stringsAsFactors = FALSE),
                     data.frame(value = c(round(100*sum(groupall[[2]])/sum(groupall[[1]])),
-                                 if (any(rowSums(as.data.frame(groupby)) > 1)) "overlapping" else "non-overlapping",
-                                 if (any(gtxpipe.groups$adjust.arm, na.rm = TRUE)) "Yes" else "No"),
+                                         if (any(rowSums(as.data.frame(groupby)) > 1)) "overlapping" else "non-overlapping",
+                                         if (any(gtxpipe.groups$adjust.arm, na.rm = TRUE)) "Yes" else "No"),
                                ## rowSums all 0 or 1, no overlapping groups.  Any >1 implies overlapping groups
                                ## Using Yes/No because output all text so downstream would have to parse even if logical
                                row.names = c("Overall PGx percent", "PGx group overlap", "PGx combines arms")))
@@ -425,8 +433,8 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
 
       message(Sys.time(), " gtxpipe: Fitting model ", gtxpipe.models[modelid, "model"], " in group ", agroup1)
       mtmp <- eval(parse(text = gtxpipe.models[modelid, "fun"]), envir = adata)
-      if (length(c(trtgrp.cov, names(ancestrypcs)[-1])) > 0) {
-        m0 <- update(mtmp, formula = as.formula(paste("~ . +", paste(c(trtgrp.cov, names(ancestrypcs)[-1]), collapse = "+"))))
+      if (length(c(trtgrp.cov, pcs.cov)) > 0) {
+        m0 <- update(mtmp, formula = as.formula(paste("~ . +", paste(c(trtgrp.cov, pcs.cov), collapse = "+"))))
       } else {
         m0 <- mtmp
       }
