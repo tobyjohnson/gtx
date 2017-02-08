@@ -22,6 +22,16 @@ blockstats.glm <- function(m1, m0, coefname = "GENOTYPE") {
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
+blockstats.negbin <- function(m1, m0, coefname = "GENOTYPE") {
+  beta <- unname(coef(m1)[coefname])
+  se <- unname(sqrt(vcov(m1)[coefname, coefname]))
+  n <- length(na.omit(residuals(m1))) # seemingly no direct way to extract
+  if(length(na.omit(residuals(m0))) != n) stop("Unequal sample size for m0 and m1!")
+  #lrt <- max(m0$deviance - m1$deviance, 0)
+  lrt<- anova(m0, m1)[2,"LR stat."]
+  return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
+}
+
 blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
