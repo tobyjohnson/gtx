@@ -247,7 +247,7 @@ postanalysis.pipeline<- function(configFile){
               main.sub<- paste(main.sub,  ", eff_",alleles[1],  "(CI)=", format(beta, digit = 2), "(",
                                paste(format(ci, digit = 2), collapse =","), ")", sep ="")
             }
-            if(detail$type %in% c("binary", "ordinal")) {
+            if(detail$type %in% c("binary", "ordinal","negbin")) {
               otplot(detail$pheno, snp, data.plot, xlab = NULL)
               main.sub<- paste(main.sub,  ", OR_",alleles[1],  "(CI)=", format(exp(beta), digit = 2), "(",
                                paste(format(exp(ci), digit = 2), collapse =","), ")", sep ="")
@@ -340,7 +340,8 @@ getCallDetail<- function(qcall) {
   ptype.list <- c(lm = "qt",  
                   clm="ordinal", 
                   coxph="survival", 
-                  glm.binomial="binary")
+                  glm.binomial="binary",
+                  glm.nb="negbin")
   ptype <- ptype.list[mtype]
   return (list(pheno = pheno, type = ptype ))
 }
