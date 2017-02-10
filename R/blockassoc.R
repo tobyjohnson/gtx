@@ -35,8 +35,7 @@ blockstats.negbin <- function(m1, m0, coefname = "GENOTYPE") {
 blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
-  lrt <- max(2*(m1$loglik[2] - m0$loglik[2]), 0)
-  if(is.na(m0$loglik[2])) lrt <- max(2*(m1$loglik[2] - m0$loglik[1]), 0)
+  lrt <- max(2*(m1$loglik[length(m1$loglik)] - m0$loglik[length(m0$loglik)]), 0)
   n <- m1$n
   if(m0$n != n) stop("Unequal sample size for m0 and m1!")
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
