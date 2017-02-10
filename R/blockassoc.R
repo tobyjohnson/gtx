@@ -1,5 +1,5 @@
 blockstats <- function(m1, m0, coefname = "GENOTYPE") {
-  stopifnot(all.equal(class(m1), class(m0)))
+  stopifnot(all.equal(class(m1), class(m0)[!class(m0) %in% c("coxph.null")]))
   ## should handle special case where class(m0)=="coxph.null"
   UseMethod("blockstats", m1)
 }
