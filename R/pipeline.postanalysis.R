@@ -55,7 +55,8 @@ postanalysis.pipeline<- function(configFile){
     ld.subj<- read.table(config["ldsubjects", 1], as.is = T)[[1]]
     message("Using subjects from ", config["ldsubjects", 1], " for LD calculation.")
   }  else{ 
-    message("Using all subjects for LD calculation.")}
+    message("Using all subjects for LD calculation.")
+  }
   
   #load post analysis file
   models <- NULL
@@ -309,11 +310,32 @@ padata.permodelgroup <- function(retFile, varlist, flanking,  threshold.MAF, thr
   mc <- which(substr(adata0, 1, 8) == '# call: ')
   stopifnot(identical(length(mc), 1L))
   qcall <- parse(text = substring(adata0[mc], 9)) # quoted call
+  ## match transformations (can be any number) and build into dataframe
+  mt <- which(substr(adata0, 1, 9) == '# where: ')
+  if (length(mt) > 0) {
+    gtxpipe.transformations <- do.call(rbind, lapply(strsplit(substring(adata0[mt], 10), ' <- ', fixed = TRUE), function(t1) {
+      if (!identical(length(t1), 2L)) {
+        stop('fatal error: "', t1, '" is not a transformation like "target <- fun"')
+      }
+      data.frame(targets = t1[1], fun = t1[2], stringsAsFactors = FALSE)
+    }))
+  } else {
+    gtxpipe.transformations <- data.frame(targets = NULL, fun = NULL)
+  }
   
   ## in read.csv should force some settings (stringsAsFactors = TRUE) just in case user options
   ## try to override
   adata <- read.csv(textConnection(adata0[substr(adata0, 1, 1) != "#"]), stringsAsFactors = TRUE)
   adata[[1]] <- as.character(adata[[1]])
+  ## apply transformations
+  if (nrow(gtxpipe.transformations) > 0) {
+    for (idx in 1:nrow(gtxpipe.transformations)) {
+      target <- gtxpipe.transformations$targets[idx]
+      if (target %in% names(adata)) stop("Transformation overwrites existing variable")
+      message(target, " <- ", gtxpipe.transformations$fun[idx]) # debugging message
+      adata[[target]] <- eval(parse(text = gtxpipe.transformations$fun[idx]), envir = adata)
+    }
+  }
   
   padata<- list( name = mname,
                  group = gname, 
