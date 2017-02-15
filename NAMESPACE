@@ -4,7 +4,7 @@ export(abf.normal, abf.t, abf.Wakefield)
 ## blat.R
 export(parse.snps, remap.q2t)
 ## blockassoc.R
-export(blockassoc, blockstats, blockstats.lm, blockstats.glm, blockstats.coxph, blockstats.clm)
+export(blockassoc, blockstats, blockstats.lm, blockstats.glm, blockstats.coxph, blockstats.clm, blockstats.negbin)
 # do we need to declare S3 methods?
 ## clinical.R
 export(clinical.import, clinical.derive, derivation.add)
@@ -54,6 +54,8 @@ export(pcaplot)
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 ## pipeline.R
 export(gtxpipe)
+## pipeline.postanalysis.R
+export(postanalysis.pipeline, padata.permodelgroup, getCallDetail, getResults, getchunks, getDoseandLD, dose2geno)
 ## plantation.R
 export(plantation)
 ## plotutils.R
@@ -64,6 +66,8 @@ export(chi2ncp, chi2power, fupower)
 export(qq10, qq10.new, qq10.envelope, qq10.points, gclambda)
 ## qtplot.R
 export(qtplot, qtplot.character, qtplot.numeric)
+##regionplot.R
+export(recomb.draw, regionplot.multiP)
 ## snpdata.R
 export(summary.snpdata, is.snpdata, as.snpdata)
 S3method(summary, snpdata)
