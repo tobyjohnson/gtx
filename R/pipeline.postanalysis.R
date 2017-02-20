@@ -31,7 +31,7 @@ postanalysis.pipeline<- function(configFile){
   if (!is.null(config["GC", 1]) & !is.na(config["GC", 1])) {
     GC<- as.logical(config["GC",1])
   } else {
-    GC <- F # use GCed results
+    GC <- T # use GCed results
     
   }
   
@@ -147,8 +147,7 @@ postanalysis.pipeline<- function(configFile){
     #merge association results from all groups
     #c("CHROM", "POS", "SNP","Al1", "Al2") in common and c("pvalue", "beta", "SE",  "analysed.Freq1", "analysed.Rsq", "MAF") for each group
     assoc <- Reduce(function(x, y) merge(x, y, all = T, by = c( "SNP","Al1", "Al2","CHROM", "POS"), allow.cartesian = T), 
-                    lapply(gres, function(padata){return (padata$assoc)}))
-    
+                    lapply(gres, function(padata){return (padata$assoc)}))   
     #get contrast result
     if(length(acontrasts)>0 & !GC) 
       lapply(acontrasts, function(contrast){
@@ -169,10 +168,13 @@ postanalysis.pipeline<- function(configFile){
         message( Sys.time(), " Obtaining results from ", file.curr)
         curr <- read.table(gzfile(file.curr), quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
         #SNP	pvalue.GC_LOSIR3005_vs_HISIR3005
-        curr<- data.table(curr[!is.na(curr[[2]]), ])
-        setkey(curr, SNP)
-        curr<- curr[assoc$SNP, ] 
-        assoc[, paste("pvalue.GC.", group1,"_vs_", group2, sep =""):= curr[,2, with= FALSE ]] })
+        curr<-curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ]
+        #curr<- data.table(curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ])
+        #Need to solve the issue with data.table handling duplicated snps
+        #setkey(curr, SNP)
+        #curr<- curr[assoc$SNP, ] 
+        #assoc[, paste("pvalue.GC.", group1,"_vs_", group2, sep =""):= curr[,2, with= FALSE ]] 
+        assoc[, paste("pvalue.GC.", group1,"_vs_", group2, sep =""):= curr[["pvalue.GC"]][match(assoc$SNP, curr$SNP)]]})
     }
     
     setkey(assoc, SNP)
