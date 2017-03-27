@@ -25,13 +25,21 @@ coloc.fast(data, rounded = 6, priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc
   \item{se2}{Name of standard error for phenotype 2 in data.}
 }
 \value{
-  A data frame of posterior model probabilities.
+  A list with two elements, \code{results} which is a data frame of
+  posterior model probabilities, and \code{nvariants} which reports the
+  number of variants used in the analysis.
 }
 \details{
   To be described.  Equivalent to Giambartolomei method but uses a
   single framework for quantitative and binary phenotypes, and allows
   user control of the within-model priors on effect sizes (to which the
   results can be surprisingly sensitive).
+
+  The Giambartolomei package \code{coloc} uses a prior SD of 0.15 for
+  quantitative traits, which cannot easily be changed by the user.  This
+  function \code{coloc.fast}, if called with non-default options
+  \code{priorsd1=0.15} and \code{priorsd2=0.15}, produces numerically
+  identical results to \code{coloc} for every example I have checked.
 }
 \author{
   Toby Johnson \email{Toby.x.Johnson@gsk.com}

@@ -1,6 +1,6 @@
 import(beeswarm, survival, meta, rmeta, data.table)
 ## abf.R
-export(abf.normal, abf.t, abf.Wakefield)
+export(abf.normal, abf.t, abf.Wakefield, coloc.fast)
 ## blat.R
 export(parse.snps, remap.q2t)
 ## blockassoc.R
