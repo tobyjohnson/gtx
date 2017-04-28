@@ -2,9 +2,11 @@ Package: gtx
 Type: Package
 Title: Genetics ToolboX
 Version: 0.0.10
-Date: 2015-01-28
-Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"),
-    email = "Toby.x.Johnson@gsk.com"))
+Date: 2017-04-28
+Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), 
+                    email = "Toby.x.Johnson@gsk.com"), 
+             person("Andrew", "Slater", role = c("ctb")),
+             person("Li", "Li", role = c("ctb")))
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
@@ -13,5 +15,16 @@ Suggests:
     knitr
 VignetteBuilder: knitr
 License: GPL (>= 3)
-Description: Assorted tools for genetic and pharmacogenetic association analyses.  There are functions for simplifying and standardising pharmacogenetic analysis and reporting.  There are functions to support multi-SNP risk score analyses, multi-SNP conditional regression analyses, and multi-phenotype analyses, using summary statistics instead of using subject-specific data.  There are helper functions for reading and manipulating subject-specific genotype data, which provide a platform for calculating the summary statistics, or for using R to conduct other analyses not supported by specific GWAS analysis tools.
-License: GPL (>= 2)
+Description: Assorted tools for genetic and pharmacogenetic association 
+	analyses.  There are functions for simplifying and standardising 
+	pharmacogenetic analysis and reporting.  There are functions to 
+	support multi-SNP risk score analyses, multi-SNP conditional 
+	regression analyses, and multi-phenotype analyses, using summary 
+	statistics instead of using subject-specific data.  There are 
+	helper functions for reading and manipulating subject-specific 
+	genotype data, which provide a platform for calculating the 
+	summary statistics, or for using R to conduct other analyses not 
+	supported by specific GWAS analysis tools.
+URL: https://cran.r-project.org/web/packages/gtx/index.html, 
+	https://github.com/tobyjohnson/gtx
+
