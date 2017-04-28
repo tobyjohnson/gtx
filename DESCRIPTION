@@ -14,4 +14,9 @@ Suggests:
     knitr
 VignetteBuilder: knitr
 License: GPL (>= 3)
-Description: A fork of the gtx package, which has been streamlined to operate in an environment where genetic data and summary statistics are available via SQL queries against a database.
+Description: A fork of the gtx package, which has been streamlined to 
+	operate in an environment where genetic data and summary 
+	statistics are available via SQL queries against a database.
+URL: https://cran.r-project.org/web/packages/gtx/index.html, 
+	https://github.com/tobyjohnson/gtx
+
