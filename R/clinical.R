@@ -26,7 +26,7 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
         ## the default for SAS PROC EXPORT, convert to UTF-8 and label as such
         if (any(Encoding(iconv(levels(tmp[[colidx]]), to = "UTF-8", from = "latin-9")) == "UTF-8")) {
           levels(tmp[[colidx]]) <- iconv(levels(tmp[[colidx]]), to = "UTF-8", from = "latin-9")
-          if (verbose) message(colidx, " converted latin-9 to UTF-8") # is very verbose
+          ## if (verbose) message(colidx, " converted latin-9 to UTF-8") # is very verbose
         }
         ## Replace empty strings with NA
         ev <- which(tmp[[colidx]] == "")
