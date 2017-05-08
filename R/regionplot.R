@@ -1,3 +1,145 @@
+## regionplot.new and associated functions
+## assume database connection
+
+regionplot.new <- function(chrom, pos_start, pos_end,
+                           hgncid, ensemblid, surround = 500000, 
+                           pmin = 1e-10, 
+                           dbc = getOption("gtx.dbConnection", NULL)) {
+  
+  ## Determine x-axis range from arguments
+  if (!missing(chrom) & !missing(pos_start) & !missing(pos_end)) {
+    stopifnot(identical(length(chrom), 1L))
+    stopifnot(identical(length(pos_start), 1L))
+    stopifnot(identical(length(pos_end), 1L))
+    stopifnot(pos_end > pos_start)
+  } else if (!missing(hgncid)) {
+    ## verify dbc is a database connection
+    gp <- sqlQuery(dbc, sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
+                                gtxwhere(ensemblid = ensemblid)))
+    if (!identical(nrow(gp), 1L)) stop('ensemblid(s) [ ', paste(ensemblid, collapse = ', '), ' ] do not map to unique chromosome')
+    chrom <- gp$chrom[1]
+    pos_start <- gp$pos_start[1] - surround
+    pos_end <- gp$pos_end[1] + surround
+  } else if (!missing(ensemblid)) {
+    ## verify dbc is a database connection
+    gp <- sqlQuery(dbc, sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
+                                gtxwhere(ensemblid = ensemblid)))
+    if (!identical(nrow(gp), 1L)) stop('ensemblid(s) [ ', paste(ensemblid, collapse = ', '), ' ] do not map to unique chromosome')
+    chrom <- gp$chrom[1]
+    pos_start <- gp$pos_start[1] - surround
+    pos_end <- gp$pos_end[1] + surround
+  }
+  
+  ## Determine y-axis upper limit
+  ymax <- ceiling(-log10(pmin) + 0.5)
+
+  ## Determine amount of y-axis space needed for gene annotation
+  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax)
+  
+  ## Set up plotting area
+  plot.new()
+  par(mar = c(4, 4, 4, 4) + 0.1, xaxs = 'i') # xaxs='i' stops R expanding x axis
+  plot.window(c(pos_start, pos_end), range(gl$yline))
+  
+  ## Draw axes, and axis labels
+  abline(h = 0, col = "grey")
+  with(list(xpretty = pretty(c(pos_start, pos_end)*1e-6)),
+       axis(1, at = xpretty*1e6, labels = xpretty))
+  axis(2, at = pretty(c(0, ymax)), las = 1)
+  mtext(paste0("chr", chrom, " position (Mb)"), 1, 3)
+  mtext(expression(paste("Association ", -log[10](paste(P, "-value")))), 2, 3)
+
+  ## Add recombination rate and gene annotation
+  ##  regionplot.recombination determines position range from par("usr")
+  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]))
+  ##  regionplot.genedraw uses previously determined layout
+  regionplot.genedraw(gl)
+
+  ## Draw box last to overdraw any edge marks
+  box()
+
+  return(invisible(NULL))
+}
+
+regionplot.genedraw <- function(gl) {
+  arrows(gl$genelayout$pos_start, gl$genelayout$y, x1 = gl$genelayout$pos_end,
+         length = 0, lwd = 2, col = "blue")
+  text(gl$genelayout$pos_mid, gl$genelayout$y - .25*strheight("M", cex = gl$cex),
+       gl$genelayout$label,
+       adj = c(.5, 1), font = 3, cex = gl$cex, col = "blue")
+  return(invisible(NULL))
+}
+
+regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
+                                   dbc = getOption("gtx.dbConnection", NULL)) {
+
+  yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+  xplt <- par("plt")[2] - par("plt")[1]
+  xusr <- pos_end - pos_start # par("usr")[2] - par("usr")[1] 
+  return(with(sqlQuery(dbc, 
+                       ## use SQL query to aggregate over multiple rows with same name to get whole span
+                       sprintf('SELECT min(pos_start) AS pos_start, max(pos_end) AS pos_end, hgncid, ensemblid FROM genes WHERE %s GROUP BY ensemblid, hgncid ORDER BY pos_start', 
+                               gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end))),
+              {
+                label <- ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid)) # could also check NULL or NA?
+                ## compute start and end plot positions for each gene, using larger of transcript line and gene name annotation
+                pos_mid <- .5*(pos_start + pos_end)
+                xwidth <- strwidth(label, units = 'figure', cex = cex)*xusr/xplt
+                xpad <- max(10000, strwidth('M', units = 'figure', cex = cex)*xusr/xplt)
+                xstart <- pmin(pos_start, pos_mid - .5*xwidth) - xpad
+                xend <- pmax(pos_end, pos_mid + .5*xwidth) + xpad
+                ## layout engine based on putting each gene on the highest line possible
+                iline <- rep(NA, length(label))
+                if (length(label) > 0) {
+                  iline[1] <- 0
+                  if (length(label) > 1) {
+                    for (idx in 2:length(label)) {
+                      iline[idx] <- with(rbind(aggregate(xend[1:(idx - 1)], by = list(tline = iline[1:(idx - 1)]), FUN = max),
+                                               data.frame(tline = max(iline[1:(idx - 1)]) + 1, x = -Inf)),
+                                         min(tline[x < xstart[idx]]))
+                    }
+                  }
+                }
+                fy <- max(iline + 1)*2*strheight("M", units = "figure", cex = cex)/yplt # fraction of total figure region needed
+                if (fy > 0.6) {
+                  warning('Squashing gene annotation to fit within .6 of plot area')
+                  fy <- 0.6
+                }
+                yd1 = ymax/(0.9-fy) * 0.1
+                yd2 = ymax/(0.9-fy) * fy
+                yline <- c(-(yd1 + yd2), -yd1, 0, ymax)
+                y <- -(iline/max(iline + 1)*yd2 + yd1)
+                list(cex = cex, yline = yline, genelayout = data.frame(label, pos_start, pos_end, pos_mid, iline, y))
+              }))
+}
+
+regionplot.points <- function() {
+}
+
+regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5, 
+                                     dbc = getOption("gtx.dbConnection", NULL)) {
+
+  ## Recombination segments (r) that fall wholly or partly within [pos_start, pos_end]
+  ## have r.pos_end >= pos_start and r.pos_start <= pos_end
+  if (missing(pos_start)) pos_start = floor(par("usr")[1])
+  if (missing(pos_end)) pos_end = ceiling(par("usr")[2])
+
+  with(sqlQuery(dbc, 
+                sprintf('SELECT pos_start, pos_end, recombination_rate FROM genetic_map WHERE %s', 
+                        gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end))),
+       {
+         abline(h = yoff, col = "grey")
+         yscale <- (par("usr")[4] - yoff)*.9/max(recombination_rate)
+         lines(c(pos_start, pos_end[length(pos_end)]),
+               yoff + c(recombination_rate, recombination_rate[length(recombination_rate)])*yscale,
+               type = "s", col = "cyan3")
+         with(list(ypretty = pretty(c(0, max(recombination_rate)))),
+              axis(4, at = yoff + ypretty*yscale, labels = ypretty, las = 1))
+       })
+  mtext("Recombination rate (cM/Mb)", 4, 3)
+  return(invisible(NULL))
+}
+
 #library for region plot
 #Author: Li Li, modified based on Toby's code
 

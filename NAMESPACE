@@ -66,8 +66,11 @@ export(chi2ncp, chi2power, fupower)
 export(qq10, qq10.new, qq10.envelope, qq10.points, gclambda)
 ## qtplot.R
 export(qtplot, qtplot.character, qtplot.numeric)
-##regionplot.R
+## regionplot.R
 export(recomb.draw, regionplot.multiP)
+export(regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination)
+## sanitation.R
+export(sanitize, gtxwhere)
 ## snpdata.R
 export(summary.snpdata, is.snpdata, as.snpdata)
 S3method(summary, snpdata)
