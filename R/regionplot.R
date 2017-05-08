@@ -3,7 +3,8 @@
 
 regionplot.new <- function(chrom, pos_start, pos_end,
                            hgncid, ensemblid, surround = 500000, 
-                           pmin = 1e-10, 
+                           pmin = 1e-10,
+			   protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
   
   ## Determine x-axis range from arguments
@@ -15,8 +16,8 @@ regionplot.new <- function(chrom, pos_start, pos_end,
   } else if (!missing(hgncid)) {
     ## verify dbc is a database connection
     gp <- sqlQuery(dbc, sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
-                                gtxwhere(ensemblid = ensemblid)))
-    if (!identical(nrow(gp), 1L)) stop('ensemblid(s) [ ', paste(ensemblid, collapse = ', '), ' ] do not map to unique chromosome')
+                                gtxwhere(hgncid = hgncid)))
+    if (!identical(nrow(gp), 1L)) stop('hgncid(s) [ ', paste(hgncid, collapse = ', '), ' ] do not map to unique chromosome')
     chrom <- gp$chrom[1]
     pos_start <- gp$pos_start[1] - surround
     pos_end <- gp$pos_end[1] + surround
@@ -34,7 +35,7 @@ regionplot.new <- function(chrom, pos_start, pos_end,
   ymax <- ceiling(-log10(pmin) + 0.5)
 
   ## Determine amount of y-axis space needed for gene annotation
-  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax)
+  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only)
   
   ## Set up plotting area
   plot.new()
@@ -71,6 +72,7 @@ regionplot.genedraw <- function(gl) {
 }
 
 regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
+				   protein_coding_only = TRUE, 
                                    dbc = getOption("gtx.dbConnection", NULL)) {
 
   yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
@@ -78,8 +80,9 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
   xusr <- pos_end - pos_start # par("usr")[2] - par("usr")[1] 
   return(with(sqlQuery(dbc, 
                        ## use SQL query to aggregate over multiple rows with same name to get whole span
-                       sprintf('SELECT min(pos_start) AS pos_start, max(pos_end) AS pos_end, hgncid, ensemblid FROM genes WHERE %s GROUP BY ensemblid, hgncid ORDER BY pos_start', 
-                               gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end))),
+                       sprintf('SELECT min(pos_start) AS pos_start, max(pos_end) AS pos_end, hgncid, ensemblid FROM genes WHERE %s %s GROUP BY ensemblid, hgncid ORDER BY pos_start', 
+                               gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end),
+			       if (protein_coding_only) 'AND genetype=\'protein_coding\'' else '')),
               {
                 label <- ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid)) # could also check NULL or NA?
                 ## compute start and end plot positions for each gene, using larger of transcript line and gene name annotation
