@@ -27,7 +27,7 @@ regionplot <- function(phenotype,
                  dbc = dbc)
 
   ## Plot all variants with VEP annotation as blue diamonds in top layer
-  with(subset(pvals, consequences == ''), regionplot.points(pos, pval))
+  with(subset(pvals, is.na(consequences) | consequences == ''), regionplot.points(pos, pval))
   with(subset(pvals, consequences != ''), regionplot.points(pos, pval, pch = 23, bg = rgb(.5, .5, 1, .75), col = rgb(0, 0, 1, .75)))
 
   return(invisible(NULL))
