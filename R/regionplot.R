@@ -168,7 +168,8 @@ regionplot.points <- function(pos, pval,
   f <- y > ymax
   points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg)
   if (any(f) && !suppressWarning) {
-    axis(2, at = ylim, labels = substitute({}<=ymax, list(ymax = ymax)), las = 1)
+    # would be nice to more cleanly overwrite y axis label
+    axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
     text(mean(range(pos[f])), ymax, 'Plot truncated', adj = c(0.5, 0), cex = 0.5)
     return(FALSE)
   }
