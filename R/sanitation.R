@@ -36,7 +36,7 @@ gtxwhere <- function(chrom,
   if (!missing(tablename)) {
     tablename <- sanitize(tablename, type = 'alphanum')
     if (identical(length(tablename), 1L) && all(!is.na(tablename)) || !is.null(tablename)) {
-      tablename <- paste0('.', tablename)
+      tablename <- paste0(tablename, '.')
     } else {
       tablename <- ''
     }
@@ -76,7 +76,7 @@ gtxwhere <- function(chrom,
               else sprintf("ensemblid='%s'", sanitize(ensemblid, type = "alphanum"))
               )
   ws2 <- paste0("(", 
-                unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste(tablename, x, collapse = " OR "))), 
+                unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
                 ")", collapse = " AND ")
   return(ws2)
 }
