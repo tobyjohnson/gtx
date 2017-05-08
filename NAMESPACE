@@ -68,7 +68,7 @@ export(qq10, qq10.new, qq10.envelope, qq10.points, gclambda)
 export(qtplot, qtplot.character, qtplot.numeric)
 ## regionplot.R
 export(recomb.draw, regionplot.multiP)
-export(regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination)
+export(regionplot, regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination, regionplot.points)
 ## sanitation.R
 export(sanitize, gtxwhere)
 ## snpdata.R

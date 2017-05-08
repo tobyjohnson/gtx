@@ -7,7 +7,7 @@ sanitize <- function(x, values, type) {
       return(suppressWarnings(na.omit(as.integer(x))))
     } else if (identical(type, "alphanum")) {
       ## note alphanum means starting with alphabetic then alpha or numeric, define other types e.g. broader
-      return(grep("^[A-Za-z][A-Za-z0-9]+$", x, value = TRUE))
+      return(grep("^[A-Za-z][A-Za-z0-9_]+$", x, value = TRUE))
     } else {
       stop("invalid type")
     }
@@ -20,7 +20,8 @@ gtxwhere <- function(chrom,
                      pos, pos_ge, pos_le, 
                      pos_end_ge, pos_start_le, 
                      pos_start_ge, pos_end_le, 
-                     hgncid, ensemblid) {
+                     hgncid, ensemblid,
+                     tablename) {
   ## function to construct a WHERE string for constructing SQL queries
   ## Notes:
   ##  if arguments have length > 1, WHERE string OR's over values, producing e.g.
@@ -31,7 +32,17 @@ gtxwhere <- function(chrom,
   ## For a query region of interest, to finding segments (e.g. genes, recombination rate) that:
   ## wholly or partially overlap, use pos_end_ge=query_start, pos_start_le=query_end
   ## wholly overlap, use pos_start_ge=query_start, pos_end_le=query_end
-  
+
+  if (!missing(tablename)) {
+    tablename <- sanitize(tablename, type = 'alphanum')
+    if (identical(length(tablename), 1L) && all(!is.na(tablename)) || !is.null(tablename)) {
+      tablename <- paste0('.', tablename)
+    } else {
+      tablename <- ''
+    }
+  } else {
+    tablename <- ''
+  }
   
   ws1 <- list(
               if (missing(chrom)) NULL
@@ -65,7 +76,7 @@ gtxwhere <- function(chrom,
               else sprintf("ensemblid='%s'", sanitize(ensemblid, type = "alphanum"))
               )
   ws2 <- paste0("(", 
-                unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste(x, collapse = " OR "))), 
+                unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste(tablename, x, collapse = " OR "))), 
                 ")", collapse = " AND ")
   return(ws2)
 }

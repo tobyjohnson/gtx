@@ -1,13 +1,41 @@
 ## regionplot.new and associated functions
 ## assume database connection
 
-regionplot.new <- function(chrom, pos_start, pos_end,
-                           hgncid, ensemblid, surround = 500000, 
-                           pmin = 1e-10,
-			   protein_coding_only = TRUE,   
-                           dbc = getOption("gtx.dbConnection", NULL)) {
-  
+regionplot <- function(phenotype,
+                       chrom, pos_start, pos_end,
+                       hgncid, ensemblid, surround = 500000,
+                       style = 'protein_coding', # plan to support 'independent_signals' and 'r2'
+                       protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
+                       dbc = getOption("gtx.dbConnection", NULL)) {
+
   ## Determine x-axis range from arguments
+  xregion <- regionplot.region(chrom, pos_start, pos_end,
+                               hgncid, ensemblid, surround,
+                               dbc = dbc)
+  chrom = xregion$chrom
+  pos_start = xregion$pos_start
+  pos_end = xregion$pos_end
+  
+  pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
+                                 gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
+                                 sanitize(phenotype, type = 'alphanum')))
+  pmin <- min(pvals$pval)
+
+  regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+                 pmin = pmin, 
+                 protein_coding_only = protein_coding_only, 
+                 dbc = dbc)
+
+  ## Plot all variants with VEP annotation as blue diamonds in top layer
+  with(subset(pvals, consequences == ''), regionplot.points(pos, pval))
+  with(subset(pvals, consequences != ''), regionplot.points(pos, pval, pch = 23, bg = rgb(.5, .5, 1, .75), col = rgb(0, 0, 1, .75)))
+
+  return(invisible(NULL))
+}
+
+regionplot.region <- function(chrom, pos_start, pos_end,
+                           hgncid, ensemblid, surround = 500000, 
+                           dbc = getOption("gtx.dbConnection", NULL)) {
   if (!missing(chrom) & !missing(pos_start) & !missing(pos_end)) {
     stopifnot(identical(length(chrom), 1L))
     stopifnot(identical(length(pos_start), 1L))
@@ -30,7 +58,23 @@ regionplot.new <- function(chrom, pos_start, pos_end,
     pos_start <- gp$pos_start[1] - surround
     pos_end <- gp$pos_end[1] + surround
   }
-  
+  return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end))
+}
+
+regionplot.new <- function(chrom, pos_start, pos_end,
+                           hgncid, ensemblid, surround = 500000, 
+                           pmin = 1e-10,
+			   protein_coding_only = TRUE,   
+                           dbc = getOption("gtx.dbConnection", NULL)) {
+    
+  ## Determine x-axis range from arguments
+  xregion <- regionplot.region(chrom, pos_start, pos_end,
+                               hgncid, ensemblid, surround,
+                               dbc = dbc)
+  chrom = xregion$chrom
+  pos_start = xregion$pos_start
+  pos_end = xregion$pos_end
+
   ## Determine y-axis upper limit
   ymax <- ceiling(-log10(pmin) + 0.5)
 
@@ -116,7 +160,19 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
               }))
 }
 
-regionplot.points <- function() {
+regionplot.points <- function(pos, pval,
+                              pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5),
+                              suppressWarning = FALSE) {
+  ymax <- floor(par("usr")[4])
+  y <- -log10(pval)
+  f <- y > ymax
+  points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg)
+  if (any(f) && !suppressWarning) {
+    axis(2, at = ylim, labels = substitute({}<=ymax, list(ymax = ymax)), las = 1)
+    text(mean(range(pos[f])), ymax, 'Plot truncated', adj = c(0.5, 0), cex = 0.5)
+    return(FALSE)
+  }
+  return(TRUE)
 }
 
 regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5, 
