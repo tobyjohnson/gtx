@@ -21,12 +21,13 @@ regionplot <- function(phenotype,
   #                               gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
   #                               sanitize(phenotype, type = 'alphanum')))
 
-  pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas.chrom, gwas.pos, gwas.ref, gwas.alt, pval, signal, beta_cond, se_cond, pval_cond FROM gwas LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, phenotype) WHERE %s AND gwas.phenotype=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                                
+  pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas.chrom, gwas.pos, gwas.ref, gwas.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM gwas LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, phenotype) WHERE %s AND gwas.phenotype=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                   
                                  gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),                                 
                                  sanitize(phenotype, type = 'alphanum')))
   signals <- sort(unique(na.omit(pvals$signal)))
   nsignals <- length(signals)
 
+  print (nsignals)
   if (nsignals == 0) {
     pvals <- within(pvals, {
       posterior <- norm1(abf.Wakefield(beta, se, priorsd = 1, log = TRUE), log = TRUE)
@@ -49,9 +50,9 @@ regionplot <- function(phenotype,
           posterior[f] <- norm1(abf.Wakefield(beta_cond[f], se_cond[f], priorsd = 1, log = TRUE), log = TRUE)
           posterior[f] <- ifelse(!is.na(posterior[f]), posterior[f], 0) # bad hack
           c95[f] <- credset(posterior[f])
-          colour[f] <- rgb((col2rgb(rainbow(nsignals)[idx])[1] - 171)*posterior[f]/max(posterior[f])+171, 
-                           (col2rgb(rainbow(nsignals)[idx])[2] - 171)*posterior[f]/max(posterior[f])+171, 
-                           (col2rgb(rainbow(nsignals)[idx])[3] - 171)*posterior[f]/max(posterior[f])+171, 
+          colour[f] <- rgb((col2rgb(colvec[idx])[1] - 171)*posterior[f]/max(posterior[f])+171, 
+                           (col2rgb(colvec[idx])[2] - 171)*posterior[f]/max(posterior[f])+171, 
+                           (col2rgb(colvec[idx])[3] - 171)*posterior[f]/max(posterior[f])+171, 
                            alpha = 127, maxColorValue = 255)
         }
         f <- NULL
@@ -69,8 +70,8 @@ regionplot <- function(phenotype,
                  dbc = dbc)
 
   ## Plot all variants with VEP annotation as blue diamonds in top layer
-  with(subset(pvals, is.na(consequences) | consequences == ''), regionplot.points(pos, pval))
-  with(subset(pvals, consequences != ''), regionplot.points(pos, pval, pch = 23, bg = rgb(.5, .5, 1, .75), col = rgb(0, 0, 1, .75)))
+  #with(subset(pvals, is.na(consequences) | consequences == ''), regionplot.points(pos, pval))
+  #with(subset(pvals, consequences != ''), regionplot.points(pos, pval, pch = 23, bg = rgb(.5, .5, 1, .75), col = rgb(0, 0, 1, .75)))
 
   with(pvals, regionplot.points(pos, pval,
                                 pch = ifelse(!is.na(consequences), 23, 21), 
