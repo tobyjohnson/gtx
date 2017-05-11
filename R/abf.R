@@ -51,6 +51,13 @@ norm1 <- function(x, log = FALSE) {
   return(x / sum(x, na.rm = TRUE))
 }
 
+credset <- function(bf, cred = 0.95) {
+    if (sum(!is.na(bf)) == 0L) return(rep(NA, length(bf)))
+    bf <- bf/max(bf, na.rm = TRUE)
+    ps <- cumsum(sort(bf, decreasing = TRUE, na.last = NA))
+    return(rank(-bf, na.last = TRUE) <= min(which(ps >= cred*ps[length(ps)])))
+}
+
 ## Colocalisation analysis, implementing method of Giambartolomei et al. 2014
 coloc.fast <- function(data, rounded = 6,
                        priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5, 

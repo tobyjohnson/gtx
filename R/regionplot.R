@@ -15,10 +15,52 @@ regionplot <- function(phenotype,
   chrom = xregion$chrom
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
-  
-  pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
-                                 gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
+
+  ## For basic query without finemapping
+  #pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
+  #                               gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
+  #                               sanitize(phenotype, type = 'alphanum')))
+
+  pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas.chrom, gwas.pos, gwas.ref, gwas.alt, pval, signal, beta_cond, se_cond, pval_cond FROM gwas LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, phenotype) WHERE %s AND gwas.phenotype=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                                
+                                 gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),                                 
                                  sanitize(phenotype, type = 'alphanum')))
+  signals <- sort(unique(na.omit(pvals$signal)))
+  nsignals <- length(signals)
+
+  if (nsignals == 0) {
+    pvals <- within(pvals, {
+      posterior <- norm1(abf.Wakefield(beta, se, priorsd = 1, log = TRUE), log = TRUE)
+      posterior <- ifelse(!is.na(posterior), posterior, 0) # bad hack
+      c95 <- credset(posterior)
+      colour <- rgb((255 - 171)*posterior/max(posterior)+171, 
+                    (0 - 171)*posterior/max(posterior)+171, 
+                    (0 - 171)*posterior/max(posterior)+171, 
+                    alpha = 127, maxColorValue = 255)
+    })
+  } else {
+    colvec <- rainbow(nsignals, start = .6667, end = .3333)
+    pvals <- within(pvals, {
+      posterior <- rep(NA, length(pval))
+      colour <- rep(NA, length(pval))
+      c95 <- rep(NA, length(pval))
+      for (idx in 1:nsignals) {
+        f <- !is.na(signal) & signal == signals[idx]
+        if (any(f)) {
+          posterior[f] <- norm1(abf.Wakefield(beta_cond[f], se_cond[f], priorsd = 1, log = TRUE), log = TRUE)
+          posterior[f] <- ifelse(!is.na(posterior[f]), posterior[f], 0) # bad hack
+          c95[f] <- credset(posterior[f])
+          colour[f] <- rgb((col2rgb(rainbow(nsignals)[idx])[1] - 171)*posterior[f]/max(posterior[f])+171, 
+                           (col2rgb(rainbow(nsignals)[idx])[2] - 171)*posterior[f]/max(posterior[f])+171, 
+                           (col2rgb(rainbow(nsignals)[idx])[3] - 171)*posterior[f]/max(posterior[f])+171, 
+                           alpha = 127, maxColorValue = 255)
+        }
+        f <- NULL
+      }})
+  }
+  pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
+  pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
+  pvals <- pvals[order(!is.na(pvals$consequences), pvals$posterior), ]
+  
   pmin <- min(pvals$pval)
 
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
@@ -30,6 +72,11 @@ regionplot <- function(phenotype,
   with(subset(pvals, is.na(consequences) | consequences == ''), regionplot.points(pos, pval))
   with(subset(pvals, consequences != ''), regionplot.points(pos, pval, pch = 23, bg = rgb(.5, .5, 1, .75), col = rgb(0, 0, 1, .75)))
 
+  with(pvals, regionplot.points(pos, pval,
+                                pch = ifelse(!is.na(consequences), 23, 21), 
+                                cex = ifelse(c95, 1.25, .75), bg=colour, 
+                                col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
+  
   return(invisible(NULL))
 }
 
@@ -161,12 +208,12 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
 }
 
 regionplot.points <- function(pos, pval,
-                              pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5),
+                              pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1, 
                               suppressWarning = FALSE) {
   ymax <- floor(par("usr")[4])
   y <- -log10(pval)
   f <- y > ymax
-  points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg)
+  points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg, cex = cex)
   if (any(f) && !suppressWarning) {
     # would be nice to more cleanly overwrite y axis label
     axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
