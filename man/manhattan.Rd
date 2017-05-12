@@ -6,13 +6,14 @@
   genome-wide analysis.
 }
 \usage{
-manhattan(p, SNP, chr, pos, ...)
+manhattan(p, SNP, chr, pos, pmin = NULL, ...)
 }
 \arguments{
   \item{p}{A vector of P-values}
   \item{SNP}{A vector of SNP names in chr:pos[:allele_allele] format}
   \item{chr}{A vector of chromosome locations}
   \item{pos}{A vector of positions within chromosomes}
+  \item{pmin}{The smallest P-value that should fit in the plot}
   \item{...}{Additional arguments passed to points for plotting the p-values}
 }
 \details{
