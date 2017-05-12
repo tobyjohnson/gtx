@@ -4,7 +4,7 @@
 regionplot <- function(phenotype,
                        chrom, pos_start, pos_end,
                        hgncid, ensemblid, surround = 500000,
-                       style = 'protein_coding', # plan to support 'independent_signals' and 'r2'
+                       signals = TRUE, 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
                        dbc = getOption("gtx.dbConnection", NULL)) {
 
@@ -16,52 +16,70 @@ regionplot <- function(phenotype,
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
 
-  ## For basic query without finemapping
-  #pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
-  #                               gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
-  #                               sanitize(phenotype, type = 'alphanum')))
-
-  pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas.chrom, gwas.pos, gwas.ref, gwas.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM gwas LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, phenotype) WHERE %s AND gwas.phenotype=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                   
-                                 gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),                                 
-                                 sanitize(phenotype, type = 'alphanum')))
-  signals <- sort(unique(na.omit(pvals$signal)))
-  nsignals <- length(signals)
-
-  print (nsignals)
-  if (nsignals == 0) {
-    pvals <- within(pvals, {
-      posterior <- norm1(abf.Wakefield(beta, se, priorsd = 1, log = TRUE), log = TRUE)
-      posterior <- ifelse(!is.na(posterior), posterior, 0) # bad hack
-      c95 <- credset(posterior)
-      colour <- rgb((255 - 171)*posterior/max(posterior)+171, 
-                    (0 - 171)*posterior/max(posterior)+171, 
-                    (0 - 171)*posterior/max(posterior)+171, 
-                    alpha = 127, maxColorValue = 255)
-    })
+  if (!signals) {
+    ## basic query without finemapping
+    pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
+                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
+                                   sanitize(phenotype, type = 'alphanum')))
   } else {
-    colvec <- rainbow(nsignals, start = .6667, end = .3333)
-    pvals <- within(pvals, {
-      posterior <- rep(NA, length(pval))
-      colour <- rep(NA, length(pval))
-      c95 <- rep(NA, length(pval))
-      for (idx in 1:nsignals) {
-        f <- !is.na(signal) & signal == signals[idx]
-        if (any(f)) {
-          posterior[f] <- norm1(abf.Wakefield(beta_cond[f], se_cond[f], priorsd = 1, log = TRUE), log = TRUE)
-          posterior[f] <- ifelse(!is.na(posterior[f]), posterior[f], 0) # bad hack
-          c95[f] <- credset(posterior[f])
-          colour[f] <- rgb((col2rgb(colvec[idx])[1] - 171)*posterior[f]/max(posterior[f])+171, 
-                           (col2rgb(colvec[idx])[2] - 171)*posterior[f]/max(posterior[f])+171, 
-                           (col2rgb(colvec[idx])[3] - 171)*posterior[f]/max(posterior[f])+171, 
-                           alpha = 127, maxColorValue = 255)
-        }
-        f <- NULL
+    ## plot with finemapping annotation
+
+    ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
+    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas.chrom, gwas.pos, gwas.ref, gwas.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM gwas LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, phenotype) WHERE %s AND gwas.phenotype=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                   
+                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),                                 
+                                   sanitize(phenotype, type = 'alphanum')))
+    signals <- sort(unique(na.omit(pvals$signal)))
+    nsignals <- length(signals)
+
+    print (nsignals)
+    if (nsignals == 0) {
+      ## no signals from conditional stepwise analyses at the threshold those analyses were done to
+      ## hence fine map based on assumption of, at most, one signal
+      ## Note the fixed prior (not dependent on allele freq) gives unexpected results for very weak association signals
+      ## consider to turn off altogether if e.g. no p<1e-4
+      pvals <- within(pvals, {
+        posterior <- norm1(abf.Wakefield(beta, se, priorsd = 1, log = TRUE), log = TRUE)
+        posterior <- ifelse(!is.na(posterior), posterior, 0) # bad hack
+        c95 <- credset(posterior)
+        ## Colour with red->grey scale for the one signal
+        colour <- rgb((255 - 171)*posterior/max(posterior)+171, 
+                      (0 - 171)*posterior/max(posterior)+171, 
+                      (0 - 171)*posterior/max(posterior)+171, 
+                      alpha = 127, maxColorValue = 255)
+      })
+      colvec <- rgb(255, 0, 0, maxColorValue = 255) # used for legend below
+      nsignals <- 1 # used for legend below # SHOULD HAVE SOME KIND OF ANNOTATION WHEN THERE ARE NO REAL SIGNALS LIKE THIS
+    } else {
+      ## one or more signals, same code works for one as >one except for setting up nice colour vector
+      if (nsignals == 1) {
+        colvec <- rgb(255, 0, 0, maxColorValue = 255)
+      } else {
+        colvec <- rainbow(nsignals, start = .6667, end = .3333) # blue-magenta-red-yellow-green avoiding cyan part of spectrum
+      }
+      pvals <- within(pvals, {
+        posterior <- rep(NA, length(pval))
+        colour <- rep(NA, length(pval))
+        c95 <- rep(NA, length(pval))
+        for (idx in 1:nsignals) {
+          f <- !is.na(signal) & signal == signals[idx]
+          if (any(f)) {
+            posterior[f] <- norm1(abf.Wakefield(beta_cond[f], se_cond[f], priorsd = 1, log = TRUE), log = TRUE)
+            posterior[f] <- ifelse(!is.na(posterior[f]), posterior[f], 0) # bad hack
+            c95[f] <- credset(posterior[f])
+            colour[f] <- rgb((col2rgb(colvec[idx])[1] - 171)*posterior[f]/max(posterior[f])+171, 
+                             (col2rgb(colvec[idx])[2] - 171)*posterior[f]/max(posterior[f])+171, 
+                             (col2rgb(colvec[idx])[3] - 171)*posterior[f]/max(posterior[f])+171, 
+                             alpha = 127, maxColorValue = 255)
+          }
+          f <- NULL
       }})
+    }
+    # ensure one point per variant, using the annotation for the signal with the highest posterior
+    pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
+    pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
   }
-  pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
-  pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
-  pvals <- pvals[order(!is.na(pvals$consequences), pvals$posterior), ]
-  
+
+  pvals <- within(pvals, consequences[consequences == ''] <- NA)
   pmin <- min(pvals$pval)
 
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
@@ -69,14 +87,25 @@ regionplot <- function(phenotype,
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
 
-  ## Plot all variants with VEP annotation as blue diamonds in top layer
-  #with(subset(pvals, is.na(consequences) | consequences == ''), regionplot.points(pos, pval))
-  #with(subset(pvals, consequences != ''), regionplot.points(pos, pval, pch = 23, bg = rgb(.5, .5, 1, .75), col = rgb(0, 0, 1, .75)))
-
-  with(pvals, regionplot.points(pos, pval,
-                                pch = ifelse(!is.na(consequences), 23, 21), 
-                                cex = ifelse(c95, 1.25, .75), bg=colour, 
-                                col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
+  if (!signals) {
+    # best order for plotting
+    pvals <- pvals[order(!is.na(pvals$consequences), -log10(pvals$pval)), ]
+    ## Plot all variants with VEP annotation as blue diamonds in top layer
+    with(pvals, regionplot.points(pos, pval,
+                                  pch = ifelse(!is.na(consequences), 23, 21),
+                                  col = ifelse(!is.na(consequences), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
+                                  bg = ifelse(!is.na(consequences), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5)))
+  } else {
+    # best order for plotting
+    pvals <- pvals[order(!is.na(pvals$consequences), pvals$posterior), ]
+    ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
+    with(pvals, regionplot.points(pos, pval,
+                                  pch = ifelse(!is.na(consequences), 23, 21), 
+                                  cex = ifelse(c95, 1.25, .75), bg=colour, 
+                                  col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
+    # legend indicating signals
+    legend("bottomleft", pch=21,pt.bg=colvec,legend=1:nsignals, horiz=T,bty="n",cex=.5)
+  }
   
   return(invisible(NULL))
 }
