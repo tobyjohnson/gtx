@@ -1,5 +1,5 @@
 ## regionplot.new and associated functions
-## assume database connection
+## assumes database connection is provided by getOption("gtx.dbConnection")
 
 regionplot <- function(phenotype,
                        chrom, pos_start, pos_end,
@@ -7,6 +7,7 @@ regionplot <- function(phenotype,
                        style = 'signals', 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
                        dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
 
   ## Determine x-axis range from arguments
   xregion <- regionplot.region(chrom, pos_start, pos_end,
@@ -115,6 +116,7 @@ regionplot <- function(phenotype,
 regionplot.region <- function(chrom, pos_start, pos_end,
                            hgncid, ensemblid, surround = 500000, 
                            dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
   if (!missing(chrom) & !missing(pos_start) & !missing(pos_end)) {
     stopifnot(identical(length(chrom), 1L))
     stopifnot(identical(length(pos_start), 1L))
@@ -145,6 +147,7 @@ regionplot.new <- function(chrom, pos_start, pos_end,
                            pmin = 1e-10,
 			   protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
     
   ## Determine x-axis range from arguments
   xregion <- regionplot.region(chrom, pos_start, pos_end,
@@ -197,7 +200,8 @@ regionplot.genedraw <- function(gl) {
 regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
 				   protein_coding_only = TRUE, 
                                    dbc = getOption("gtx.dbConnection", NULL)) {
-
+  gtxdbcheck(dbc)
+  
   yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
   xplt <- par("plt")[2] - par("plt")[1]
   xusr <- pos_end - pos_start # par("usr")[2] - par("usr")[1] 
@@ -257,6 +261,7 @@ regionplot.points <- function(pos, pval,
 
 regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5, 
                                      dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
 
   ## Recombination segments (r) that fall wholly or partly within [pos_start, pos_end]
   ## have r.pos_end >= pos_start and r.pos_start <= pos_end
