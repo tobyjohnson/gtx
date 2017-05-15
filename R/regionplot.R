@@ -4,7 +4,7 @@
 regionplot <- function(phenotype,
                        chrom, pos_start, pos_end,
                        hgncid, ensemblid, surround = 500000,
-                       signals = TRUE, 
+                       style = 'signals', 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
                        dbc = getOption("gtx.dbConnection", NULL)) {
 
@@ -16,12 +16,12 @@ regionplot <- function(phenotype,
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
 
-  if (!signals) {
+  if (identical(style, 'classic')) {
     ## basic query without finemapping
     pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
                                    sanitize(phenotype, type = 'alphanum')))
-  } else {
+  } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
@@ -77,6 +77,8 @@ regionplot <- function(phenotype,
     # ensure one point per variant, using the annotation for the signal with the highest posterior
     pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
     pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
+  } else {
+    stop('style ', style, ' not recognised')
   }
 
   pvals <- within(pvals, consequences[consequences == ''] <- NA)
@@ -87,7 +89,7 @@ regionplot <- function(phenotype,
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
 
-  if (!signals) {
+  if (identical(style, 'classic')) {
     ## best order for plotting
     pvals <- pvals[order(!is.na(pvals$consequences), -log10(pvals$pval)), ]
     ## Plot all variants with VEP annotation as blue diamonds in top layer
@@ -95,7 +97,7 @@ regionplot <- function(phenotype,
                                   pch = ifelse(!is.na(consequences), 23, 21),
                                   col = ifelse(!is.na(consequences), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(consequences), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
-  } else {
+  } else if (identical(style, 'signals')) {
     ## best order for plotting
     pvals <- pvals[order(!is.na(pvals$consequences), pvals$posterior), ]
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
