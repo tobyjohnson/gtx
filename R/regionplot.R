@@ -88,15 +88,15 @@ regionplot <- function(phenotype,
                  dbc = dbc)
 
   if (!signals) {
-    # best order for plotting
+    ## best order for plotting
     pvals <- pvals[order(!is.na(pvals$consequences), -log10(pvals$pval)), ]
     ## Plot all variants with VEP annotation as blue diamonds in top layer
     with(pvals, regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(consequences), 23, 21),
                                   col = ifelse(!is.na(consequences), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
-                                  bg = ifelse(!is.na(consequences), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5)))
+                                  bg = ifelse(!is.na(consequences), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
   } else {
-    # best order for plotting
+    ## best order for plotting
     pvals <- pvals[order(!is.na(pvals$consequences), pvals$posterior), ]
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
     with(pvals, regionplot.points(pos, pval,
