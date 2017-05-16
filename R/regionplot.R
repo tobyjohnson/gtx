@@ -107,7 +107,7 @@ regionplot <- function(phenotype,
                                   cex = ifelse(c95, 1.25, .75), bg=colour, 
                                   col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
-    legend("bottomleft", pch=21,pt.bg=colvec,legend=1:nsignals, horiz=T,bty="n",cex=.5)
+    legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
   }
   
   return(invisible(NULL))
