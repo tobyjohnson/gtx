@@ -9,9 +9,9 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
-    data.table
+    RODBC,data.table
 Suggests:
-    knitr
+    knitr,RSQLite
 VignetteBuilder: knitr
 License: GPL (>= 3)
 Description: A fork of the gtx package, which has been streamlined to 
