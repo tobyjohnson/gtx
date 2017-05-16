@@ -1,3 +1,11 @@
+gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL)) {
+  if (! 'RODBC' %in% class(dbc)) stop('dbc does not appear to be a database connection (not of class RODBC)')
+  tables <- sqlQuery(dbc, 'SHOW TABLES;')
+  if (!is.data.frame(tables)) stop('dbc does not appear to be an open database connection (SHOW TABLES did not return a dataframe)')
+  ## could add other checks for existence and schema of the tables present
+  return(TRUE)
+}
+
 sanitize <- function(x, values, type) {
   ## function to sanitize x in preparation for constructing SQL queries
   if (!missing(values)) {
