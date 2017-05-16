@@ -16,7 +16,7 @@ abf.Wakefield(beta, se, priorsd, log = FALSE)
   \item{se}{Vector of associated standard errors.}
   \item{priorsd}{Scalar specifying the standard deviation of the prior
     on true effect sizes.}
-  \item(log}{Whether to return results on a natural log scale.}
+  \item{log}{Whether to return results on a natural log scale.}
 }
 \value{
   A vector of approximate Bayes factors, on a log scale if
