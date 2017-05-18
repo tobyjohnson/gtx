@@ -32,25 +32,33 @@ regionplot <- function(phenotype,
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
-    print (nsignals)
     if (nsignals == 0) {
-      ## no signals from conditional stepwise analyses at the threshold those analyses were done to
-      ## hence fine map based on assumption of, at most, one signal
-      ## Note the fixed prior (not dependent on allele freq) gives unexpected results for very weak association signals
-      ## consider to turn off altogether if e.g. no p<1e-4
-      pvals <- within(pvals, {
-        posterior <- norm1(abf.Wakefield(beta, se, priorsd = 1, log = TRUE), log = TRUE)
-        posterior <- ifelse(!is.na(posterior), posterior, 0) # bad hack
-        c95 <- credset(posterior)
-        ## Colour with red->grey scale for the one signal
-        colour <- rgb((255 - 171)*posterior/max(posterior)+171, 
-                      (0 - 171)*posterior/max(posterior)+171, 
-                      (0 - 171)*posterior/max(posterior)+171, 
-                      alpha = 127, maxColorValue = 255)
-      })
-      colvec <- rgb(255, 0, 0, maxColorValue = 255) # used for legend below
+      message("No signals from conditional/joint analyses overlap this region")
+      ## No signals from conditional stepwise analyses at the threshold those analyses were done to
+      ## If at least one P<=1e-4, fine map based on assumption of one signal
+      ## Otherwise, no fine mapping (the fixed prior, not dependent on allele freq,
+      ##   gives unexpected results for very weak association signals)
+      if (min(pvals$pval) <= 1e-4) {
+        pvals <- within(pvals, {
+          posterior <- norm1(abf.Wakefield(beta, se, priorsd = 1, log = TRUE), log = TRUE)
+          posterior <- ifelse(!is.na(posterior), posterior, 0) # bad hack
+          c95 <- credset(posterior)
+          ## Colour with red->grey scale for the one signal
+          colour <- rgb((255 - 171)*posterior/max(posterior)+171, 
+                        (0 - 171)*posterior/max(posterior)+171, 
+                        (0 - 171)*posterior/max(posterior)+171, 
+                        alpha = 127, maxColorValue = 255)
+        })
+        colvec <- rgb(255, 0, 0, maxColorValue = 255) # used for legend below
+      } else {
+        pvals <- within(pvals, {
+          c95 <- FALSE
+          colour <- rgb(171, 171, 171, alpha = 127, maxColorValue = 255)
+        })
+      }
       nsignals <- 1 # used for legend below # SHOULD HAVE SOME KIND OF ANNOTATION WHEN THERE ARE NO REAL SIGNALS LIKE THIS
     } else {
+      message(nsignals, " signals from conditional/joint analyses overlap this region") 
       ## one or more signals, same code works for one as >one except for setting up nice colour vector
       if (nsignals == 1) {
         colvec <- rgb(255, 0, 0, maxColorValue = 255)
@@ -107,7 +115,7 @@ regionplot <- function(phenotype,
                                   cex = ifelse(c95, 1.25, .75), bg=colour, 
                                   col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
-    legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
+    if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
   }
   
   return(invisible(NULL))
