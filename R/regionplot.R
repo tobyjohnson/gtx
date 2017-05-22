@@ -49,6 +49,7 @@ regionplot <- function(phenotype,
                         (0 - 171)*posterior/max(posterior)+171, 
                         alpha = 127, maxColorValue = 255)
         })
+        nsignals <- 1 # used for legend below # SHOULD HAVE SOME KIND OF ANNOTATION WHEN THERE ARE NO REAL SIGNALS LIKE THIS
         colvec <- rgb(255, 0, 0, maxColorValue = 255) # used for legend below
       } else {
         pvals <- within(pvals, {
@@ -57,7 +58,6 @@ regionplot <- function(phenotype,
           colour <- rgb(171, 171, 171, alpha = 127, maxColorValue = 255)
         })
       }
-      nsignals <- 1 # used for legend below # SHOULD HAVE SOME KIND OF ANNOTATION WHEN THERE ARE NO REAL SIGNALS LIKE THIS
     } else {
       message(nsignals, " signal(s) from conditional/joint analyses overlap this region") 
       ## one or more signals, same code works for one as >one except for setting up nice colour vector
@@ -94,8 +94,19 @@ regionplot <- function(phenotype,
   pvals <- within(pvals, consequences[consequences == ''] <- NA)
   pmin <- min(pvals$pval)
 
+  pdesc <- sqlQuery(getOption('gtx.dbConnection'), sprintf('SELECT description, ncase, ncontrol, ncohort FROM phenotypes WHERE phenotype=\'%s\'',
+                                                           sanitize(phenotype, type = 'alphanum')))
+  main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+	      sprintf('%s, n=%i vs %i', pdesc$description[1], pdesc$ncase[1], pdesc$ncontrol[1])
+  	  } else if (!is.na(pdesc$ncohort[1])) {
+      	      sprintf('%s, n=%i', pdesc$description[1], pdesc$ncohort[1])
+	  } else {
+	      sprintf('%s, n=?', pdesc$description[1])
+  	  }
+
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
+                 main = main,
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
 
@@ -117,8 +128,8 @@ regionplot <- function(phenotype,
                                   col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
-  }
-  
+  } 
+
   return(invisible(NULL))
 }
 
@@ -153,7 +164,7 @@ regionplot.region <- function(chrom, pos_start, pos_end,
 
 regionplot.new <- function(chrom, pos_start, pos_end,
                            hgncid, ensemblid, surround = 500000, 
-                           pmin = 1e-10,
+                           pmin = 1e-10, main, 
 			   protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
@@ -190,6 +201,13 @@ regionplot.new <- function(chrom, pos_start, pos_end,
   regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]))
   ##  regionplot.genedraw uses previously determined layout
   regionplot.genedraw(gl)
+
+  ## Add title, scaled to fit if necessary
+  if (!missing(main)) {
+    xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+    mtext(main, 3, 1,
+          cex = min(1., xplt/strwidth(main, units = 'figure')))
+  }
 
   ## Draw box last to overdraw any edge marks
   box()
