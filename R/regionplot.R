@@ -52,13 +52,14 @@ regionplot <- function(phenotype,
         colvec <- rgb(255, 0, 0, maxColorValue = 255) # used for legend below
       } else {
         pvals <- within(pvals, {
-          c95 <- FALSE
+          posterior <- NA # set just so that ordering for plotting does not throw error
+	  c95 <- FALSE
           colour <- rgb(171, 171, 171, alpha = 127, maxColorValue = 255)
         })
       }
       nsignals <- 1 # used for legend below # SHOULD HAVE SOME KIND OF ANNOTATION WHEN THERE ARE NO REAL SIGNALS LIKE THIS
     } else {
-      message(nsignals, " signals from conditional/joint analyses overlap this region") 
+      message(nsignals, " signal(s) from conditional/joint analyses overlap this region") 
       ## one or more signals, same code works for one as >one except for setting up nice colour vector
       if (nsignals == 1) {
         colvec <- rgb(255, 0, 0, maxColorValue = 255)
@@ -82,10 +83,10 @@ regionplot <- function(phenotype,
           }
           f <- NULL
       }})
+      # ensure one point per variant, using the annotation for the signal with the highest posterior
+      pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
+      pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
     }
-    # ensure one point per variant, using the annotation for the signal with the highest posterior
-    pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
-    pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
   } else {
     stop('style ', style, ' not recognised')
   }
