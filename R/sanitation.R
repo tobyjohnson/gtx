@@ -1,8 +1,16 @@
-gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL)) {
+gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALSE) {
   if (! 'RODBC' %in% class(dbc)) stop('dbc does not appear to be a database connection (not of class RODBC)')
   tables <- sqlQuery(dbc, 'SHOW TABLES;')
   if (!is.data.frame(tables)) stop('dbc does not appear to be an open database connection (SHOW TABLES did not return a dataframe)')
   ## could add other checks for existence and schema of the tables present
+  if (verbose) {
+    if ('gwas_results' %in% tables$name) {
+      message(sprintf('%s GWAS analyses', prettyNum(sqlQuery(dbc, 'SELECT count(1) AS n FROM analyses')$n, big.mark = ',', scientific = FALSE)))
+      message(sprintf('%s GWAS results', prettyNum(sqlQuery(dbc, 'SELECT count(1) AS n FROM gwas_results')$n, big.mark = ',', scientific = FALSE)))
+    } else {
+      stop('dbc does not provide TABLE gwas_results')
+    }
+  }
   return(TRUE)
 }
 
