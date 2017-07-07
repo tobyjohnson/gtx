@@ -1,7 +1,7 @@
 ## regionplot.new and associated functions
 ## assumes database connection is provided by getOption("gtx.dbConnection")
 
-regionplot <- function(phenotype,
+regionplot <- function(analysis,
                        chrom, pos_start, pos_end,
                        hgncid, ensemblid, surround = 500000,
                        style = 'signals', 
@@ -19,16 +19,16 @@ regionplot <- function(phenotype,
 
   if (identical(style, 'classic')) {
     ## basic query without finemapping
-    pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
-                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
-                                   sanitize(phenotype, type = 'alphanum')))
+    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, consequences FROM gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL;',
+                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                   sanitize(analysis, type = 'alphanum')))
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas.chrom, gwas.pos, gwas.ref, gwas.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM gwas LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, phenotype) WHERE %s AND gwas.phenotype=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                   
-                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),                                 
-                                   sanitize(phenotype, type = 'alphanum')))
+    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM gwas_results LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                   
+                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
+                                   sanitize(analysis, type = 'alphanum')))
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
@@ -94,15 +94,19 @@ regionplot <- function(phenotype,
   pvals <- within(pvals, consequences[consequences == ''] <- NA)
   pmin <- min(pvals$pval)
 
-  pdesc <- sqlQuery(getOption('gtx.dbConnection'), sprintf('SELECT description, ncase, ncontrol, ncohort FROM phenotypes WHERE phenotype=\'%s\'',
-                                                           sanitize(phenotype, type = 'alphanum')))
-  main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+  pdesc <- sqlQuery(getOption('gtx.dbConnection'), sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE analysis=\'%s\'',
+                                                           sanitize(analysis, type = 'alphanum')))
+  if (nrow(pdesc) > 0) {
+    main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
 	      sprintf('%s, n=%i vs %i', pdesc$description[1], pdesc$ncase[1], pdesc$ncontrol[1])
   	  } else if (!is.na(pdesc$ncohort[1])) {
       	      sprintf('%s, n=%i', pdesc$description[1], pdesc$ncohort[1])
 	  } else {
 	      sprintf('%s, n=?', pdesc$description[1])
   	  }
+  } else {
+    main <- 'NO DESCRIPTION' 
+  }
 
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
