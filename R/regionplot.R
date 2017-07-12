@@ -9,6 +9,13 @@ regionplot <- function(analysis,
                        dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
 
+  results_db <- sqlQuery(dbc, sprintf('SELECT results_db FROM analyses WHERE analysis=\'%s\';', sanitize(analysis, type = 'alphanum')))$results_db
+  if (identical(length(results_db), 1L)) {
+    message('Results for analysis [ ', analysis, ' ] in ', results_db, '.gwas_results')
+  } else {
+    stop('analysis [ ', analysis, ' ] not found in TABLE analyses')
+  }
+
   ## Determine x-axis range from arguments
   xregion <- regionplot.region(chrom, pos_start, pos_end,
                                hgncid, ensemblid, surround,
@@ -19,14 +26,16 @@ regionplot <- function(analysis,
 
   if (identical(style, 'classic')) {
     ## basic query without finemapping
-    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, consequences FROM gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL;',
+    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, consequences FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL;',
+				   results_db, 
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
                                    sanitize(analysis, type = 'alphanum')))
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM gwas_results LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                   
+    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+                                   results_db, results_db, 
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
                                    sanitize(analysis, type = 'alphanum')))
     signals <- sort(unique(na.omit(pvals$signal)))
