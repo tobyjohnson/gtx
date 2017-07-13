@@ -7,14 +7,13 @@ regionplot <- function(analysis,
                        style = 'signals', 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
                        dbc = getOption("gtx.dbConnection", NULL)) {
+  # check database connection
   gtxdbcheck(dbc)
 
-  results_db <- sqlQuery(dbc, sprintf('SELECT results_db FROM analyses WHERE analysis=\'%s\';', sanitize(analysis, type = 'alphanum')))$results_db
-  if (identical(length(results_db), 1L)) {
-    message('Results for analysis [ ', analysis, ' ] in ', results_db, '.gwas_results')
-  } else {
-    stop('analysis [ ', analysis, ' ] not found in TABLE analyses')
-  }
+  # sanitize analysis key, identify database containing required gwas_results
+  analysis <- sanitize(analysis, type = 'alphanum')
+  stopifnot(identical(length(analysis), 1L))
+  results_db <- gtxanalysisdb(analysis)
 
   ## Determine x-axis range from arguments
   xregion <- regionplot.region(chrom, pos_start, pos_end,

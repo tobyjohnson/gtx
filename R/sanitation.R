@@ -36,6 +36,30 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALS
   }
   return(TRUE)
 }
+      
+gtxanalysisdb <- function(analysis, dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+  dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+  analysis <- sanitize(analysis, type = 'alphanum')
+  stopifnot(identical(length(analysis), 1L))
+  res <- sqlQuery(dbc, sprintf('SELECT results_db FROM analyses WHERE analysis=\'%s\';',
+                                analysis))
+  if (is.data.frame(res)) {
+    if (identical(nrow(res), 0L)) {
+        stop('analysis [ ', analysis, ' ] not found in TABLE analyses')
+    } else if (identical(nrow(res), 1L)) {
+        if (res$results_db %in% dbs$name) {
+          return(res$results_db)
+        } else {
+          stop('analysis [ ', analysis, ' ] no access to required database ', res$resultsdb)  
+        }    
+    } else {
+        stop('analysis [ ', analysis, ' ] found more than once in TABLE analyses')
+    }
+  } else {
+    stop('dbc SQL error:\n', as.character(res))
+  }  
+}  
 
 sanitize <- function(x, values, type) {
   ## function to sanitize x in preparation for constructing SQL queries
