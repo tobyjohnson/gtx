@@ -4,6 +4,7 @@
 regionplot <- function(analysis,
                        chrom, pos_start, pos_end,
                        hgncid, ensemblid, surround = 500000,
+                       entity, 
                        style = 'signals', 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
                        dbc = getOption("gtx.dbConnection", NULL)) {
@@ -15,6 +16,42 @@ regionplot <- function(analysis,
   stopifnot(identical(length(analysis), 1L))
   results_db <- gtxanalysisdb(analysis)
 
+  # FIXME refactor the entity id code as a separate function
+  entity_type <- sqlQuery(dbc, sprintf('SELECT entity_type FROM analyses WHERE analysis=\'%s\';', analysis))$entity_type
+  if (identical(entity_type, factor('ensg'))) {
+      if (missing(entity)) {
+          if (!missing(ensemblid)) {
+              entity <- sanitize(ensemblid, type = 'alphanum')
+          } else if (!missing(hgncid)) {
+              res <- sqlQuery(dbc, sprintf('SELECT ensemblid FROM genes WHERE hgncid=\'%s\';', 
+                                           sanitize(hgncid, type = 'alphanum')))
+              if (is.data.frame(res)) {
+                # check exactly one row returned
+                entity <- sanitize(res$ensemblid, type = 'alphanum')
+              } else {
+                stop('SQL error:\n', as.character(res))
+              }
+           } else {
+               stop('entity not specified')
+           }
+      } else {
+        entity <- sanitize(entity, type = 'alphanum')
+      }
+      res <- sqlQuery(dbc, sprintf('SELECT hgncid FROM genes WHERE ensemblid=\'%s\';', entity))
+      if (is.data.frame(res)) {
+        # check exactly one row returned
+        # FIXME check hgncid NULL or empty, use ensemblid
+        entity_name <- res$hgncid
+      } else {
+        stop('SQL error:\n', as.character(res))
+      }
+  } else {
+    entity <- NULL
+    entity_name <- NULL
+  }
+    
+  message('entity:', entity)                        
+                          
   ## Determine x-axis range from arguments
   xregion <- regionplot.region(chrom, pos_start, pos_end,
                                hgncid, ensemblid, surround,
@@ -25,18 +62,20 @@ regionplot <- function(analysis,
 
   if (identical(style, 'classic')) {
     ## basic query without finemapping
-    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL;',
+    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL %s;',
 				   results_db, 
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                   sanitize(analysis, type = 'alphanum')))
+                                   sanitize(analysis, type = 'alphanum'),
+                                   if (!is.null(entity)) sprintf(' AND feature=\'%s\'', entity) else ''))
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL %s) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
                                    results_db, results_db, 
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
-                                   sanitize(analysis, type = 'alphanum')))
+                                   sanitize(analysis, type = 'alphanum'),
+                                   if (!is.null(entity)) sprintf(' AND feature=\'%s\'', entity) else ''))                                       
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
@@ -115,13 +154,17 @@ regionplot <- function(analysis,
   } else {
     main <- 'NO DESCRIPTION' 
   }
-
+  
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
                  main = main,
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
+  if (!is.null(entity_name)) {
+      mtext(paste(entity_name, 'expression'), 3, 0)
+  }
 
+                                       
   if (identical(style, 'classic')) {
     ## best order for plotting
     pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
