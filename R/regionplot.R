@@ -26,7 +26,7 @@ regionplot <- function(analysis,
 
   if (identical(style, 'classic')) {
     ## basic query without finemapping
-    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, consequences FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL;',
+    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL;',
 				   results_db, 
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
                                    sanitize(analysis, type = 'alphanum')))
@@ -34,7 +34,7 @@ regionplot <- function(analysis,
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
                                    results_db, results_db, 
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
                                    sanitize(analysis, type = 'alphanum')))
@@ -100,7 +100,7 @@ regionplot <- function(analysis,
     stop('style ', style, ' not recognised')
   }
 
-  pvals <- within(pvals, consequences[consequences == ''] <- NA)
+  pvals <- within(pvals, impact[impact == ''] <- NA)
   pmin <- min(pvals$pval)
 
   pdesc <- sqlQuery(getOption('gtx.dbConnection'), sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE analysis=\'%s\'',
@@ -125,20 +125,20 @@ regionplot <- function(analysis,
 
   if (identical(style, 'classic')) {
     ## best order for plotting
-    pvals <- pvals[order(!is.na(pvals$consequences), -log10(pvals$pval)), ]
+    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## Plot all variants with VEP annotation as blue diamonds in top layer
     with(pvals, regionplot.points(pos, pval,
-                                  pch = ifelse(!is.na(consequences), 23, 21),
-                                  col = ifelse(!is.na(consequences), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
-                                  bg = ifelse(!is.na(consequences), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
+                                  pch = ifelse(!is.na(impact), 23, 21),
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
+                                  bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
   } else if (identical(style, 'signals')) {
     ## best order for plotting
-    pvals <- pvals[order(!is.na(pvals$consequences), pvals$posterior), ]
+    pvals <- pvals[order(!is.na(pvals$impact), pvals$posterior), ]
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
     with(pvals, regionplot.points(pos, pval,
-                                  pch = ifelse(!is.na(consequences), 23, 21), 
+                                  pch = ifelse(!is.na(impact), 23, 21), 
                                   cex = ifelse(c95, 1.25, .75), bg=colour, 
-                                  col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
   } 
