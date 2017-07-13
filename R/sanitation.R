@@ -11,7 +11,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALS
       if (is.data.frame(res)) {
         message('TABLE analyses: ', prettyNum(res$n, big.mark = ',', scientific = FALSE), ' records')
       } else {
-        stop('dbc SQL error:\n', as.character(res))
+        stop('SQL error:\n', as.character(res))
       }
     } else {
       stop('dbc does not provide TABLE analyses')
@@ -27,11 +27,11 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALS
         if (is.data.frame(res2)) {
           message('TABLE ', results_db, '.gwas_results: ', prettyNum(res2$n, big.mark = ',', scientific = FALSE), ' records')
         } else {
-          stop('dbc SQL error:\n', as.character(res2))
+          stop('SQL error:\n', as.character(res2))
         }
       }
     } else {
-      stop('dbc SQL error:\n', as.character(res))
+      stop('SQL error:\n', as.character(res))
     }
   }
   return(TRUE)
