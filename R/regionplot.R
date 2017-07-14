@@ -1,14 +1,57 @@
 ## regionplot.new and associated functions
 ## assumes database connection is provided by getOption("gtx.dbConnection")
 
-regionplot <- function(phenotype,
+regionplot <- function(analysis,
                        chrom, pos_start, pos_end,
                        hgncid, ensemblid, surround = 500000,
+                       entity, 
                        style = 'signals', 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
                        dbc = getOption("gtx.dbConnection", NULL)) {
+  # check database connection
   gtxdbcheck(dbc)
 
+  # sanitize analysis key, identify database containing required gwas_results
+  analysis <- sanitize(analysis, type = 'alphanum')
+  stopifnot(identical(length(analysis), 1L))
+  results_db <- gtxanalysisdb(analysis)
+
+  # FIXME refactor the entity id code as a separate function
+  entity_type <- sqlQuery(dbc, sprintf('SELECT entity_type FROM analyses WHERE analysis=\'%s\';', analysis))$entity_type
+  if (identical(entity_type, factor('ensg'))) {
+      if (missing(entity)) {
+          if (!missing(ensemblid)) {
+              entity <- sanitize(ensemblid, type = 'alphanum')
+          } else if (!missing(hgncid)) {
+              res <- sqlQuery(dbc, sprintf('SELECT ensemblid FROM genes WHERE hgncid=\'%s\';', 
+                                           sanitize(hgncid, type = 'alphanum')))
+              if (is.data.frame(res)) {
+                # check exactly one row returned
+                entity <- sanitize(res$ensemblid, type = 'alphanum')
+              } else {
+                stop('SQL error:\n', as.character(res))
+              }
+           } else {
+               stop('entity not specified')
+           }
+      } else {
+        entity <- sanitize(entity, type = 'alphanum')
+      }
+      res <- sqlQuery(dbc, sprintf('SELECT hgncid FROM genes WHERE ensemblid=\'%s\';', entity))
+      if (is.data.frame(res)) {
+        # check exactly one row returned
+        # FIXME check hgncid NULL or empty, use ensemblid
+        entity_name <- res$hgncid
+      } else {
+        stop('SQL error:\n', as.character(res))
+      }
+  } else {
+    entity <- NULL
+    entity_name <- NULL
+  }
+    
+  message('entity:', entity)                        
+                          
   ## Determine x-axis range from arguments
   xregion <- gtxregion(chrom, pos_start, pos_end,
                        hgncid, ensemblid, surround,
@@ -19,16 +62,20 @@ regionplot <- function(phenotype,
 
   if (identical(style, 'classic')) {
     ## basic query without finemapping
-    pvals <- sqlQuery(dbc, sprintf('SELECT gwas.pos, pval, consequences FROM gwas LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND phenotype=\'%s\' AND pval IS NOT NULL;',
-                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),
-                                   sanitize(phenotype, type = 'alphanum')))
+    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL %s;',
+				   results_db, 
+                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                   sanitize(analysis, type = 'alphanum'),
+                                   if (!is.null(entity)) sprintf(' AND feature=\'%s\'', entity) else ''))
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, consequences FROM (SELECT gwas.chrom, gwas.pos, gwas.ref, gwas.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM gwas LEFT JOIN gwas_results_cond USING (chrom, pos, ref, alt, phenotype) WHERE %s AND gwas.phenotype=\'%s\' AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',                   
-                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas'),                                 
-                                   sanitize(phenotype, type = 'alphanum')))
+    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL %s) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+                                   results_db, results_db, 
+                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
+                                   sanitize(analysis, type = 'alphanum'),
+                                   if (!is.null(entity)) sprintf(' AND feature=\'%s\'', entity) else ''))                                       
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
@@ -91,41 +138,49 @@ regionplot <- function(phenotype,
     stop('style ', style, ' not recognised')
   }
 
-  pvals <- within(pvals, consequences[consequences == ''] <- NA)
+  pvals <- within(pvals, impact[impact == ''] <- NA)
   pmin <- min(pvals$pval)
 
-  pdesc <- sqlQuery(getOption('gtx.dbConnection'), sprintf('SELECT description, ncase, ncontrol, ncohort FROM phenotypes WHERE phenotype=\'%s\'',
-                                                           sanitize(phenotype, type = 'alphanum')))
-  main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+  pdesc <- sqlQuery(getOption('gtx.dbConnection'), sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE analysis=\'%s\'',
+                                                           sanitize(analysis, type = 'alphanum')))
+  if (nrow(pdesc) > 0) {
+    main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
 	      sprintf('%s, n=%i vs %i', pdesc$description[1], pdesc$ncase[1], pdesc$ncontrol[1])
   	  } else if (!is.na(pdesc$ncohort[1])) {
       	      sprintf('%s, n=%i', pdesc$description[1], pdesc$ncohort[1])
 	  } else {
 	      sprintf('%s, n=?', pdesc$description[1])
   	  }
-
+  } else {
+    main <- 'NO DESCRIPTION' 
+  }
+  
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
                  main = main,
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
+  if (!is.null(entity_name)) {
+      mtext(paste(entity_name, 'expression'), 3, 0)
+  }
 
+                                       
   if (identical(style, 'classic')) {
     ## best order for plotting
-    pvals <- pvals[order(!is.na(pvals$consequences), -log10(pvals$pval)), ]
+    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## Plot all variants with VEP annotation as blue diamonds in top layer
     with(pvals, regionplot.points(pos, pval,
-                                  pch = ifelse(!is.na(consequences), 23, 21),
-                                  col = ifelse(!is.na(consequences), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
-                                  bg = ifelse(!is.na(consequences), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
+                                  pch = ifelse(!is.na(impact), 23, 21),
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
+                                  bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
   } else if (identical(style, 'signals')) {
     ## best order for plotting
-    pvals <- pvals[order(!is.na(pvals$consequences), pvals$posterior), ]
+    pvals <- pvals[order(!is.na(pvals$impact), pvals$posterior), ]
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
     with(pvals, regionplot.points(pos, pval,
-                                  pch = ifelse(!is.na(consequences), 23, 21), 
+                                  pch = ifelse(!is.na(impact), 23, 21), 
                                   cex = ifelse(c95, 1.25, .75), bg=colour, 
-                                  col = ifelse(!is.na(consequences), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
   } 

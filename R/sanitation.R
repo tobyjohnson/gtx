@@ -1,13 +1,68 @@
-## move gtxdbcheck to separate file, make this file all non-gtx-specific
-## SQL sanitation functions
+## plan to move gtxdbcheck to separate file,
+## and make this file all non-gtx-specific SQL sanitation functions
 
-gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL)) {
+gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALSE) {
   if (! 'RODBC' %in% class(dbc)) stop('dbc does not appear to be a database connection (not of class RODBC)')
+  dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+  if (!is.data.frame(dbs)) stop('dbc does not appear to be an open database connection (SHOW DATABASES did not return a dataframe)')
   tables <- sqlQuery(dbc, 'SHOW TABLES;')
   if (!is.data.frame(tables)) stop('dbc does not appear to be an open database connection (SHOW TABLES did not return a dataframe)')
   ## could add other checks for existence and schema of the tables present
+  if (verbose) {
+    if ('analyses' %in% tables$name) {
+      res <- sqlQuery(dbc, 'SELECT count(1) AS n FROM analyses')
+      if (is.data.frame(res)) {
+        message('TABLE analyses: ', prettyNum(res$n, big.mark = ',', scientific = FALSE), ' records')
+      } else {
+        stop('SQL error:\n', as.character(res))
+      }
+    } else {
+      stop('dbc does not provide TABLE analyses')
+    }
+    res <- sqlQuery(dbc, 'SELECT DISTINCT results_db FROM ANALYSES')
+    if (is.data.frame(res)) {
+      res1 <- sanitize(res$results_db, type = 'alphanum')
+      res1a <- res1 %in% dbs$name # identify whether user has access
+      message('TABLE analyses: gwas_results in databases: ', 
+              paste(res1, ifelse(res1a, '[OK]', '[no access]'), collapse = ', '))
+      for (results_db in res1[res1a]) { 
+        res2 <- sqlQuery(dbc, sprintf('SELECT count(1) AS n FROM %s.gwas_results', results_db))
+        if (is.data.frame(res2)) {
+          message('TABLE ', results_db, '.gwas_results: ', prettyNum(res2$n, big.mark = ',', scientific = FALSE), ' records')
+        } else {
+          stop('SQL error:\n', as.character(res2))
+        }
+      }
+    } else {
+      stop('SQL error:\n', as.character(res))
+    }
+  }
   return(TRUE)
 }
+      
+gtxanalysisdb <- function(analysis, dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+  dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+  analysis <- sanitize(analysis, type = 'alphanum')
+  stopifnot(identical(length(analysis), 1L))
+  res <- sqlQuery(dbc, sprintf('SELECT results_db FROM analyses WHERE analysis=\'%s\';',
+                                analysis))
+  if (is.data.frame(res)) {
+    if (identical(nrow(res), 0L)) {
+        stop('analysis [ ', analysis, ' ] not found in TABLE analyses')
+    } else if (identical(nrow(res), 1L)) {
+        if (res$results_db %in% dbs$name) {
+          return(res$results_db)
+        } else {
+          stop('analysis [ ', analysis, ' ] no access to required database ', res$resultsdb)  
+        }    
+    } else {
+        stop('analysis [ ', analysis, ' ] found more than once in TABLE analyses')
+    }
+  } else {
+    stop('dbc SQL error:\n', as.character(res))
+  }  
+}  
 
 ##
 ## sanitize x for use in SQL
