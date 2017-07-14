@@ -51,9 +51,9 @@ regionplot <- function(analysis,
   }
                           
   ## Determine x-axis range from arguments
-  xregion <- regionplot.region(chrom, pos_start, pos_end,
-                               hgncid, ensemblid, surround,
-                               dbc = dbc)
+  xregion <- gtxregion(chrom, pos_start, pos_end,
+                       hgncid, ensemblid, surround,
+                       dbc = dbc)
   chrom = xregion$chrom
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
@@ -186,35 +186,6 @@ regionplot <- function(analysis,
   return(invisible(NULL))
 }
 
-regionplot.region <- function(chrom, pos_start, pos_end,
-                           hgncid, ensemblid, surround = 500000, 
-                           dbc = getOption("gtx.dbConnection", NULL)) {
-  gtxdbcheck(dbc)
-  if (!missing(chrom) & !missing(pos_start) & !missing(pos_end)) {
-    stopifnot(identical(length(chrom), 1L))
-    stopifnot(identical(length(pos_start), 1L))
-    stopifnot(identical(length(pos_end), 1L))
-    stopifnot(pos_end > pos_start)
-  } else if (!missing(hgncid)) {
-    ## verify dbc is a database connection
-    gp <- sqlQuery(dbc, sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
-                                gtxwhere(hgncid = hgncid)))
-    if (!identical(nrow(gp), 1L)) stop('hgncid(s) [ ', paste(hgncid, collapse = ', '), ' ] do not map to unique chromosome')
-    chrom <- gp$chrom[1]
-    pos_start <- gp$pos_start[1] - surround
-    pos_end <- gp$pos_end[1] + surround
-  } else if (!missing(ensemblid)) {
-    ## verify dbc is a database connection
-    gp <- sqlQuery(dbc, sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
-                                gtxwhere(ensemblid = ensemblid)))
-    if (!identical(nrow(gp), 1L)) stop('ensemblid(s) [ ', paste(ensemblid, collapse = ', '), ' ] do not map to unique chromosome')
-    chrom <- gp$chrom[1]
-    pos_start <- gp$pos_start[1] - surround
-    pos_end <- gp$pos_end[1] + surround
-  }
-  return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end))
-}
-
 regionplot.new <- function(chrom, pos_start, pos_end,
                            hgncid, ensemblid, surround = 500000, 
                            pmin = 1e-10, main, 
@@ -223,9 +194,9 @@ regionplot.new <- function(chrom, pos_start, pos_end,
   gtxdbcheck(dbc)
     
   ## Determine x-axis range from arguments
-  xregion <- regionplot.region(chrom, pos_start, pos_end,
-                               hgncid, ensemblid, surround,
-                               dbc = dbc)
+  xregion <- gtxregion(chrom, pos_start, pos_end,
+                       hgncid, ensemblid, surround,
+                       dbc = dbc)
   chrom = xregion$chrom
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
@@ -255,7 +226,7 @@ regionplot.new <- function(chrom, pos_start, pos_end,
   ##  regionplot.genedraw uses previously determined layout
   regionplot.genedraw(gl)
 
-  ## Add title, scaled to fit if necessary
+  ## Add title, scaled to fit if necessary, CHANGE TO USE mtext.fit() FIXME
   if (!missing(main)) {
     xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
     mtext(main, 3, 1,
