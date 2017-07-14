@@ -49,8 +49,6 @@ regionplot <- function(analysis,
     entity <- NULL
     entity_name <- NULL
   }
-    
-  message('entity:', entity)                        
                           
   ## Determine x-axis range from arguments
   xregion <- regionplot.region(chrom, pos_start, pos_end,
