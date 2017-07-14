@@ -46,7 +46,7 @@ coloc <- function(analysis1, analysis2,
   gtxdbcheck(dbc)
 
   ## Determine genomic region from arguments
-  xregion <- regionplot.region(chrom, pos_start, pos_end,
+  xregion <- gtxregion(chrom, pos_start, pos_end,
                                hgncid, ensemblid, surround,
                                dbc = dbc)
   chrom = xregion$chrom
@@ -63,7 +63,7 @@ coloc <- function(analysis1, analysis2,
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT 
                                  t1.beta AS beta1, t1.se AS se1, 
-                                 t2.beta AS beta2, t2.se AS se2, 
+                                 t2.beta AS beta2, t2.se AS se2 
                              FROM 
                                  (SELECT
                                       chrom, pos, ref, alt, beta, se, pval 
@@ -110,8 +110,9 @@ coloc <- function(analysis1, analysis2,
       with(res, {
           plot(beta1/se1,
                beta2/se2,
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1)
-          mtext.fit(main = paste('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               ann = FALSE)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association Z score'),
                     ylab = paste(pdesc2, 'association Z score'))
       })
@@ -120,8 +121,9 @@ coloc <- function(analysis1, analysis2,
       with(res, {
           plot(beta1,
                beta2,
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1)
-          mtext.fit(main = paste('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               ann = FALSE)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association effect size'),
                     ylab = paste(pdesc2, 'association effect size'))
       })
