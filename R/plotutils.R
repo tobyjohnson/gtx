@@ -1,3 +1,22 @@
+mtext.fit <- function(main, xlab, ylab) {
+    if (!missing(main)) {
+        xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+        mtext(main, 3, 1,
+              cex = min(1., xplt/strwidth(main, units = 'figure')))
+    }
+    if (!missing(xlab)) {
+        xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+        mtext(xlab, 1, 3,
+              cex = min(1., xplt/strwidth(xlab, units = 'figure')))
+    }
+    if (!missing(ylab)) {
+        yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+        mtext(ylab, 2, 3,
+              cex = min(1., yplt/strwidth(ylab, units = 'figure')))
+    }
+    return(invisible(NULL))
+}
+
 textgrid <- function(tmat,
                      x0 = 0, y0 = 0, x1 = x0 + 1, y1 = y0 + 1,
                      xalign = "l",
