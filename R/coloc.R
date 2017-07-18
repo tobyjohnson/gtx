@@ -53,11 +53,13 @@ coloc <- function(analysis1, analysis2,
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
 
+  ## substitute generic entity for entity1 and entity2 if needed
+  if (missing(entity1) && !missing(entity)) entity1 <- entity
+  if (missing(entity2) && !missing(entity)) entity2 <- entity
+
   ## Determine entity, if required, for each analysis
-  xentity1 <- gtxentity(analysis1, if (!missing(entity1)) entity1 else entity,
-                        hgncid = hgncid, ensemblid = ensemblid)
-  xentity2 <- gtxentity(analysis2, if (!missing(entity2)) entity2 else entity,
-                        hgncid = hgncid, ensemblid = ensemblid)
+  xentity1 <- gtxentity(analysis1, entity = entity1, hgncid = hgncid, ensemblid = ensemblid)
+  xentity2 <- gtxentity(analysis2, entity = entity2, hgncid = hgncid, ensemblid = ensemblid)
 
   ## Get association statistics
   res <- sqlWrapper(dbc, 
@@ -101,10 +103,12 @@ coloc <- function(analysis1, analysis2,
   pdesc1 <- sqlWrapper(dbc,
                        sprintf('SELECT description FROM analyses WHERE analysis = \'%s\';',
                                sanitize(analysis1, type = 'alphanum')))$description
+  if (!is.null(xentity1)) pdesc1 <- paste(xentity1$entity_label, pdesc1)
   pdesc2 <- sqlWrapper(dbc,
                        sprintf('SELECT description FROM analyses WHERE analysis = \'%s\';',
                                sanitize(analysis2, type = 'alphanum')))$description
-  
+  if (!is.null(xentity2)) pdesc2 <- paste(xentity2$entity_label, pdesc2)
+ 
   if (identical(style, 'Z')) {
       ## would like to draw one sided plot, but unclear what to do when sign(beta1)==0. HMMMM FIXME
       with(res, {
@@ -112,9 +116,12 @@ coloc <- function(analysis1, analysis2,
                beta2/se2,
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association Z score'),
                     ylab = paste(pdesc2, 'association Z score'))
+	  mtext(paste0('colocalization at chr', chrom, ':', pos_start, '-', pos_end), 3, 3)
       })
   } else if (identical(style, 'beta')) {
       ## would like to draw one sided plot, but unclear what to do when sign(beta1)==0. HMMMM FIXME
@@ -123,9 +130,12 @@ coloc <- function(analysis1, analysis2,
                beta2,
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association effect size'),
                     ylab = paste(pdesc2, 'association effect size'))
+	  mtext(paste0('colocalization at chr', chrom, ':', pos_start, '-', pos_end), 3, 3)
       })
   } else if (identical(style, 'none')) {
       # do not draw plot

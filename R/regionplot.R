@@ -11,45 +11,6 @@ regionplot <- function(analysis,
   # check database connection
   gtxdbcheck(dbc)
 
-  # sanitize analysis key, identify database containing required gwas_results
-  analysis <- sanitize(analysis, type = 'alphanum')
-  stopifnot(identical(length(analysis), 1L))
-  results_db <- gtxanalysisdb(analysis)
-
-  # FIXME refactor the entity id code as a separate function
-  entity_type <- sqlQuery(dbc, sprintf('SELECT entity_type FROM analyses WHERE analysis=\'%s\';', analysis))$entity_type
-  if (identical(entity_type, factor('ensg'))) {
-      if (missing(entity)) {
-          if (!missing(ensemblid)) {
-              entity <- sanitize(ensemblid, type = 'alphanum')
-          } else if (!missing(hgncid)) {
-              res <- sqlQuery(dbc, sprintf('SELECT ensemblid FROM genes WHERE hgncid=\'%s\';', 
-                                           sanitize(hgncid, type = 'alphanum')))
-              if (is.data.frame(res)) {
-                # check exactly one row returned
-                entity <- sanitize(res$ensemblid, type = 'alphanum')
-              } else {
-                stop('SQL error:\n', as.character(res))
-              }
-           } else {
-               stop('entity not specified')
-           }
-      } else {
-        entity <- sanitize(entity, type = 'alphanum')
-      }
-      res <- sqlQuery(dbc, sprintf('SELECT hgncid FROM genes WHERE ensemblid=\'%s\';', entity))
-      if (is.data.frame(res)) {
-        # check exactly one row returned
-        # FIXME check hgncid NULL or empty, use ensemblid
-        entity_name <- res$hgncid
-      } else {
-        stop('SQL error:\n', as.character(res))
-      }
-  } else {
-    entity <- NULL
-    entity_name <- NULL
-  }
-                          
   ## Determine x-axis range from arguments
   xregion <- gtxregion(chrom, pos_start, pos_end,
                        hgncid, ensemblid, surround,
@@ -58,22 +19,26 @@ regionplot <- function(analysis,
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
 
+  ## Determine entity, if required, for each analysis
+  xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
+ 
   if (identical(style, 'classic')) {
     ## basic query without finemapping
-    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND analysis=\'%s\' AND pval IS NOT NULL %s;',
-				   results_db, 
-                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE analysis=\'%s\' AND %s %s AND pval IS NOT NULL;',
+				   sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
                                    sanitize(analysis, type = 'alphanum'),
-                                   if (!is.null(entity)) sprintf(' AND feature=\'%s\'', entity) else ''))
+                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                   if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''))
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND gwas_results.analysis=\'%s\' AND pval IS NOT NULL %s) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
-                                   results_db, results_db, 
+    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE gwas_results.analysis=\'%s\' AND %s %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+				   sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
+				   sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
+				   sanitize(analysis, type = 'alphanum'),
                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
-                                   sanitize(analysis, type = 'alphanum'),
-                                   if (!is.null(entity)) sprintf(' AND feature=\'%s\'', entity) else ''))                                       
+                                   if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''))                                       
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
@@ -139,8 +104,9 @@ regionplot <- function(analysis,
   pvals <- within(pvals, impact[impact == ''] <- NA)
   pmin <- min(pvals$pval)
 
-  pdesc <- sqlQuery(getOption('gtx.dbConnection'), sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE analysis=\'%s\'',
-                                                           sanitize(analysis, type = 'alphanum')))
+  pdesc <- sqlWrapper(dbc, 
+                      sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE analysis=\'%s\'',
+                              sanitize(analysis, type = 'alphanum')))
   if (nrow(pdesc) > 0) {
     main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
 	      sprintf('%s, n=%i vs %i', pdesc$description[1], pdesc$ncase[1], pdesc$ncontrol[1])
@@ -149,6 +115,7 @@ regionplot <- function(analysis,
 	  } else {
 	      sprintf('%s, n=?', pdesc$description[1])
   	  }
+    if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
   } else {
     main <- 'NO DESCRIPTION' 
   }
@@ -158,10 +125,6 @@ regionplot <- function(analysis,
                  main = main,
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
-  if (!is.null(entity_name)) {
-      mtext(paste(entity_name, 'expression'), 3, 0)
-  }
-
                                        
   if (identical(style, 'classic')) {
     ## best order for plotting

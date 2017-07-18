@@ -8,6 +8,8 @@ export(blockassoc, blockstats, blockstats.lm, blockstats.glm, blockstats.coxph, 
 # do we need to declare S3 methods?
 ## clinical.R
 export(clinical.import, clinical.derive, derivation.add)
+## coloc.R
+export(coloc.fast, coloc)
 ## demographics.R
 export(demographics, demographics.numeric, demographics.logical, demographics.factor, demographics.Surv, demographics.data.frame, prettypc)
 ## fitmix.R
@@ -16,6 +18,8 @@ export(fitmix.simulate, fitmix.r2, fitmix.plot, fitmix)
 export(fixNA)
 ## glsglm.R
 export(gls.approx.logistic)
+## gtxbase, should these all be internal functions~
+export(gtxlog, gtxwhere, gtxregion, gtxentity)
 ## testsummary.R
 export(test.extract, test.extract.lm, test.extract.glm, test.extract.coxph)
 export(coeff.extract, coeff.extract.default)
@@ -69,8 +73,8 @@ export(qtplot, qtplot.character, qtplot.numeric)
 ## regionplot.R
 export(recomb.draw, regionplot.multiP)
 export(regionplot, regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination, regionplot.points)
-## sanitation.R
-export(sanitize, gtxwhere)
+## sanitation.R # should these be internal?
+export(sanitize, sanitize1, sqlWrapper)
 ## snpdata.R
 export(summary.snpdata, is.snpdata, as.snpdata)
 S3method(summary, snpdata)
