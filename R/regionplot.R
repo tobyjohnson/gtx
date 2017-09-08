@@ -151,7 +151,7 @@ regionplot <- function(analysis,
       ## funny workaround to avoid subset(pvals, pos=pos)
       ## means highlight won't work if the site is in gwas_results but not in sites
       gp <- sqlWrapper(dbc,
-                       sprintf('SELECT chrom, pos, FROM sites WHERE %s;',
+                       sprintf('SELECT chrom, pos FROM sites WHERE %s;',
                                gtxwhere(chrom = chrom, pos = pos)),
                        uniq = FALSE) # how to handle multiple sites at same pos?
       with(subset(pvals, pos == gp$pos),
