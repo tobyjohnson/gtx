@@ -166,12 +166,6 @@ gtxregion <- function(chrom, pos_start, pos_end, pos,
     stopifnot(identical(length(pos_start), 1L))
     stopifnot(identical(length(pos_end), 1L))
     stopifnot(pos_end > pos_start)
-  } else if (!missing(chrom) && !missing(pos)) {
-    stopifnot(identical(length(chrom), 1L))
-    stopifnot(identical(length(pos), 1L))
-    stopifnot(identical(length(surround), 1L))
-    pos_start <- pos - surround
-    pos_end <- pos + surround
   } else if (!missing(hgncid)) {
     gp <- sqlWrapper(dbc,
                      sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
@@ -190,6 +184,13 @@ gtxregion <- function(chrom, pos_start, pos_end, pos,
     chrom <- gp$chrom[1]
     pos_start <- gp$pos_start[1] - surround
     pos_end <- gp$pos_end[1] + surround
+    ## Note pos and rs low in priority order to allow secondary use in regionplot()
+  } else if (!missing(chrom) && !missing(pos)) {
+    stopifnot(identical(length(chrom), 1L))
+    stopifnot(identical(length(pos), 1L))
+    stopifnot(identical(length(surround), 1L))
+    pos_start <- pos - surround
+    pos_end <- pos + surround
   } else if (!missing(rs)) {
     gp <- sqlWrapper(dbc,
                      sprintf('SELECT chrom, pos FROM sites WHERE %s;',
