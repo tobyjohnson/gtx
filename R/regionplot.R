@@ -148,15 +148,22 @@ regionplot <- function(analysis,
 
   ## Highlight index SNP if pos or rs argument was used
   if (!missing(pos)) {
-      with(subset(pvals, pos == pos),
+      ## funny workaround to avoid subset(pvals, pos=pos)
+      ## means highlight won't work if the site is in gwas_results but not in sites
+      gp <- sqlWrapper(dbc,
+                       sprintf('SELECT chrom, pos, FROM sites WHERE %s;',
+                               gtxwhere(chrom = chrom, pos = pos)),
+                       uniq = FALSE) # how to handle multiple sites at same pos?
+      with(subset(pvals, pos == gp$pos),
            regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
   }
   if (!missing(rs)) {
       gp <- sqlWrapper(dbc,
                        sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
-                               gtxwhere(rs = rs))) # default uniq = TRUE
+                               gtxwhere(chrom = chrom, rs = rs))) # default uniq = TRUE
+      # note gtxwhere() with combination of chrom and rs will cause sqlWrapper error if index site not on this chrom
       if (gp$chrom == chrom) {
-          with(subset(pvals, pos == gp$pos & ref == gp$ref & alt == gp$alt),
+          with(subset(pvals, pos == gp$pos & ref == as.character(gp$ref) & alt == as.character(gp$alt)),
                regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
       }
   }
