@@ -33,7 +33,8 @@ gtxwhere <- function(chrom,
     
     ws1 <- list(
         if (missing(chrom)) NULL
-        else sprintf("chrom='%s'", sanitize(chrom[1], values = c(as.character(1:22), "X", "Y"))), 
+        else sprintf("chrom='%s'", sanitize(chrom[1], values = c(as.character(1:22), "X", "Y"))),
+        ## FIXME: Should this be sanitize1() ?
         
         if (missing(pos)) NULL
         else sprintf("pos=%s", sanitize(pos, type = "int")), 
@@ -60,7 +61,7 @@ gtxwhere <- function(chrom,
         else sprintf("rs='%s'", sanitize(rs, type = "rs")),
         
         if (missing(hgncid)) NULL
-        else sprintf("hgncid='%s'", sanitize(hgncid, type = "alphanum")),
+        else sprintf("hgncid='%s'", sanitize(hgncid, type = "alphanum-")), # thousands of HGNC ids contain hyphens, e.g. HLA-A
         
         if (missing(ensemblid)) NULL
         else sprintf("ensemblid='%s'", sanitize(ensemblid, type = "ENSG"))
@@ -71,6 +72,55 @@ gtxwhere <- function(chrom,
     return(ws2)
 }
 
+##
+## convenience function to construct WHERE
+## part of SQL for analyses table
+## Note behaviour here is OR/OR, different to gtxwhere()
+##
+gtxwhat <- function(analysis,
+                    description_like,
+                    phenotype_like,
+                    tablename) {
+  ## function to construct a WHERE string for constructing SQL queries
+  ## Notes:
+  ##  if arguments have length > 1, WHERE string OR's over values
+  ##  if multiple arguments, WHERE string OR's over arguments
+
+    if (!missing(tablename)) {
+        tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
+    } else {
+        tablename <- ''
+    }
+    
+    ws1 <- list(
+        if (missing(analysis)) NULL
+        else sprintf("analysis='%s'", sanitize(analysis, type = "alphanum"))
+        
+        if (missing(description_like)) NULL
+        else sprintf("description ILIKE '%s'", sanitize(description_like, type = "alphanum")), # Too restrictive
+
+        if (missing(phenotype_like)) NULL
+        else sprintf("phenotype ILIKE '%s'", sanitize(phenotype_like, type = "alphanum")), # Too restrictive
+    )
+    ws2 <- paste0("(", 
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
+                  ")", collapse = " AND ")
+    return(ws2)
+}
+
+gtxanalyses <- function(analysis,
+                        phenotype_like,
+                        description_like,
+                        dbc = getOption("gtx.dbConnection", NULL)) {
+    gtxdbcheck(dbc)
+
+    return(sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort FROM analyses %s',
+                                   gtxwhat(analysis = analysis,
+                                           description_like = description_like,
+                                           phenotype_like = phenotype_like)),
+                      uniq = FALSE))
+}
+g
 gtxregion <- function(chrom, pos_start, pos_end,
                            hgncid, ensemblid, surround = 500000, 
                            dbc = getOption("gtx.dbConnection", NULL)) {
