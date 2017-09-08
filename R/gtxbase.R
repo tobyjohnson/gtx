@@ -129,16 +129,27 @@ gtxanalyses <- function(analysis, analysis_not,
                         description_contains,
                         ncase_ge,
                         ncohort_ge,
+                        ## if extra filters are added, be sure to update definition of all_analyses below
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
-    res <- sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, unit, entity_type, results_db FROM analyses WHERE %s',
-                                   gtxwhat(analysis = analysis, analysis_not = analysis_not, 
-                                           description_contains = description_contains,
-                                           phenotype_contains = phenotype_contains,
-                                           ncase_ge = ncase_ge, ncohort_ge = ncohort_ge)),
-                      uniq = FALSE)
+    
+    all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
+                     missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge))
+    if (all_analyses) {
+        res <- sqlWrapper(dbc,
+                          sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, unit, entity_type, results_db FROM analyses'), 
+                          uniq = FALSE)
+    } else {
+        res <- sqlWrapper(dbc,
+                          sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, unit, entity_type, results_db FROM analyses WHERE %s',
+                                  gtxwhat(analysis = analysis, analysis_not = analysis_not, 
+                                          description_contains = description_contains,
+                                          phenotype_contains = phenotype_contains,
+                                          ncase_ge = ncase_ge, ncohort_ge = ncohort_ge)),
+                          uniq = FALSE)
+    }
     res$has_access <- res$results_db %in% dbs$name
     if (has_access_only) {
         res <- subset(res, has_access)

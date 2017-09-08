@@ -18,8 +18,8 @@ export(fitmix.simulate, fitmix.r2, fitmix.plot, fitmix)
 export(fixNA)
 ## glsglm.R
 export(gls.approx.logistic)
-## gtxbase, should these all be internal functions~
-export(gtxlog, gtxwhere, gtxregion, gtxentity)
+## gtxbase, should these all be internal functions?
+export(gtxlog, gtxwhere, gtxregion, gtxentity, gtxanalyses)
 ## testsummary.R
 export(test.extract, test.extract.lm, test.extract.glm, test.extract.coxph)
 export(coeff.extract, coeff.extract.default)
@@ -56,6 +56,8 @@ export(otplot, otplot.character, otplot.factor, otplot.numeric)
 export(pcaplot)
 ## pgx.R
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
+## phewas.R
+export(phewas.qq, phewas.data)
 ## pipeline.R
 export(gtxpipe)
 ## pipeline.postanalysis.R
