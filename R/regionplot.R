@@ -148,7 +148,7 @@ regionplot <- function(analysis,
 
   ## Highlight index SNP if pos or rs argument was used
   if (!missing(pos)) {
-      with(subset(pvals, pos = pos),
+      with(subset(pvals, pos == pos),
            regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
   }
   if (!missing(rs)) {
@@ -156,7 +156,7 @@ regionplot <- function(analysis,
                        sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
                                gtxwhere(rs = rs))) # default uniq = TRUE
       if (gp$chrom == chrom) {
-          with(subset(pvals, pos = gp$pos & ref = gp$ref & alt = gp$alt),
+          with(subset(pvals, pos == gp$pos & ref == gp$ref & alt == gp$alt),
                regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
       }
   }
