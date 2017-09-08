@@ -94,7 +94,7 @@ gtxwhat <- function(analysis,
     
     ws1 <- list(
         if (missing(analysis)) NULL
-        else sprintf("analysis='%s'", sanitize(analysis, type = "alphanum"))
+        else sprintf("analysis='%s'", sanitize(analysis, type = "alphanum")),
         
         if (missing(description_like)) NULL
         else sprintf("description ILIKE '%s'", sanitize(description_like, type = "alphanum")), # Too restrictive
