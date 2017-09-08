@@ -2,8 +2,8 @@
 ## assumes database connection is provided by getOption("gtx.dbConnection")
 
 regionplot <- function(analysis,
-                       chrom, pos_start, pos_end,
-                       hgncid, ensemblid, surround = 500000,
+                       chrom, pos_start, pos_end, pos, 
+                       hgncid, ensemblid, rs, surround = 500000,
                        entity, 
                        style = 'signals', 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
@@ -12,8 +12,8 @@ regionplot <- function(analysis,
   gtxdbcheck(dbc)
 
   ## Determine x-axis range from arguments
-  xregion <- gtxregion(chrom, pos_start, pos_end,
-                       hgncid, ensemblid, surround,
+  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
                        dbc = dbc)
   chrom = xregion$chrom
   pos_start = xregion$pos_start
@@ -149,16 +149,16 @@ regionplot <- function(analysis,
   return(invisible(NULL))
 }
 
-regionplot.new <- function(chrom, pos_start, pos_end,
-                           hgncid, ensemblid, surround = 500000, 
+regionplot.new <- function(chrom, pos_start, pos_end, pos, 
+                           hgncid, ensemblid, rs, surround = 500000, 
                            pmin = 1e-10, main, 
 			   protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
     
   ## Determine x-axis range from arguments
-  xregion <- gtxregion(chrom, pos_start, pos_end,
-                       hgncid, ensemblid, surround,
+  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
                        dbc = dbc)
   chrom = xregion$chrom
   pos_start = xregion$pos_start

@@ -157,31 +157,48 @@ gtxanalyses <- function(analysis, analysis_not,
     return(res)
 }
 
-gtxregion <- function(chrom, pos_start, pos_end,
-                           hgncid, ensemblid, surround = 500000, 
+gtxregion <- function(chrom, pos_start, pos_end, pos, 
+                           hgncid, ensemblid, rs, surround = 500000, 
                            dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
-  if (!missing(chrom) & !missing(pos_start) & !missing(pos_end)) {
+  if (!missing(chrom) && !missing(pos_start) && !missing(pos_end)) {
     stopifnot(identical(length(chrom), 1L))
     stopifnot(identical(length(pos_start), 1L))
     stopifnot(identical(length(pos_end), 1L))
     stopifnot(pos_end > pos_start)
+  } else if (!missing(chrom) && !missing(pos)) {
+    stopifnot(identical(length(chrom), 1L))
+    stopifnot(identical(length(pos), 1L))
+    stopifnot(identical(length(surround), 1L))
+    pos_start <- pos - surround
+    pos_end <- pos + surround
   } else if (!missing(hgncid)) {
-    ## verify dbc is a database connection
-    gp <- sqlQuery(dbc, sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
-                                gtxwhere(hgncid = hgncid)))
+    gp <- sqlWrapper(dbc,
+                     sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
+                             gtxwhere(hgncid = hgncid)),
+                     uniq = FALSE) # require unique result but catch below to provide more informative error
     if (!identical(nrow(gp), 1L)) stop('hgncid(s) [ ', paste(hgncid, collapse = ', '), ' ] do not map to unique chromosome')
-    chrom <- gp$chrom[1]
+    chrom <- gp$chrom[1] # do we need the [1] here?
     pos_start <- gp$pos_start[1] - surround
     pos_end <- gp$pos_end[1] + surround
   } else if (!missing(ensemblid)) {
-    ## verify dbc is a database connection
-    gp <- sqlQuery(dbc, sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
-                                gtxwhere(ensemblid = ensemblid)))
+    gp <- sqlWrapper(dbc,
+                     sprintf('SELECT chrom, min(pos_start) as pos_start, max(pos_end) as pos_end FROM genes WHERE %s GROUP BY chrom',
+                             gtxwhere(ensemblid = ensemblid)),
+                     uniq = FALSE) # require unique result but catch below to provide more informative error
     if (!identical(nrow(gp), 1L)) stop('ensemblid(s) [ ', paste(ensemblid, collapse = ', '), ' ] do not map to unique chromosome')
     chrom <- gp$chrom[1]
     pos_start <- gp$pos_start[1] - surround
     pos_end <- gp$pos_end[1] + surround
+  } else if (!missing(rs)) {
+    gp <- sqlWrapper(dbc,
+                     sprintf('SELECT chrom, pos FROM sites WHERE %s;',
+                             gtxwhere(rs = rs))) # default uniq = TRUE
+    chrom <- gp$chrom
+    pos_start <- gp$pos - surround
+    pos_end <- gp$pos + surround
+  } else {
+    stop('gtxregion() failed due to inadequate arguments')
   }
   return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end))
 }
