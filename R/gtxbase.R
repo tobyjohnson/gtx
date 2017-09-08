@@ -78,8 +78,8 @@ gtxwhere <- function(chrom,
 ## Note behaviour here is OR/OR, different to gtxwhere()
 ##
 gtxwhat <- function(analysis,
-                    description_like,
-                    phenotype_like,
+                    description_contains,
+                    phenotype_contains,
                     tablename) {
   ## function to construct a WHERE string for constructing SQL queries
   ## Notes:
@@ -96,28 +96,28 @@ gtxwhat <- function(analysis,
         if (missing(analysis)) NULL
         else sprintf("analysis='%s'", sanitize(analysis, type = "alphanum")),
         
-        if (missing(description_like)) NULL
-        else sprintf("description ILIKE '%s'", sanitize(description_like, type = "alphanum")), # Too restrictive
+        if (missing(description_contains)) NULL
+        else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "alphanum")), # Too restrictive
 
-        if (missing(phenotype_like)) NULL
-        else sprintf("phenotype ILIKE '%s'", sanitize(phenotype_like, type = "alphanum")) # Too restrictive
+        if (missing(phenotype_contains)) NULL
+        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "alphanum")) # Too restrictive
     )
     ws2 <- paste0("(", 
                   unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
-                  ")", collapse = " AND ")
+                  ")", collapse = " OR ")
     return(ws2)
 }
 
 gtxanalyses <- function(analysis,
-                        phenotype_like,
-                        description_like,
+                        phenotype_contains,
+                        description_contains,
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
 
     return(sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort FROM analyses WHERE %s',
                                    gtxwhat(analysis = analysis,
-                                           description_like = description_like,
-                                           phenotype_like = phenotype_like)),
+                                           description_contains = description_contains,
+                                           phenotype_contains = phenotype_contains)),
                       uniq = FALSE))
 }
 
