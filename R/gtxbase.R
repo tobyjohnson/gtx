@@ -58,7 +58,7 @@ gtxwhere <- function(chrom,
         else sprintf("pos_end<=%s", sanitize(pos_end_le, type = "int")),
         
         if (missing(rs)) NULL
-        else sprintf("rs='%s'", sanitize(rs, type = "rs")),
+        else sprintf("rsid=%s", sanitize(rs, type = "rs")), # note sanitize(type="rs") strips the rs parts hence returns integers
         
         if (missing(hgncid)) NULL
         else sprintf("hgncid='%s'", sanitize(hgncid, type = "alphanum-")), # thousands of HGNC ids contain hyphens, e.g. HLA-A
