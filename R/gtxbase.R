@@ -133,7 +133,7 @@ gtxanalyses <- function(analysis, analysis_not,
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
-    res <- sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, results_db FROM analyses WHERE %s',
+    res <- sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, unit, entity_type, results_db FROM analyses WHERE %s',
                                    gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                            description_contains = description_contains,
                                            phenotype_contains = phenotype_contains,

@@ -44,6 +44,9 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALS
 ##  resolve = TRUE, return the results_db for a single analysis, throw informative
 ##               error if user does not have access
 ##  resolve = FALSE, return a table of analysis,results_db,has_access
+##
+## included in sanitation because it's primarily to make access
+## control generate comprehensible error messages
 gtxanalysisdb <- function(analysis,
                           resolve = TRUE,
                           dbc = getOption("gtx.dbConnection", NULL)) {

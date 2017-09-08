@@ -27,6 +27,31 @@ phewas.data <- function(chrom, pos, rs,
                            sanitize1(v1$alt, type = "ACGT+")),
                    uniq = FALSE)
     }))
+    ## Merge results of phewas query with metadata about analyses
+    res <- within(merge(a1, res, by = 'analysis'), {
+        results_db <- NULL
+        has_access <- NULL
+    })
     res <- res[order(res$pval), ]
     return(res)
+}
+
+phewas.qq <- function(chrom, pos, rs,
+                      analysis, analysis_not, 
+                      description_contains,
+                      phenotype_contains,
+                      ncase_ge,
+                      ncohort_ge,
+                      dbc = getOption("gtx.dbConnection", NULL)) {
+    gtxdbcheck(dbc)
+
+    res <- phewas.data(chrom = chrom, pos = pos, rs = rs,
+                       analysis = analysis, analysis_not = analysis_not, 
+                       description_contains = description_contains,
+                       phenotype_contains = phenotype_contains,
+                       ncase_ge = ncase_ge, ncohort_ge = ncohort_ge,
+                       dbc = dbc)
+    
+    with(res, qq10(res$pval))
+    return(invisible(res))
 }
