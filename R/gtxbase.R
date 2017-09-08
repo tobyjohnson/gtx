@@ -114,7 +114,7 @@ gtxanalyses <- function(analysis,
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
 
-    return(sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort FROM analyses %s',
+    return(sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort FROM analyses WHERE %s',
                                    gtxwhat(analysis = analysis,
                                            description_like = description_like,
                                            phenotype_like = phenotype_like)),
