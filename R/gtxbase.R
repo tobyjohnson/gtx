@@ -80,6 +80,8 @@ gtxwhere <- function(chrom,
 gtxwhat <- function(analysis,
                     description_contains,
                     phenotype_contains,
+                    ncase_ge,
+                    ncohort_ge,
                     tablename) {
   ## function to construct a WHERE string for constructing SQL queries
   ## Notes:
@@ -97,10 +99,16 @@ gtxwhat <- function(analysis,
         else sprintf("analysis='%s'", sanitize(analysis, type = "alphanum")),
         
         if (missing(description_contains)) NULL
-        else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "alphanum")), # Too restrictive
+        else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "alphanum")), # Sanitation may be too restrictive
 
         if (missing(phenotype_contains)) NULL
-        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "alphanum")) # Too restrictive
+        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "alphanum")), # Sanitation may be too restrictive
+
+        if (missing(ncase_ge)) NULL
+        else sprintf("ncase >= %s", sanitize(ncase_ge, type = "int")),
+        
+        if (missing(ncohort_ge)) NULL
+        else sprintf("ncohort >= %s", sanitize(ncohort_ge, type = "int"))
     )
     ws2 <- paste0("(", 
                   unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
@@ -111,14 +119,23 @@ gtxwhat <- function(analysis,
 gtxanalyses <- function(analysis,
                         phenotype_contains,
                         description_contains,
+                        ncase_ge,
+                        ncohort_ge,
+                        has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
-
-    return(sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort FROM analyses WHERE %s',
+    dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+    res <- sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, results_db FROM analyses WHERE %s',
                                    gtxwhat(analysis = analysis,
                                            description_contains = description_contains,
-                                           phenotype_contains = phenotype_contains)),
-                      uniq = FALSE))
+                                           phenotype_contains = phenotype_contains,
+                                           ncase_ge = ncase_ge, ncohort_ge = ncohort_ge)),
+                      uniq = FALSE)
+    res$has_access <- res$results_db %in% dbs$name
+    if (has_access_only) {
+        res <- subset(res, has_access)
+    }
+    return(res)
 }
 
 gtxregion <- function(chrom, pos_start, pos_end,
