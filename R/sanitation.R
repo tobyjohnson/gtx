@@ -97,7 +97,7 @@ sanitize <- function(x, values, type) {
             }
             return(as.character(xd))
         } else if (identical(type, "alphanum")) {
-            ## note that here, "alphanum" means starting with alphabetic then alpha or numeric
+            ## note that here, "alphanum" means starting with alphabetic then alpha or numeric or underscore
             x <- as.character(na.omit(x))
             xa <- grepl("^[A-Za-z][A-Za-z0-9_]+$", x)
             if (any(!xa)) {
