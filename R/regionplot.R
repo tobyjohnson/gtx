@@ -146,6 +146,21 @@ regionplot <- function(analysis,
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
   } 
 
+  ## Highlight index SNP if pos or rs argument was used
+  if (!missing(pos)) {
+      with(subset(pvals, pos = pos),
+           regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
+  }
+  if (!missing(rs)) {
+      gp <- sqlWrapper(dbc,
+                       sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
+                               gtxwhere(rs = rs))) # default uniq = TRUE
+      if (gp$chrom == chrom) {
+          with(subset(pvals, pos = gp$pos & ref = gp$ref & alt = gp$alt),
+               regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
+      }
+  }
+
   return(invisible(NULL))
 }
 
