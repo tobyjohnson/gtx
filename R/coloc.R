@@ -38,17 +38,17 @@ coloc.fast <- function(data, rounded = 6,
 
 
 coloc <- function(analysis1, analysis2,
-                  chrom, pos_start, pos_end,
-                  hgncid, ensemblid, surround = 500000,
+                  chrom, pos_start, pos_end, pos, 
+                  hgncid, ensemblid, rs, surround = 500000,
                   entity, entity1, entity2,
                   style = 'Z', 
                   dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
 
   ## Determine genomic region from arguments
-  xregion <- gtxregion(chrom, pos_start, pos_end,
-                               hgncid, ensemblid, surround,
-                               dbc = dbc)
+  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                       dbc = dbc)
   chrom = xregion$chrom
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
