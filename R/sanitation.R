@@ -40,28 +40,32 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALS
   return(TRUE)
 }
       
-gtxanalysisdb <- function(analysis, dbc = getOption("gtx.dbConnection", NULL)) {
-  gtxdbcheck(dbc)
-  dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
-  analysis <- sanitize(analysis, type = 'alphanum')
-  stopifnot(identical(length(analysis), 1L))
-  res <- sqlQuery(dbc, sprintf('SELECT results_db FROM analyses WHERE analysis=\'%s\';',
-                                analysis))
-  if (is.data.frame(res)) {
-    if (identical(nrow(res), 0L)) {
-        stop('analysis [ ', analysis, ' ] not found in TABLE analyses')
-    } else if (identical(nrow(res), 1L)) {
+## Two uses for this function:
+##  resolve = TRUE, return the results_db for a single analysis, throw informative
+##               error if user does not have access
+##  resolve = FALSE, return a table of analysis,results_db,has_access
+gtxanalysisdb <- function(analysis,
+                          resolve = TRUE,
+                          dbc = getOption("gtx.dbConnection", NULL)) {
+    gtxdbcheck(dbc)
+    dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+    if (resolve) {
+        res <- sqlWrapper(dbc,
+                          sprintf('SELECT results_db FROM analyses WHERE %s;',
+                                  gtxwhat(sanitize1(analysis, type = 'alphanum')))) # default uniq = TRUE 
         if (res$results_db %in% dbs$name) {
-          return(res$results_db)
+            return(res$results_db)
         } else {
-          stop('analysis [ ', analysis, ' ] no access to required database ', res$resultsdb)  
-        }    
+            stop('analysis [ ', analysis, ' ] no access to required database [ ', res$resultsdb, ' ]')
+        }
     } else {
-        stop('analysis [ ', analysis, ' ] found more than once in TABLE analyses')
+        res <- sqlWrapper(dbc,
+                          sprintf('SELECT analysis, results_db FROM analyses WHERE %s;',
+                                  gtxwhat(sanitize(analysis, type = 'alphanum'))),
+                          uniq = FALSE)
+        res$has_access <- res$results_db %in% dbs$name
+        return(res)
     }
-  } else {
-    stop('dbc SQL error:\n', as.character(res))
-  }  
 }  
 
 ##
