@@ -100,7 +100,7 @@ gtxwhat <- function(analysis,
         else sprintf("description ILIKE '%s'", sanitize(description_like, type = "alphanum")), # Too restrictive
 
         if (missing(phenotype_like)) NULL
-        else sprintf("phenotype ILIKE '%s'", sanitize(phenotype_like, type = "alphanum")), # Too restrictive
+        else sprintf("phenotype ILIKE '%s'", sanitize(phenotype_like, type = "alphanum")) # Too restrictive
     )
     ws2 <- paste0("(", 
                   unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
@@ -120,7 +120,7 @@ gtxanalyses <- function(analysis,
                                            phenotype_like = phenotype_like)),
                       uniq = FALSE))
 }
-g
+
 gtxregion <- function(chrom, pos_start, pos_end,
                            hgncid, ensemblid, surround = 500000, 
                            dbc = getOption("gtx.dbConnection", NULL)) {
