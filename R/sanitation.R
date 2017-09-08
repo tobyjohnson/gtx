@@ -52,7 +52,7 @@ gtxanalysisdb <- function(analysis,
     if (resolve) {
         res <- sqlWrapper(dbc,
                           sprintf('SELECT results_db FROM analyses WHERE %s;',
-                                  gtxwhat(sanitize1(analysis, type = 'alphanum')))) # default uniq = TRUE 
+                                  gtxwhat(analysis = sanitize1(analysis, type = 'alphanum')))) # default uniq = TRUE 
         if (res$results_db %in% dbs$name) {
             return(res$results_db)
         } else {
@@ -61,7 +61,7 @@ gtxanalysisdb <- function(analysis,
     } else {
         res <- sqlWrapper(dbc,
                           sprintf('SELECT analysis, results_db FROM analyses WHERE %s;',
-                                  gtxwhat(sanitize(analysis, type = 'alphanum'))),
+                                  gtxwhat(analysis = sanitize(analysis, type = 'alphanum'))),
                           uniq = FALSE)
         res$has_access <- res$results_db %in% dbs$name
         return(res)

@@ -75,9 +75,10 @@ gtxwhere <- function(chrom,
 ##
 ## convenience function to construct WHERE
 ## part of SQL for analyses table
-## Note behaviour here is OR/OR, different to gtxwhere()
+## Note behaviour for most arguments here is OR/OR, different to gtxwhere()
 ##
 gtxwhat <- function(analysis,
+                    analysis_not, 
                     description_contains,
                     phenotype_contains,
                     ncase_ge,
@@ -113,10 +114,17 @@ gtxwhat <- function(analysis,
     ws2 <- paste0("(", 
                   unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
                   ")", collapse = " OR ")
+    if (!missing(analysis_not)) {
+        ws2 <- paste0("(", ws2, " AND ",
+               paste0(tablename,
+                      sprintf("analysis!='%s'", sanitize(analysis_not, type = "alphanum")),
+                      collapse = " AND "),
+               ")")
+    }
     return(ws2)
 }
 
-gtxanalyses <- function(analysis,
+gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
                         description_contains,
                         ncase_ge,
@@ -126,7 +134,7 @@ gtxanalyses <- function(analysis,
     gtxdbcheck(dbc)
     dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
     res <- sqlWrapper(dbc, sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, results_db FROM analyses WHERE %s',
-                                   gtxwhat(analysis = analysis,
+                                   gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                            description_contains = description_contains,
                                            phenotype_contains = phenotype_contains,
                                            ncase_ge = ncase_ge, ncohort_ge = ncohort_ge)),
