@@ -1,0 +1,14 @@
+library(gtx)
+library(testthat)
+
+suppressPackageStartupMessages(library(gtx))
+options(gtx.dbConnection = odbcConnect('impaladsn'))
+sqlQuery(getOption('gtx.dbConnection'), 'USE ukbiobank;')
+
+
+
+test_that("Testing GTEx analysis querying", 
+
+ 	lung.analyses = gtxanalyses(description_contains = c('lung'))
+
+	  
