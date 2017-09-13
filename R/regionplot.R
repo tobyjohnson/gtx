@@ -209,7 +209,7 @@ regionplot.data <- function(analysis,
                                          gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
                                          if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''))
     }
-    return(list(region = xregion, analysis = analysis, entity = entity, pvals = pvals)
+    return(list(region = xregion, analysis = analysis, entity = entity, pvals = pvals))
 }
 
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
