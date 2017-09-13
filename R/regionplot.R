@@ -213,7 +213,7 @@ regionplot.data <- function(analysis,
                                     if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''),
                             uniq = FALSE)
     }
-    return(list(region = xregion, analysis = analysis, entity = entity, pvals = pvals))
+    return(list(region = xregion, analysis = analysis, entity = xentity, pvals = pvals))
 }
 
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
