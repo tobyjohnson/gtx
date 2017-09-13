@@ -194,7 +194,7 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE) {
     ## Note this function is for generic SQL RODBC usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
     if (! 'RODBC' %in% class(dbc)) stop('dbc does not appear to be a database connection (not of class RODBC)')
-    res <- sqlQuery(dbc, sql)
+    res <- sqlQuery(dbc, sql, as.is = TRUE)
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
             stop('SQL [ ', sql, ' ] returned 0 rows, expected ', if (uniq) '1 row' else '>=1 rows')
