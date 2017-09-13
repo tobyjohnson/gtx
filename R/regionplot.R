@@ -171,6 +171,47 @@ regionplot <- function(analysis,
   return(invisible(NULL))
 }
 
+regionplot.data <- function(analysis,
+                            chrom, pos_start, pos_end, pos, 
+                            hgncid, ensemblid, rs, surround = 500000,
+                            entity, 
+                            style = 'signals', 
+                            dbc = getOption("gtx.dbConnection", NULL)) {
+    ## check database connection
+    gtxdbcheck(dbc)
+    
+    ## Determine x-axis range from arguments
+    xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                         dbc = dbc)
+    chrom = xregion$chrom
+    pos_start = xregion$pos_start
+    pos_end = xregion$pos_end
+    
+    ## Determine entity, if required, for each analysis
+    xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
+    
+    if (identical(style, 'classic')) {
+        ## basic query without finemapping
+        pvals <- sqlWrapper(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE analysis=\'%s\' AND %s %s AND pval IS NOT NULL;',
+                                         sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
+                                         sanitize(analysis, type = 'alphanum'),
+                                         gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                         if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''))
+    } else if (identical(style, 'signals')) {
+        ## plot with finemapping annotation
+        
+        ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
+        pvals <- sqlWrapper(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE gwas_results.analysis=\'%s\' AND %s %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+                                         sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
+                                         sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
+                                         sanitize(analysis, type = 'alphanum'),
+                                         gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
+                                         if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''))
+    }
+    return(list(region = xregion, analysis = analysis, entity = entity, pvals = pvals)
+}
+
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
                            hgncid, ensemblid, rs, surround = 500000, 
                            pmin = 1e-10, main, 
