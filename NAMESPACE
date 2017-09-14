@@ -74,7 +74,7 @@ export(qq10, qq10.new, qq10.envelope, qq10.points, gclambda)
 export(qtplot, qtplot.character, qtplot.numeric)
 ## regionplot.R
 export(recomb.draw, regionplot.multiP)
-export(regionplot, regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination, regionplot.points)
+export(regionplot, regionplot.data, regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination, regionplot.points)
 ## sanitation.R # should these be internal?
 export(sanitize, sanitize1, sqlWrapper)
 ## snpdata.R
