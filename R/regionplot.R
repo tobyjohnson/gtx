@@ -30,7 +30,7 @@ regionplot <- function(analysis,
                                chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                                entity = xentity,
                                style = style,
-                               dbc = dbc)
+                               dbc = dbc)$pvals
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
@@ -39,7 +39,7 @@ regionplot <- function(analysis,
                              chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                              entity = xentity,
                              style = style,
-                             dbc = dbc) 
+                             dbc = dbc)$pvals
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
