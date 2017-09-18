@@ -28,7 +28,7 @@ regionplot <- function(analysis,
     ## basic query without finemapping
       pvals <- regionplot.data(analysis = analysis,
                                chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
-                               entity = xentity,
+                               entity = xentity$entity,
                                style = style,
                                dbc = dbc)$pvals
   } else if (identical(style, 'signals')) {
@@ -37,7 +37,7 @@ regionplot <- function(analysis,
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
     pvals <- regionplot.data(analysis = analysis,
                              chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
-                             entity = xentity,
+                             entity = xentity$entity,
                              style = style,
                              dbc = dbc)$pvals
     signals <- sort(unique(na.omit(pvals$signal)))
