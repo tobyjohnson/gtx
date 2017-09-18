@@ -216,7 +216,7 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
                               )$entity_type
     gtxlog('analysis [ ', analysis, ' ] requires entity type [ ', entity_type, ' ]')
     
-    if (identical(entity_type, factor('ensg'))) {
+    if (identical(entity_type, 'ensg')) {
         ## analysis requires an entity that is Ensembl gene id
         if (!missing(entity)) {
             ## entity argument supplied, infer whether Ensembl gene id or HGNC id
