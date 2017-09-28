@@ -33,8 +33,7 @@ gtxwhere <- function(chrom,
     
     ws1 <- list(
         if (missing(chrom)) NULL
-        else sprintf("chrom='%s'", sanitize(chrom[1], values = c(as.character(1:22), "X", "Y"))),
-        ## FIXME: Should this be sanitize1() ?
+        else sprintf("chrom='%s'", sanitize1(chrom, values = c(as.character(1:22), "X", "Y"))),
         
         if (missing(pos)) NULL
         else sprintf("pos=%s", sanitize(pos, type = "int")), 
