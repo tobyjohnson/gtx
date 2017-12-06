@@ -13,6 +13,7 @@ gtxwhere <- function(chrom,
                      pos_end_ge, pos_start_le, 
                      pos_start_ge, pos_end_le, 
                      rs, hgncid, ensemblid,
+                     entity, 
                      tablename) {
   ## function to construct a WHERE string for constructing SQL queries
   ## Notes:
@@ -64,6 +65,9 @@ gtxwhere <- function(chrom,
         
         if (missing(ensemblid)) NULL
         else sprintf("ensemblid='%s'", sanitize(ensemblid, type = "ENSG"))
+
+        if (missing(entity)) NULL
+        else sprintf("feature='%s'", sanitize(entity, type = "alphanum")) # will be entity=INT FIXME
     )
     ws2 <- paste0("(", 
                   unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
