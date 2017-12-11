@@ -191,7 +191,7 @@ multicoloc.data <- function(analysis1, analysis2,
   ## rather than directly selecting on WHERE entity IN ...
   
   gtxlog('Query region is chr', chrom, ':', pos_start, '-', pos_end, 
-         ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), 'bp)')
+         ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
 
   eq <- sqlWrapper(dbc, 
                     sprintf('SELECT 
@@ -219,7 +219,7 @@ multicoloc.data <- function(analysis1, analysis2,
   pos_start <- ep$minpos
   pos_end <- ep$maxpos
   gtxlog('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
-         ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), 'bp)')
+         ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
   
   ## We use a (INNER) JOIN and silently drop rows that don't match
   res <- sqlWrapper(dbc,
@@ -249,8 +249,7 @@ multicoloc.data <- function(analysis1, analysis2,
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
                             sanitize(gtxanalysisdb(analysis2), type = 'alphanum'), # may not require sanitation
                             sanitize(analysis2, type = 'alphanum'),
-                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
-                            if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
+                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)
                             ),
                     uniq = FALSE) # expect >=1 rows
 
