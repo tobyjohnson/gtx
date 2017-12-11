@@ -64,7 +64,7 @@ gtxwhere <- function(chrom,
         else sprintf("hgncid='%s'", sanitize(hgncid, type = "alphanum-")), # thousands of HGNC ids contain hyphens, e.g. HLA-A
         
         if (missing(ensemblid)) NULL
-        else sprintf("ensemblid='%s'", sanitize(ensemblid, type = "ENSG"))
+        else sprintf("ensemblid='%s'", sanitize(ensemblid, type = "ENSG")),
 
         if (missing(entity)) NULL
         else sprintf("feature='%s'", sanitize(entity, type = "alphanum")) # will be entity=INT FIXME
