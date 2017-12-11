@@ -237,7 +237,7 @@ multicoloc.data <- function(analysis1, analysis2,
                                  ) AS t1 
                              JOIN 
                                  (SELECT 
-                                      chrom, pos, ref, alt, beta, se,  
+                                      chrom, pos, ref, alt, beta, se
                                   FROM %s.gwas_results 
                                   WHERE 
                                       analysis=\'%s\' 
