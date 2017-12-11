@@ -277,7 +277,7 @@ multicoloc <- function(analysis1, analysis2,
                     uniq = FALSE)
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
 
-  analyses1 <- unique(ss$analysis1)
+  analyses <- unique(ss$analysis1)
   for (this_analysis in analyses) {
       resc <- do.call(rbind,
                       lapply(unique(res$entity), function(this_entity) {
