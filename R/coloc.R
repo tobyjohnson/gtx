@@ -277,7 +277,8 @@ multicoloc <- function(analysis1, analysis2,
                     uniq = FALSE)
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
 
-  for (this_analysis in unique(ss$analysis1)) {
+  analyses1 <- unique(ss$analysis1)
+  for (this_analysis in analyses) {
       resc <- do.call(rbind,
                       lapply(unique(res$entity), function(this_entity) {
                           return(subset(coloc.fast(subset(ss, analysis1 == this_analysis & entity1 == this_entity))$results,
@@ -286,6 +287,25 @@ multicoloc <- function(analysis1, analysis2,
       colnames(resc) <- paste0('Hxy', '_', this_analysis)
       res <- cbind(res, resc)
   }
+
+  # FIXME get direction by weighted sign(beta/beta) weighted by ABFs conditional on H4
+  image(x = 1:nrow(res), y = 1:length(analyses),
+        z = as.matrix(res[ , paste0('Hxy', '_', analyses)]),
+        zlim = c(0, 1),
+        col = rgb(1, 100:0/100, 100:0/100,),
+        xaxt = 'n', yaxt = 'n', ann = FALSE)
+  for (idx in 1:length(analyses)) {
+      zvals <- round(res[ , paste0('Hxy', '_', analyses[idx])], 2)
+      text(1:nrow(res), idx, ifelse(!is.na(zvals), zvals, ''), cex = .5)
+  }
+  axis(1, at = 1:nrow(res),
+       labels = with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))),
+       las = 2)
+  axis(2, at = 1:length(analyses), 
+       labels = analyses,
+       las = 1)
+  box()
+  
   return(res)
 }
   
