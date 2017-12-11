@@ -185,7 +185,7 @@ multicoloc.data <- function(analysis1, analysis2,
   ## Therefore we run a series of queries, to
   ## 1. Find all entities with >=1 association statistic within the overlap query region
   ## 2. Find the interval that includes all association statistics for those entities
-  ## 3. Do a coloc query for this region (with no WHERE on entity)
+  ## 3. Do a coloc query for this region (with WHERE ... AND entity=)
   ##
   ## Note that for efficiency regions we want query 3. to be by a defined physical region
   ## rather than directly selecting on WHERE entity IN ...
@@ -202,7 +202,7 @@ multicoloc.data <- function(analysis1, analysis2,
                                  AND %s ;',
                             sanitize(gtxanalysisdb(analysis1), type = 'alphanum'), # may not require sanitation
                             sanitize(analysis1, type = 'alphanum'),
-                            gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end)),
+                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)),
                     uniq = FALSE)$feature
   gtxlog('Query region includes association statistics for ', length(eq), ' entities')
 
@@ -215,7 +215,7 @@ multicoloc.data <- function(analysis1, analysis2,
                                  AND %s ;',
                             sanitize(gtxanalysisdb(analysis1), type = 'alphanum'), # may not require sanitation
                             sanitize(analysis1, type = 'alphanum'),
-                            gtxwhere(chrom, entity = eq)))
+                            gtxwhere(chrom = chrom, entity = eq)))
   pos_start <- ep$minpos
   pos_end <- ep$maxpos
   gtxlog('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
@@ -233,7 +233,7 @@ multicoloc.data <- function(analysis1, analysis2,
                                   FROM %s.gwas_results 
                                   WHERE
                                       analysis=\'%s\' 
-                                      AND %s 
+                                      AND %s AND %s
                                  ) AS t1 
                              JOIN 
                                  (SELECT 
@@ -247,6 +247,7 @@ multicoloc.data <- function(analysis1, analysis2,
                             sanitize(gtxanalysisdb(analysis1), type = 'alphanum'), # may not require sanitation
                             sanitize(analysis1, type = 'alphanum'),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
+                            gtxwhere(chrom = chrom, entity = eq), 
                             sanitize(gtxanalysisdb(analysis2), type = 'alphanum'), # may not require sanitation
                             sanitize(analysis2, type = 'alphanum'),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)
@@ -262,13 +263,25 @@ multicoloc <- function(analysis1, analysis2,
                        dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
 
-  res <- multicoloc.data(analysis1 = analysis1, analysis2 = analysis2,
+  ## get summary stats
+  ss <- multicoloc.data(analysis1 = analysis1, analysis2 = analysis2,
                          chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround,
                          dbc = dbc)
 
-  resc <- sapply(unique(res$entity), function(entity1) return(coloc.fast(subset(res, entity == entity1))$results$posterior))
-  return(resc)
+  res <- sqlWrapper(dbc, 
+                    sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
+                            gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
+                    uniq = FALSE)
+  res$entity <- res$ensemblid # FIXME not guaranteed entity_type
+  
+  resc <- do.call(rbind,
+                  lapply(unique(res$entity), function(entity1) {
+                      return(coloc.fast(subset(ss, entity == entity1))$results$posterior)
+                  }))
+  colnames(resc) <- c("P(H0)", "P(H1)", "P(H2)", "P(H1,2)", "P(H12)")
+  res <- cbind(res, resc)
+  return(res)
 }
   
