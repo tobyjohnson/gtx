@@ -9,7 +9,7 @@ export(blockassoc, blockstats, blockstats.lm, blockstats.glm, blockstats.coxph, 
 ## clinical.R
 export(clinical.import, clinical.derive, derivation.add)
 ## coloc.R
-export(coloc.fast, coloc)
+export(coloc.fast, coloc, multicoloc, multicoloc.data)
 ## demographics.R
 export(demographics, demographics.numeric, demographics.logical, demographics.factor, demographics.Surv, demographics.data.frame, prettypc)
 ## fitmix.R

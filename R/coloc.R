@@ -168,6 +168,9 @@ multicoloc.data <- function(analysis1, analysis2,
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
 
+  ## Currently only works if analysis1 all in the same db table
+  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum')
+  
 #  ## substitute generic entity for entity1 and entity2 if needed
 #  if (missing(entity1) && !missing(entity)) entity1 <- entity
 #  if (missing(entity2) && !missing(entity)) entity2 <- entity
@@ -200,7 +203,7 @@ multicoloc.data <- function(analysis1, analysis2,
                              WHERE
                                  analysis=\'%s\' 
                                  AND %s ;',
-                            sanitize(gtxanalysisdb(analysis1), type = 'alphanum'), # may not require sanitation
+                            db1, 
                             sanitize(analysis1, type = 'alphanum'),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)),
                     uniq = FALSE)$feature
@@ -211,10 +214,9 @@ multicoloc.data <- function(analysis1, analysis2,
                                  min(pos) as minpos, max(pos) as maxpos
                              FROM %s.gwas_results
                              WHERE
-                                 analysis=\'%s\' 
-                                 AND %s ;',
-                            sanitize(gtxanalysisdb(analysis1), type = 'alphanum'), # may not require sanitation
-                            sanitize(analysis1, type = 'alphanum'),
+                                 %s AND %s ;',
+                            db1, 
+                            gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, entity = eq)))
   pos_start <- ep$minpos
   pos_end <- ep$maxpos
@@ -224,16 +226,15 @@ multicoloc.data <- function(analysis1, analysis2,
   ## We use a (INNER) JOIN and silently drop rows that don't match
   res <- sqlWrapper(dbc,
                     sprintf('SELECT 
-                                 t1.entity AS entity,
+                                 t1.analysis AS analysis1, t1.entity AS entity1,
                                  t1.beta AS beta1, t1.se AS se1, 
                                  t2.beta AS beta2, t2.se AS se2 
                              FROM 
                                  (SELECT
-                                      chrom, pos, ref, alt, beta, se, feature AS entity 
+                                      chrom, pos, ref, alt, analysis, feature AS entity, beta, se
                                   FROM %s.gwas_results 
                                   WHERE
-                                      analysis=\'%s\' 
-                                      AND %s AND %s
+                                      %s AND %s AND %s
                                  ) AS t1 
                              JOIN 
                                  (SELECT 
@@ -244,8 +245,8 @@ multicoloc.data <- function(analysis1, analysis2,
                                       AND %s 
                                  ) AS t2
                              USING (chrom, pos, ref, alt);',
-                            sanitize(gtxanalysisdb(analysis1), type = 'alphanum'), # may not require sanitation
-                            sanitize(analysis1, type = 'alphanum'),
+                            db1, 
+                            gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
                             gtxwhere(chrom = chrom, entity = eq), 
                             sanitize(gtxanalysisdb(analysis2), type = 'alphanum'), # may not require sanitation
@@ -275,13 +276,16 @@ multicoloc <- function(analysis1, analysis2,
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
                     uniq = FALSE)
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
-  
-  resc <- do.call(rbind,
-                  lapply(unique(res$entity), function(entity1) {
-                      return(coloc.fast(subset(ss, entity == entity1))$results$posterior)
-                  }))
-  colnames(resc) <- c("P(H0)", "P(H1)", "P(H2)", "P(H1,2)", "P(H12)")
-  res <- cbind(res, resc)
+
+  for (this_analysis in unique(ss$analysis1)) {
+      resc <- do.call(rbind,
+                      lapply(unique(res$entity), function(this_entity) {
+                          return(subset(coloc.fast(subset(ss, analysis1 == this_analysis & entity1 == this_entity))$results,
+                                        hypothesis == 'H4')$posterior)
+                      }))
+      colnames(resc) <- paste0('Hxy', '_', this_analysis)
+      res <- cbind(res, resc)
+  }
   return(res)
 }
   
