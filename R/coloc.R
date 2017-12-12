@@ -20,7 +20,7 @@ coloc.fast <- function(data, rounded = 6,
                       sum(abf1[-1])*abf2[1]/nv, 
                       abf1[1]*sum(abf2[-1])/nv, 
                       (sum(abf1[-1])*sum(abf2[-1]) - sum(abf1[-1]*abf2[-1]))/(nv*(nv - 1)), 
-                      sum(abf1[-1]*abf2[-1])/nv)) else rep(NA, 5)
+                      sum(abf1[-1]*abf2[-1])/nv) else rep(NA, 5))
   res$bf <- res$bf/res$bf[1]
   res$posterior <- norm1(res$prior*res$bf)
   if (is.finite(rounded)) {
