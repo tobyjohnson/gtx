@@ -289,9 +289,9 @@ multicoloc <- function(analysis1, analysis2,
       res <- cbind(res, resc)
   }
 
-  if (identical(style), 'none') {
+  if (identical(style, 'none')) {
       ## do nothing
-  } else if (identical(style), 'heatplot') {
+  } else if (identical(style, 'heatplot')) {
       zmat <- as.matrix(res[ , paste0('Hxy', '_', analyses)])
       colnames(zmat) <- analyses
       rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
