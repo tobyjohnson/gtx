@@ -201,12 +201,12 @@ multicoloc.data <- function(analysis1, analysis2,
                                  DISTINCT feature
                              FROM %s.gwas_results
                              WHERE
-                                 analysis=\'%s\' 
-                                 AND %s ;',
+                                 %s AND %s ;',
                             db1, 
-                            sanitize(analysis1, type = 'alphanum'),
+                            gtxwhat(analysis = analysis1), 
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)),
                     uniq = FALSE)$feature
+  ## FIXME this may return zero rows, should handle gracefully
   gtxlog('Query region includes association statistics for ', length(eq), ' entities')
 
   ep <- sqlWrapper(dbc, 
