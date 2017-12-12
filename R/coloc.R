@@ -154,6 +154,7 @@ multicoloc.data <- function(analysis1, analysis2,
                             hgncid, ensemblid, rs, surround = 0,
 ##                            entity, entity1, entity2,
 ##                            style = 'Z', 
+                            hard_clip = FALSE, 
                             dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
   ## note there is a *niche* case where analysis2 would have an entity
@@ -209,21 +210,24 @@ multicoloc.data <- function(analysis1, analysis2,
   ## FIXME this may return zero rows, should handle gracefully
   gtxlog('Query region includes association statistics for ', length(eq), ' entities')
 
-  ep <- sqlWrapper(dbc, 
-                    sprintf('SELECT 
+  if (!hard_clip) {
+      ep <- sqlWrapper(dbc, 
+                       sprintf('SELECT 
                                  min(pos) as minpos, max(pos) as maxpos
                              FROM %s.gwas_results
                              WHERE
                                  %s AND %s ;',
-                            db1, 
-                            gtxwhat(analysis = analysis1),
-                            gtxwhere(chrom = chrom, entity = eq)))
-  pos_start <- ep$minpos
-  pos_end <- ep$maxpos
-  gtxlog('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
-         ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
-  
+                             db1, 
+                             gtxwhat(analysis = analysis1),
+                             gtxwhere(chrom = chrom, entity = eq)))
+      pos_start <- ep$minpos
+      pos_end <- ep$maxpos
+      gtxlog('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
+             ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
+  }
+
   ## We use a (INNER) JOIN and silently drop rows that don't match
+  ## FIXME if hard_clip can make this query run faster by not selecting on entity
   t0 <- as.double(Sys.time())
   res <- sqlWrapper(dbc,
                     sprintf('SELECT 
