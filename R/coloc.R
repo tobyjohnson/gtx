@@ -16,11 +16,11 @@ coloc.fast <- function(data, rounded = 6,
                       "Two variants separately associated with phenotypes 1 and 2",
                       "One variant associated with phenotypes 1 and 2"),
                     prior = norm1(c(1, priorc1*nv, priorc2*nv, priorc1*priorc2*nv*(nv - 1), priorc12*nv)),
-                    bf = c(abf1[1]*abf2[1], 
+                    bf = if (nv > 0) c(abf1[1]*abf2[1], 
                       sum(abf1[-1])*abf2[1]/nv, 
                       abf1[1]*sum(abf2[-1])/nv, 
                       (sum(abf1[-1])*sum(abf2[-1]) - sum(abf1[-1]*abf2[-1]))/(nv*(nv - 1)), 
-                      sum(abf1[-1]*abf2[-1])/nv))
+                      sum(abf1[-1]*abf2[-1])/nv)) else rep(NA, 5)
   res$bf <- res$bf/res$bf[1]
   res$posterior <- norm1(res$prior*res$bf)
   if (is.finite(rounded)) {
@@ -288,24 +288,69 @@ multicoloc <- function(analysis1, analysis2,
       res <- cbind(res, resc)
   }
 
-  # FIXME get direction by weighted sign(beta/beta) weighted by ABFs conditional on H4
-  image(x = 1:nrow(res), y = 1:length(analyses),
-        z = as.matrix(res[ , paste0('Hxy', '_', analyses)]),
-        zlim = c(0, 1),
-        col = rgb(1, 100:0/100, 100:0/100,),
-        xaxt = 'n', yaxt = 'n', ann = FALSE)
-  for (idx in 1:length(analyses)) {
-      zvals <- round(res[ , paste0('Hxy', '_', analyses[idx])], 2)
-      text(1:nrow(res), idx, ifelse(!is.na(zvals), zvals, ''), cex = .5)
-  }
-  axis(1, at = 1:nrow(res),
-       labels = with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))),
-       las = 2)
-  axis(2, at = 1:length(analyses), 
-       labels = analyses,
-       las = 1)
-  box()
+  zmat <- as.matrix(res[ , paste0('Hxy', '_', analyses)])
+  colnames(zmat) <- analyses
+  rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
+
+  thresh_z <- .1*max(zmat, na.rm = TRUE) # threshold
+  zmat <- zmat[ , order(apply(zmat, 2, function(x) if (any(x >= thresh_z, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA)]
+  multicoloc.plot(zmat)
   
   return(res)
 }
-  
+
+## Input, a matrix of z values with analysis as column names and entity as row names 
+multicoloc.plot <- function(zmat, 
+                            dbc = getOption("gtx.dbConnection", NULL)) {
+    gtxdbcheck(dbc)
+    
+    ## Query plot labels for analyses
+    label_y <- sqlWrapper(dbc, 
+                         sprintf('SELECT analysis, label FROM analyses WHERE %s',
+                                 gtxwhat(analysis = colnames(zmat))),
+                         uniq = FALSE)
+    label_y <- label_y$label[match(colnames(zmat), label_y$analysis)]
+    ## label_y <- ifelse(!is.na(label_y), label_y, colnames(zmat)) # fall back to analysis if label lookup failed
+    
+    plot.new()
+    x_labelmax <- .4 # max fraction of total x space to use for analysis descriptions
+    y_linesep <- 2. # spacing desired as multiple of strheight()
+    
+    cex_ylab <- 1.
+    while (TRUE) {
+        y_used <- sum(strheight(label_y, cex = cex_ylab)*y_linesep)
+        x_used <- max(strwidth(label_y, cex = cex_ylab))
+        if (y_used <= 1. && x_used <= x_labelmax) break
+        cex_ylab <- cex_ylab*min(1./y_used, x_labelmax/x_used)
+    }
+    x_labeluse <- x_used
+    
+    cex_values <- 1.
+    while (TRUE) {
+        y_used <- strheight('000', cex = cex_values)*ncol(zmat)*y_linesep
+        x_used <- strwidth('000', cex = cex_values)*nrow(zmat)
+        if (y_used <= 1. && x_used <= (1. - x_target)) break
+        cex_values <- cex_values*min(1./y_used, (1. - x_labeluse)/x_used)
+    }
+
+    plot.window(c(-x_labeluse/(1. - x_labeluse), 1.)*(nrow(zmat) + .5), c(.5, ncol(zmat) + .5))
+    abline(v = 0)
+    
+    image(x = 1:nrow(zmat), y = 1:ncol(zmat),
+          z = zmat,
+          zlim = c(0, 1),
+          col = rgb(1, 100:0/100, 100:0/100,),
+          add = TRUE) # should add options for different colour scalings
+
+    text(0, 1:ncol(zmat), label_y, pos = 2, cex = cex_ylab)
+    for (idx in 1:ncol(zmat)) {
+        zvals <- as.integer(round(zmat[, idx]*100))
+        text(1:nrow(zmat), idx, ifelse(!is.na(zvals), sprintf('%02i', zvals), ''), cex = cex_values)
+    }
+    axis(1, at = 1:nrow(zmat),
+         labels = rownames(zmat),
+         las = 2, cex.axis = .5, font = 3)
+    box()
+
+    return(invisible(NULL))
+}
