@@ -261,6 +261,7 @@ multicoloc.data <- function(analysis1, analysis2,
 multicoloc <- function(analysis1, analysis2,
                        chrom, pos_start, pos_end, pos, 
                        hgncid, ensemblid, rs, surround = 0,
+                       style = 'heatplot', 
                        dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
 
@@ -288,13 +289,18 @@ multicoloc <- function(analysis1, analysis2,
       res <- cbind(res, resc)
   }
 
-  zmat <- as.matrix(res[ , paste0('Hxy', '_', analyses)])
-  colnames(zmat) <- analyses
-  rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
-
-  thresh_z <- .1*max(zmat, na.rm = TRUE) # threshold
-  zmat <- zmat[ , order(apply(zmat, 2, function(x) if (any(x >= thresh_z, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA)]
-  multicoloc.plot(zmat)
+  if (identical(style), 'none') {
+      ## do nothing
+  } else if (identical(style), 'heatplot') {
+      zmat <- as.matrix(res[ , paste0('Hxy', '_', analyses)])
+      colnames(zmat) <- analyses
+      rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
+      thresh_z <- .1*max(zmat, na.rm = TRUE) # threshold
+      zmat <- zmat[ , order(apply(zmat, 2, function(x) if (any(x >= thresh_z, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA)]
+      multicoloc.plot(zmat)
+  } else {
+      stop('unknown style [ ', style, ' ]')
+  }
   
   return(res)
 }
