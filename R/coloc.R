@@ -305,8 +305,8 @@ multicoloc <- function(analysis1, analysis2,
       zmat <- as.matrix(res[ , paste0('Hxy', '_', analyses)])
       colnames(zmat) <- analyses
       rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
-      thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold
-      thresh_entity <- thresh_entity*max(zmat, na.rm = TRUE) # threshold
+      ## thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold could be relative instead of absolute
+      ## thresh_entity <- thresh_entity*max(zmat, na.rm = TRUE) # threshold, ditto
       zmat <- zmat[apply(zmat, 1, function(x) return(any(x >= thresh_entity, na.rm = TRUE) && any(!is.na(x)))) ,
                    order(apply(zmat, 2, function(x) if (any(x >= thresh_analysis, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA),
                    drop = FALSE]
