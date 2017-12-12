@@ -267,7 +267,7 @@ multicoloc.data <- function(analysis1, analysis2,
 multicoloc <- function(analysis1, analysis2,
                        chrom, pos_start, pos_end, pos, 
                        hgncid, ensemblid, rs, surround = 0,
-                       style = 'heatplot', 
+                       hard_clip = FALSE, style = 'heatplot', 
                        dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
 
@@ -275,7 +275,7 @@ multicoloc <- function(analysis1, analysis2,
   ss <- multicoloc.data(analysis1 = analysis1, analysis2 = analysis2,
                          chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
-                         surround = surround,
+                         surround = surround, hard_clip = hard_clip, 
                          dbc = dbc)
 
   res <- sqlWrapper(dbc, 
