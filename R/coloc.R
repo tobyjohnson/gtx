@@ -296,7 +296,7 @@ multicoloc <- function(analysis1, analysis2,
       colnames(zmat) <- analyses
       rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
       thresh_z <- .1*max(zmat, na.rm = TRUE) # threshold
-      zmat <- zmat[ , order(apply(zmat, 2, function(x) if (any(x >= thresh_z, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA)]
+      zmat <- zmat[ , order(apply(zmat, 2, function(x) if (any(x >= thresh_z, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA), drop = FALSE]
       multicoloc.plot(zmat)
   } else {
       stop('unknown style [ ', style, ' ]')
@@ -335,7 +335,7 @@ multicoloc.plot <- function(zmat,
     while (TRUE) {
         y_used <- strheight('000', cex = cex_values)*ncol(zmat)*y_linesep
         x_used <- strwidth('000', cex = cex_values)*nrow(zmat)
-        if (y_used <= 1. && x_used <= (1. - x_target)) break
+        if (y_used <= 1. && x_used <= (1. - x_labeluse)) break
         cex_values <- cex_values*min(1./y_used, (1. - x_labeluse)/x_used)
     }
 
