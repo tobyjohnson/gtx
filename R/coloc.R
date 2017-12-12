@@ -224,6 +224,7 @@ multicoloc.data <- function(analysis1, analysis2,
          ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
   
   ## We use a (INNER) JOIN and silently drop rows that don't match
+  t0 <- as.double(Sys.time())
   res <- sqlWrapper(dbc,
                     sprintf('SELECT 
                                  t1.analysis AS analysis1, t1.entity AS entity1,
@@ -254,7 +255,8 @@ multicoloc.data <- function(analysis1, analysis2,
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)
                             ),
                     uniq = FALSE) # expect >=1 rows
-
+  t1 <- as.double(Sys.time())
+  gtxlog('Results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
   return(res)
 }
 
@@ -277,8 +279,9 @@ multicoloc <- function(analysis1, analysis2,
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
                     uniq = FALSE)
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
-
   analyses <- unique(ss$analysis1)
+
+  t0 <- as.double(Sys.time())  
   for (this_analysis in analyses) {
       resc <- do.call(rbind,
                       lapply(unique(res$entity), function(this_entity) {
@@ -288,6 +291,8 @@ multicoloc <- function(analysis1, analysis2,
       colnames(resc) <- paste0('Hxy', '_', this_analysis)
       res <- cbind(res, resc)
   }
+  t1 <- as.double(Sys.time())
+  gtxlog('Colocalization analyzed for ', sum(!is.na(res[ , paste0('Hxy', '_', analyses)])), ' pairs in ', round(t1 - t0, 3), 's')
 
   if (identical(style, 'none')) {
       ## do nothing
