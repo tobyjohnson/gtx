@@ -291,7 +291,7 @@ multicoloc <- function(analysis1, analysis2,
 
   t0 <- as.double(Sys.time())
   resc1 <- ss[ ,
-              subset(coloc.fast(data.table(beta1, se1, beta2, se2))$results, hypothesis == 'H4')$posterior,
+              subset(coloc.fast(beta1, se1, beta2, se2)$results, hypothesis == 'H4')$posterior,
               by = .(analysis1, entity1)]
   names(resc1)[3] <- 'Hxy'
   resc <- reshape(resc, direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
