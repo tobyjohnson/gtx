@@ -1,9 +1,11 @@
 ## Colocalisation analysis, implementing method of Giambartolomei et al. 2014
-coloc.fast <- function(data, rounded = 6,
+##
+## changed API to pass in vectors instead of dataframe
+coloc.fast <- function(beta1, se1, beta2, se2, 
                        priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5, 
-                       beta1 = 'beta1', se1 = 'se1', beta2 = 'beta2', se2 = 'se2') {
-  abf1 <- abf.Wakefield(data[[beta1]], data[[se1]], priorsd1, log = TRUE)
-  abf2 <- abf.Wakefield(data[[beta2]], data[[se2]], priorsd2, log = TRUE)
+                       rounded = 6) {
+  abf1 <- abf.Wakefield(beta1, se1, priorsd1, log = TRUE)
+  abf2 <- abf.Wakefield(beta2, se2, priorsd2, log = TRUE)
   w <- which(!is.na(abf1) & !is.na(abf2))
   ## Fill in zeros not filter out, thanks Karl and Karsten!!!!
   nv <- length(w)
@@ -98,7 +100,7 @@ coloc <- function(analysis1, analysis2,
 
   gtxlog('coloc query returned ', nrow(res), ' rows')
 
-  resc <- coloc.fast(res)
+  resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2)
 
   pdesc1 <- sqlWrapper(dbc,
                        sprintf('SELECT description FROM analyses WHERE analysis = \'%s\';',
@@ -278,7 +280,8 @@ multicoloc <- function(analysis1, analysis2,
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround, hard_clip = hard_clip, 
                          dbc = dbc)
-
+  ss <- data.table(ss) # could inline
+  
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
@@ -286,27 +289,34 @@ multicoloc <- function(analysis1, analysis2,
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
   analyses <- unique(ss$analysis1)
 
-  t0 <- as.double(Sys.time())  
-  for (this_analysis in analyses) {
-      resc <- do.call(rbind,
-                      lapply(unique(res$entity), function(this_entity) {
-                          return(subset(coloc.fast(subset(ss, analysis1 == this_analysis & entity1 == this_entity))$results,
-                                        hypothesis == 'H4')$posterior)
-                      }))
-      colnames(resc) <- paste0('Hxy', '_', this_analysis)
-      res <- cbind(res, resc)
-  }
+  t0 <- as.double(Sys.time())
+  resc1 <- ss[ ,
+              subset(coloc.fast(data.table(beta1, se1, beta2, se2))$results, hypothesis == 'H4')$posterior,
+              by = .(analysis1, entity1)]
+  names(resc1)[3] <- 'Hxy'
+  resc <- reshape(resc, direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
+  res <- cbind(res, resc[match(res$entity, resc$entity1), ])
+  #for (this_analysis in analyses) {
+  #    resc <- do.call(rbind,
+  #                    lapply(unique(res$entity), function(this_entity) {
+  #                        return(subset(coloc.fast(subset(ss, analysis1 == this_analysis & entity1 == this_entity))$results,
+  #                                      hypothesis == 'H4')$posterior)
+  #                    }))
+  #    colnames(resc) <- paste0('Hxy', '_', this_analysis)
+  #    res <- cbind(res, resc)
+  #}
   t1 <- as.double(Sys.time())
-  gtxlog('Colocalization analyzed for ', sum(!is.na(res[ , paste0('Hxy', '_', analyses)])), ' pairs in ', round(t1 - t0, 3), 's')
+  gtxlog('Colocalization analyzed for ', sum(!is.na(res[ , paste0('Hxy', '.', analyses)])), ' pairs in ', round(t1 - t0, 3), 's')
 
   if (identical(style, 'none')) {
       ## do nothing
   } else if (identical(style, 'heatplot')) {
-      zmat <- as.matrix(res[ , paste0('Hxy', '_', analyses)])
+      zmat <- as.matrix(res[ , paste0('Hxy', '.', analyses)])
       colnames(zmat) <- analyses
       rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
       ## thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold could be relative instead of absolute
       ## thresh_entity <- thresh_entity*max(zmat, na.rm = TRUE) # threshold, ditto
+      ## FIXME, if nothing passes thresholds, should adapt gracefully
       zmat <- zmat[apply(zmat, 1, function(x) return(any(x >= thresh_entity, na.rm = TRUE) && any(!is.na(x)))) ,
                    order(apply(zmat, 2, function(x) if (any(x >= thresh_analysis, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA),
                    drop = FALSE]
