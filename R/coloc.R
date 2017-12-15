@@ -294,7 +294,7 @@ multicoloc <- function(analysis1, analysis2,
               subset(coloc.fast(beta1, se1, beta2, se2)$results, hypothesis == 'H4')$posterior,
               by = .(analysis1, entity1)]
   names(resc1)[3] <- 'Hxy'
-  resc <- reshape(resc, direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
+  resc <- reshape(resc1, direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
   res <- cbind(res, resc[match(res$entity, resc$entity1), ])
   #for (this_analysis in analyses) {
   #    resc <- do.call(rbind,
