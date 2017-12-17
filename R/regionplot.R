@@ -106,8 +106,8 @@ regionplot <- function(analysis,
   pmin <- min(pvals$pval)
 
   pdesc <- sqlWrapper(dbc, 
-                      sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE analysis=\'%s\'',
-                              sanitize(analysis, type = 'alphanum')))
+                      sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                              gtxwhat(analysis1 = analysis)))
   if (nrow(pdesc) > 0) {
     main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
 	      sprintf('%s, n=%i vs %i', pdesc$description[1], pdesc$ncase[1], pdesc$ncontrol[1])
@@ -195,9 +195,9 @@ regionplot.data <- function(analysis,
     if (identical(style, 'classic')) {
         ## basic query without finemapping
         pvals <- sqlWrapper(dbc,
-                            sprintf('SELECT gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE analysis=\'%s\' AND %s %s AND pval IS NOT NULL;',
-                                    sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
-                                    sanitize(analysis, type = 'alphanum'),
+                            sprintf('SELECT gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s %s AND pval IS NOT NULL;',
+                                    gtxanalysisdb(analysis), 
+                                    gtxwhat(analysis1 = analysis),
                                     gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
                                     if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''),
                             uniq = FALSE)
@@ -206,10 +206,10 @@ regionplot.data <- function(analysis,
         
         ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
         pvals <- sqlWrapper(dbc,
-                            sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE gwas_results.analysis=\'%s\' AND %s %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
-                                    sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
-                                    sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
-                                    sanitize(analysis, type = 'alphanum'),
+                            sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND %s %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+                                    gtxanalysisdb(analysis), 
+                                    gtxanalysisdb(analysis), 
+                                    gtxwhat(analysis1 = analysis, tablename = 'gwas_results'),
                                     gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
                                     if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''),
                             uniq = FALSE)

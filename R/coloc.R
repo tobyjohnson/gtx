@@ -73,26 +73,22 @@ coloc <- function(analysis1, analysis2,
                                       chrom, pos, ref, alt, beta, se, pval 
                                   FROM %s.gwas_results 
                                   WHERE
-                                      analysis=\'%s\' 
-                                      AND %s 
-                                      %s 
+                                      %s AND %s %s
                                  ) AS t1 
                                  FULL JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se, pval 
                                   FROM %s.gwas_results 
                                   WHERE 
-                                      analysis=\'%s\' 
-                                      AND %s 
-                                      %s
+                                      %s AND %s %s
                                  ) AS t2
                                  USING (chrom, pos, ref, alt);',
-                            sanitize(gtxanalysisdb(analysis1), type = 'alphanum'), # may not require sanitation
-                            sanitize(analysis1, type = 'alphanum'),
+                            gtxanalysisdb(analysis1), 
+                            gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
                             gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end),
                             if (!is.null(xentity1)) sprintf(' AND feature=\'%s\'', xentity1$entity) else '', # FIXME will change to entity
-                            sanitize(gtxanalysisdb(analysis2), type = 'alphanum'), # may not require sanitation
-                            sanitize(analysis2, type = 'alphanum'),
+                            gtxanalysisdb(analysis2), 
+                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis
                             gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end),
                             if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
                             ),
@@ -248,16 +244,15 @@ multicoloc.data <- function(analysis1, analysis2,
                                       chrom, pos, ref, alt, beta, se
                                   FROM %s.gwas_results 
                                   WHERE 
-                                      analysis=\'%s\' 
-                                      AND %s 
+                                      %s AND %s 
                                  ) AS t2
                              USING (chrom, pos, ref, alt);',
                             db1, 
                             gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
                             gtxwhere(chrom = chrom, entity = eq), 
-                            sanitize(gtxanalysisdb(analysis2), type = 'alphanum'), # may not require sanitation
-                            sanitize(analysis2, type = 'alphanum'),
+                            gtxanalysisdb(analysis2),
+                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)
                             ),
                     uniq = FALSE) # expect >=1 rows

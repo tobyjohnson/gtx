@@ -1,4 +1,4 @@
-## plan to move gtxdbcheck to separate file,
+# plan to move gtxdbcheck to separate file,
 ## and make this file all non-gtx-specific SQL sanitation functions
 
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALSE) {
@@ -55,16 +55,17 @@ gtxanalysisdb <- function(analysis,
     if (resolve) {
         res <- sqlWrapper(dbc,
                           sprintf('SELECT results_db FROM analyses WHERE %s;',
-                                  gtxwhat(analysis = sanitize1(analysis, type = 'alphanum')))) # default uniq = TRUE 
+                                  gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE 
         if (res$results_db %in% dbs$name) {
-            return(res$results_db)
+            ## should not require sanitation because of %in% check, but sanitize anyway to be safe...
+            return(sanitize(res$results_db, type = 'alphanum'))
         } else {
             stop('analysis [ ', analysis, ' ] no access to required database [ ', res$resultsdb, ' ]')
         }
     } else {
         res <- sqlWrapper(dbc,
                           sprintf('SELECT analysis, results_db FROM analyses WHERE %s;',
-                                  gtxwhat(analysis = sanitize(analysis, type = 'alphanum'))),
+                                  gtxwhat(analysis = analysis)), # sanitation by gtxwhat
                           uniq = FALSE)
         res$has_access <- res$results_db %in% dbs$name
         return(res)
@@ -74,7 +75,9 @@ gtxanalysisdb <- function(analysis,
 ##
 ## sanitize x for use in SQL
 ## specialized for some types relevant to genetic data
-## 
+##
+## "alphanum" and friends are intended for matching symbols, e.g. db table names, gene names
+## "text" is intended for matching free text
 sanitize <- function(x, values, type) {
     ## function to sanitize x for use in SQL queries
     if (!missing(values)) {
@@ -88,13 +91,13 @@ sanitize <- function(x, values, type) {
         return(values[xm])
     } else if (!missing(type)) {
         if (identical(type, "int")) {
-            x <- na.omit(x)
+            x <- na.omit(x) ## silently drop missing values
             xi <- suppressWarnings(as.integer(x))
             if (any(is.na(xi))) {
                 stop('SQL input [ ', paste(x[is.na(xi)], collapse = ', '),
                      ' ] not integer')
             }
-            return(as.character(xi))
+            return(as.character(xi)) ## FIXME this could potentially render some ints as 1.234e7 for example, depending on behaviour of as.character() for input int type
         } else if (identical(type, "double")) {
             x <- na.omit(x)
             xd <- suppressWarnings(as.double(x))
@@ -103,6 +106,15 @@ sanitize <- function(x, values, type) {
                      ' ] not double')
             }
             return(as.character(xd))
+        } else if (identical(type, "count")) {
+            ## "count" means a counting integer starting at 0, more strict about scientific notation than "int" above
+            x <- as.character(na.omit(x))
+            xa <- grepl("^[0-9]*$", x)
+            if (any(!xa)) {
+                stop('SQL input [ ', paste(x[!xa], collapse = ', '),
+                     ' ] not counting integer')
+            }
+            return(x)
         } else if (identical(type, "alphanum")) {
             ## note that here, "alphanum" means starting with alphabetic then alpha or numeric or underscore
             x <- as.character(na.omit(x))
@@ -141,6 +153,15 @@ sanitize <- function(x, values, type) {
                      ' ] not alphanumeric (period and hyphen allowed after first character)')
             }
             return(x)
+        } else if (identical(type, "text")) {
+            ## intended for matching free text query terms
+            x <- as.character(na.omit(x))
+            xa <- grepl("^[A-Za-z0-9 ]*$", x)
+            if (any(!xa)) {
+                stop('SQL input [ ', paste(x[!xa], collapse = ', '),
+                     ' ] not text (strict definition)')
+            }
+            return(x)
         } else if (identical(type, "rs")) {
             x <- tolower(as.character(na.omit(x)))
             xrs <- grepl("^rs[1-9][0-9]*$", x)
@@ -148,7 +169,7 @@ sanitize <- function(x, values, type) {
                 stop('SQL input [ ', paste(x[!xrs], collapse = ', '),
                      ' ] not rs identifier(s)')
             }
-            return(substr(x, 3, nchar(x))) # note rs parts of identifiers are stripped
+            return(substr(x, 3, nchar(x))) # note rs parts of identifiers are stripped AND STRINGS ARE RETURNED
         } else if (identical(type, "ENSG")) {
             x <- toupper(as.character(na.omit(x)))
             xens <- grepl("^ENSG[0-9]+$", x)
@@ -157,7 +178,7 @@ sanitize <- function(x, values, type) {
                      ' ] not ENSG identifier(s)')
             }
             return(x)
-            # return(substr(x, 5, nchar(x))) # note in future ENSG parts of identifiers are stripped
+            # return(substr(x, 5, nchar(x))) # note in future ENSG parts of identifiers WILL BE stripped
         } else if (identical(type, "ACGT+")) {
             x <- as.character(na.omit(x))
             xa <- grepl("^[ACGT]+$", x)
