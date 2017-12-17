@@ -160,9 +160,9 @@ gtxanalyses <- function(analysis, analysis_not,
     return(res)
 }
 
-gtxregion <- function(chrom, pos_start, pos_end, pos, 
-                           hgncid, ensemblid, rs, surround = 500000, 
-                           dbc = getOption("gtx.dbConnection", NULL)) {
+gtxregion <- function(chrom, pos_start, pos_end, 
+                      hgncid, ensemblid, pos, rs, surround = 500000, 
+                      dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
   if (!missing(chrom) && !missing(pos_start) && !missing(pos_end)) {
     stopifnot(identical(length(chrom), 1L))

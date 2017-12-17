@@ -1,13 +1,13 @@
 \name{gtxregion}
 \alias{gtxregion}
 \alias{gtxwhere}
-\title{gtxregion}
+\title{Interface to define a genomic region}
 \description{
-  Unified methods to define a genomic region.
+  Unified interface to define a genomic region.
 }
 \usage{
-gtxregion(chrom, pos_start, pos_end, pos, 
-          hgncid, ensemblid, rs, surround = 500000, 
+gtxregion(chrom, pos_start, pos_end, 
+          hgncid, ensemblid, rs, pos, surround = 500000, 
           dbc = getOption("gtx.dbConnection", NULL))
 gtxwhere(chrom, 
          pos, pos_ge, pos_le, 
@@ -28,40 +28,54 @@ gtxwhere(chrom,
   \item{pos_ge}{Position greater-or-equal required}
   \item{pos_le}{Position less-or-equal required}
   \item{pos_end_ge}{End position greater-or-equal required}
-  \item{pos_start_le}{Start position greater-or-equal required}
+  \item{pos_start_le}{Start position less-or-equal required}
   \item{pos_start_ge}{Start position greater-or-equal required}
-  \item{pos_end_le}{End position greater-or-equal required}
+  \item{pos_end_le}{End position less-or-equal required}
   \item{tablename}{Database table name}
   \item{dbc}{Database connection}
 }
 \details{
 
-  The \code{gtxregion} function provides unified methods for other
+  The \code{gtxregion()} function provides a unified interface for other
   functions to define a genomic region (or potentially for a user to
   invoke directly).  For any valid combination of its optional
   arguments, it returns genomic coordinates (chromosome, start and end
   positions) as described below, using the database connection
-  \code{dbc} to resolve any queries (such as the coordinates of a
-  named gene).
+  \code{dbc} to resolve any queries (such as the coordinates of a named
+  gene).
 
   When accessing this functionality indirectly via higher level
-  functions (such as \code{\link{regionplot}} and \code{\link{coloc}}),
-  the functionality should be almost completely intuitive for most
-  users, and if necessary can be learned by example from the manual
-  pages and vignettes for those higher level functions.  It suffices to
-  add that the optional arguments are used according to a priority
-  order, which is exactly the order of arguments in the function
-  definition.  For example if \code{chrom}, \code{pos_start},
+  functions (such as \code{\link{regionplot}()} and
+  \code{\link{coloc}()}), the functionality should be almost completely
+  intuitive for most users, and if necessary can be learned by example
+  from the manual pages and vignettes for those higher level functions.
+  It suffices to add that the optional arguments are used according to a
+  priority order, which is exactly the order of arguments in the
+  function definition.  For example if \code{chrom}, \code{pos_start},
   \code{pos_end} and \code{hgnc} are all provided, \code{hgnc} has lower
-  priority and is ignored.  Similarly if \code{hgnc} and \code{ensg} are
-  provided, \code{ensg} has lower priority and is ignored.
+  priority and is ignored.  Similarly if \code{hgnc} and \code{pos} are
+  provided, \code{pos} has lower priority and is ignored.
 
+  It is an intended design feature that \code{pos} and \code{rs} are
+  lowest in the priority order.  When used in conjunction with higher
+  priority arguments such as \code{hgnc}, a \code{pos} or \code{rs}
+  argument can be used \emph{without} affecting the genomic region
+  specified, which then allows a function that wraps \code{gtxregion()}
+  to use \code{pos} or \code{rs} for secondary purposes, such as to
+  highlight a specific position or variant in a visual display.  Thus,
+  \code{regionplot(..., pos = 1234567, surround = 500000)} selects a
+  500kb region around position 1234567 and visually highlights any
+  variant present at position 1234567, and \code{regionplot(..., hgnc =
+  'ABC123', surround = 10000, pos = 1234567)} selects a 10kb region
+  around the ABC123 gene and visually highlights any variant present at
+  position 1234567.
+  
   The remainder of this manual page is more technical documentation,
   intended for programmers writing new high level functions that will
-  work alongside \code{\link{regionplot}} and \code{\link{coloc}}, and
-  should be read in combination with the source code.
+  work alongside \code{\link{regionplot}()} and \code{\link{coloc}()},
+  and should be read in combination with the source code.
   
-  The \code{gtxregion} function resolves its arguments to genomic
+  The \code{gtxregion()} function resolves its arguments to genomic
   coordinates as follows:
   
   If the arguments \code{chrom}, \code{pos_start} and \code{pos_end} are
