@@ -80,7 +80,8 @@ gtxwhere <- function(chrom,
 ## part of SQL for analyses table
 ## Note behaviour for most arguments here is OR/OR, different to gtxwhere()
 ##
-gtxwhat <- function(analysis,
+gtxwhat <- function(analysis1,
+                    analysis,
                     analysis_not, 
                     description_contains,
                     phenotype_contains,
@@ -97,34 +98,74 @@ gtxwhat <- function(analysis,
     } else {
         tablename <- ''
     }
+
+    ## use of analysis1 is a special case where exactly one analysis key is being provided
+    ## ignore all other arguments
+    if (!missing(analysis1)) {
+        if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
+            return(sprintf("(%sanalysis='%s')", tablename, sanitize1(analysis1, type = "alphanum")))
+        } else {
+            return(sprintf("(%sanalysis=%s)", tablename, sanitize1(analysis1, type = "count"))) # note no quotes
+        }
+    }
     
+    ##
+    ## analysis, description_contains, phenotype_contains etc. are OR'ed within and between arguments
     ws1 <- list(
         if (missing(analysis)) NULL
-        else sprintf("analysis='%s'", sanitize(analysis, type = "alphanum")),
+        else {
+            if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
+                sprintf("analysis='%s'", sanitize(analysis, type = "alphanum"))
+            } else {
+                sprintf("analysis=%s", sanitize1(analysis, type = "count")) # note no quotes
+            }
+        },
         
         if (missing(description_contains)) NULL
-        else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "alphanum")), # Sanitation may be too restrictive
+        else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "text")), # Sanitation may be too restrictive, should do something intelligent with whitespace
 
         if (missing(phenotype_contains)) NULL
-        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "alphanum")), # Sanitation may be too restrictive
+        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "text")) # Sanitation may be too restrictive
+    )
+    ## format
+    ws1f <- paste0("(", 
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
+                  ")", collapse = " OR ")
 
+    ##
+    ## analysis_not, ncase_ge, ncohort_ge etc. are AND'ed within and between arguments
+    ws2 <- list(
+        if (missing(analysis_not)) NULL
+        else {
+            if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
+                sprintf("analysis!='%s'", sanitize(analysis_not, type = "alphanum"))
+            } else {
+                sprintf("analysis!=%s", sanitize1(analysis_not, type = "count")) # note no quotes
+            }
+        },
+        
         if (missing(ncase_ge)) NULL
         else sprintf("ncase >= %s", sanitize(ncase_ge, type = "int")),
         
         if (missing(ncohort_ge)) NULL
         else sprintf("ncohort >= %s", sanitize(ncohort_ge, type = "int"))
     )
-    ws2 <- paste0("(", 
-                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
-                  ")", collapse = " OR ")
-    if (!missing(analysis_not)) {
-        ws2 <- paste0("(", ws2, " AND ",
-               paste0(tablename,
-                      sprintf("analysis!='%s'", sanitize(analysis_not, type = "alphanum")),
-                      collapse = " AND "),
-               ")")
+    ws2f <- paste0("(", 
+                  unlist(sapply(ws2, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " AND "))), 
+                  ")", collapse = " AND ")
+
+    ## FIXME bad hack make this better
+    if (ws1f == '()' && ws2f == '()') {
+        stop('gtxwhat() produced no conditions')
+    } else if (ws1f != '()' && ws2f == '()') {
+        return(paste0('(', ws1f, ')'))
+    } else if (ws1f == '()' && ws2f != '()') {
+        return(paste0('(', ws2f, ')'))
+    } else if (ws1f != '()' && ws2f != '()') {
+        return(paste0('((', ws1f, ') AND (', ws2f, '))'))
+    } else {
+        stop('gtxwhat() logical error')
     }
-    return(ws2)
 }
 
 gtxanalyses <- function(analysis, analysis_not, 
