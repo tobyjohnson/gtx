@@ -1,12 +1,69 @@
-gene.annotate <- function(chr, pos, genetable, win.size = 10000) {
-  stopifnot(length(chr) == length(pos))
-  if (is.integer(chr)) chr <- as.character(chr)
-  chr <- ifelse(substr(chr, 1, 3) == "chr", chr, paste("chr", chr, sep = ""))
-  stopifnot(all(substr(chr, 1, 3) == "chr"))
-  stopifnot(is.data.frame(genetable))
-  stopifnot(all(c("name2", "chrom", "txStart", "txEnd") %in% names(genetable)))
-  
-  return (sapply(1:length(pos), function(idx) return(paste(unique(genetable$name2[which(genetable$chrom == chr[idx] & genetable$txStart+1 <= pos[idx]+win.size & genetable$txEnd+1 >= pos[idx]-win.size)]), collapse = ","))))
+gene.label <- function(hgnc, ensg) {
+    ## consider adding a db query option if hgnc is missing
+    stopifnot(length(hgnc) == length(ensg))
+    return(ifelse(!is.na(hgnc) & hgnc != '', hgnc, ensg)) # FIXME when ENSG ids change to integers, use gtxlabel()
+}
+
+gene.annotate <- function(chrom, pos,
+                          protein_coding_only = TRUE, 
+                          dbc = getOption("gtx.dbConnection", NULL)) {
+    stopifnot(length(chr) == length(pos))
+    gtxdbcheck(dbc)
+    
+    ## Current implementation involves a large number of SQL queries, which may be slow...
+    if (identical(length(chrom), 0L)) return(NULL)
+    
+    ann <- sapply(1:length(chrom), function(idx) {
+        res <- sqlWrapper(dbc,
+                          sprintf('SELECT hgncid, ensemblid FROM genes WHERE %s ORDER BY pos_start',
+                                  ## FIXME filter on protein_coding_only
+                                  gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx], pos_start_le = pos[idx])),
+                          uniq = FALSE, zrok = TRUE)
+        ## FIXME, need to support an alternative logic in gtxwhere to avoid serial queries
+        ## If one more more genes overlap the query position, return like "[ABC123]" or "[ABC123;ABC124]"
+        if (nrow(res) >= 1) {
+            return(paste0('[', paste(unique(gene.label(res$hgncid, res$ensemblid)), collapse = ';'), ']'))
+        }
+        ## Otherwise, query nearest genes to left and right (arbitrary tie breaking, FIXME to be perfect)
+        resl <- sqlWrapper(dbc,
+                           sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_end DESC LIMIT 1',
+                                   ## FIXME filter on protein_coding_only
+                                   gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx]-1000000, pos_end_le = pos)),
+                           zrok = TRUE)
+        if (nrow(resl) == 0) {
+            resl.s <- '---' # no genes within 1Mb
+        } else {
+            if (pos - resl$pos_end <= 10000) { # within 10kb
+                resl.s <- paste0(gene.label(resl$hgnc, resl$ensemblid), '-')
+            } else if (pos - resl$pos_end <= 100000) { # within 100kb
+                resl.s <- paste0(gene.label(resl$hgnc, resl$ensemblid), '--')
+            } else if (pos - resl$pos_end <= 1000000) { # within 1Mb
+                resl.s <- paste0(gene.label(resl$hgnc, resl$ensemblid), '---')
+            } else {
+                stop('internal error in gene.annotate resl construction')
+            }
+        }
+        resr <- sqlWrapper(dbc,
+                           sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start ASC LIMIT 1',
+                                   ## FIXME filter on protein_coding_only
+                                   gtxwhere(chrom = chrom[idx], pos_start_le = pos[idx]+1000000, pos_start_ge = pos)),
+                           zrok = TRUE)
+        if (nrow(resr) == 0) {
+            resr.s <- '---' # no genes within 1Mb
+        } else {
+            if (resr$pos_start - pos <= 10000) { # within 10kb
+                resr.s <- paste0('-', gene.label(resl$hgnc, resl$ensemblid))
+            } else if (resr$pos_start - pos <= 100000) { # within 100kb
+                resr.s <- paste0('--', gene.label(resl$hgnc, resl$ensemblid))
+            } else if (resr$pos_start - pos <= 1000000) { # within 1Mb
+                resr.s <- paste0('---', gene.label(resl$hgnc, resl$ensemblid))
+            } else {
+                stop('internal error in gene.annotate resr construction')
+            }
+        }
+        return(paste0(resl.s, '[]', resr.s))
+    })
+    return(ann)
 }
 
 gene.nearest <- function(chr, pos, genetable) {
