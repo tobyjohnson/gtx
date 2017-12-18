@@ -80,6 +80,7 @@ gtxanalysisdb <- function(analysis,
 ## "text" is intended for matching free text
 sanitize <- function(x, values, type) {
     ## function to sanitize x for use in SQL queries
+    ## FIXME for more general usage, the error message 'SQL input' may not always be appropriate
     if (!missing(values)) {
         x <- as.character(na.omit(x)) # converts to character vector for (almost?) all possible inputs
         values <- as.character(na.omit(values))
@@ -210,14 +211,16 @@ sanitize1 <- function(x, values, type) {
 ## wrapper for sqlQuery()
 ## checks return value is data frame with exactly
 ## [or at least] one row (if uniq is TRUE [or FALSE])
+## -- allow zero rows is zrok=TRUE
 ##
-sqlWrapper <- function(dbc, sql, uniq = TRUE) {
+sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL RODBC usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
     if (! 'RODBC' %in% class(dbc)) stop('dbc does not appear to be a database connection (not of class RODBC)')
     res <- sqlQuery(dbc, sql, as.is = TRUE)
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
+            if (zrok) return(res)
             stop('SQL [ ', sql, ' ] returned 0 rows, expected ', if (uniq) '1 row' else '>=1 rows')
         } else if (identical(nrow(res), 1L)) {
             return(res)
