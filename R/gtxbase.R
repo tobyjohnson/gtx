@@ -255,9 +255,10 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
     gtxdbcheck(dbc)
 
     entity_type <- sqlWrapper(dbc,
-                              sprintf('SELECT entity_type FROM analyses WHERE analysis=\'%s\';',
-                                      sanitize1(analysis, type = 'alphanum'))
+                              sprintf('SELECT entity_type FROM analyses WHERE %s;',
+                                      gtxwhat(analysis1 = analysis))
                               )$entity_type
+    ## FIXME this logging message could be improved when entity_type is null or empty string
     gtxlog('analysis [ ', analysis, ' ] requires entity type [ ', entity_type, ' ]')
     
     if (identical(entity_type, 'ensg')) {
@@ -272,8 +273,8 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
                 ## attempt to convert assumed HGNC id to Ensembl gene id
                 gtxlog('Looking for Ensembl gene id for entity [ ', entity, ' ]')
                 entity <- sqlWrapper(dbc,
-                                     sprintf('SELECT ensemblid FROM genes WHERE hgncid=\'%s\';', 
-                                             entity)
+                                     sprintf('SELECT ensemblid FROM genes WHERE %s;', 
+                                             gtxwhere(hgncid = entity))
                                      )$ensemblid
                 gtxlog('Converted entity to Ensembl gene id [ ', entity, ' ]')
             }
@@ -281,8 +282,8 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
             ## infer entity from other arguments if supplied
             if (!missing(hgncid)) {
                 entity <- sqlWrapper(dbc,
-                                     sprintf('SELECT ensemblid FROM genes WHERE hgncid=\'%s\';', 
-                                             sanitize(hgncid, type = 'hgnc'))
+                                     sprintf('SELECT ensemblid FROM genes WHERE %s;', 
+                                             gtxwhere(hgncid = hgncid))
                                      )$ensemblid
                 gtxlog('Inferred entity [ ', entity, ' ] from HGNC id [ ', hgncid, ' ]')
             } else if (!missing(ensemblid)) {
@@ -293,8 +294,8 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
             }
         }
         entity_label <- sqlWrapper(dbc,
-                                   sprintf('SELECT hgncid FROM genes WHERE ensemblid=\'%s\';',
-                                           sanitize1(entity, type = 'ENSG'))
+                                   sprintf('SELECT hgncid FROM genes WHERE %s;',
+                                           gtxwhere(ensemblid = entity))
                                    )$hgncid
         if (is.na(entity_label) || entity_label == '') entity_label <- entity # may have to paste 'ENSG' back on when switch to ints
         return(list(entity = entity, entity_label = entity_label))
