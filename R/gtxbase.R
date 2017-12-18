@@ -306,6 +306,24 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
     stop('internal error in gtxentity')
 }
 
-
-
+# for certain types, sanitize and gtxlabel are (almost) inverses
+gtxlabel <- function(x, type) {
+    if (identical(type, 'ensg') || identical(type, 'rs')) { ## could nest up other ENS[PGT] types...
+        x <- na.omit(x) ## silently drop missing values
+        xi <- suppressWarnings(as.integer(x))
+        if (any(is.na(xi) | xi < 0)) {
+            stop('gtxlabel invalid input [ ', paste(x[is.na(xi) | xi < 0], collapse = ', '),
+                 ' ] for type [ ', type, ' ]')
+        }
+        if (identical(type, 'ensg')) {
+            return(sprintf('ENSG%012i', x))
+        } else if (identical(type, 'rs')) {
+            return(sprintf('rs%i', x))
+        } else {
+            stop('internal error in gtxlabel()')
+        }
+    } else {
+        stop('invalid type [ ', type, ' ] in gtxlabel()')
+    }
+}
 
