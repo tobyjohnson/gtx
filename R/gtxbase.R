@@ -168,6 +168,52 @@ gtxwhat <- function(analysis1,
     }
 }
 
+gtxfilter <- function(pval_le, maf_ge, rsq_ge,
+                      analysis, 
+                      dbc = getOption("gtx.dbConnection", NULL)) {
+    ## function to construct a WHERE string for constructing SQL queries
+    ## logical AND within and between arguments
+    ## queries TABLE analyses to determine results_db table name and
+    ## to efficiently handle whether freq and rsq are NULL
+
+    ## query analysis metadata
+    amd <- sqlWrapper(dbc, sprintf('SELECT results_db, has_freq, has_rsq
+                                    FROM analyses
+                                    WHERE %s;',
+                            gtxwhat(analysis1 = analysis)))
+    tablename <- paste0(sanitize1(amd$results_db, type = 'alphanum'), '.')
+
+    ws1 <- list(
+        if (missing(pval_le)) NULL
+        else sprintf('pval<=%s', sanitize(pval_le, type = 'double')),
+
+        if (missing(maf_ge)) NULL
+        else {
+            if (amd$has_freq) {
+                sprintf('freq>=%s AND freq<=%s', sanitize(maf_ge, type = 'double'), sanitize(1 - maf_ge, type = 'double'))
+            } else {
+                warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
+                NULL
+            }
+        },
+
+        if (missing(rsq_ge)) NULL
+        else {
+            if (amd$has_rsq) {
+                sprintf('rsq>=%s', sanitize(rsq_ge, type = 'double'))
+            } else {
+                warning('gtxfilter Rsq filtering skipped because has_rsq=False for analysis [ ', analysis, ' ]')
+                NULL
+            }
+        }
+    )
+    ## format
+    ws1f <- paste0("(", 
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " AND "))), 
+                  ")", collapse = " AND ")
+    return(ws1f)
+}
+
 gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
                         description_contains,
