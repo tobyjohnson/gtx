@@ -28,16 +28,16 @@ gene.annotate <- function(chrom, pos,
         resl <- sqlWrapper(dbc,
                            sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_end DESC LIMIT 1',
                                    ## FIXME filter on protein_coding_only
-                                   gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx]-1000000, pos_end_le = pos)),
+                                   gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx]-1000000, pos_end_le = pos[idx])),
                            zrok = TRUE)
         if (nrow(resl) == 0) {
             resl.s <- '---' # no genes within 1Mb
         } else {
-            if (pos - resl$pos_end <= 10000) { # within 10kb
+            if (pos[idx] - resl$pos_end <= 10000) { # within 10kb
                 resl.s <- paste0(gene.label(resl$hgnc, resl$ensemblid), '-')
-            } else if (pos - resl$pos_end <= 100000) { # within 100kb
+            } else if (pos[idx] - resl$pos_end <= 100000) { # within 100kb
                 resl.s <- paste0(gene.label(resl$hgnc, resl$ensemblid), '--')
-            } else if (pos - resl$pos_end <= 1000000) { # within 1Mb
+            } else if (pos[idx] - resl$pos_end <= 1000000) { # within 1Mb
                 resl.s <- paste0(gene.label(resl$hgnc, resl$ensemblid), '---')
             } else {
                 stop('internal error in gene.annotate resl construction')
@@ -46,16 +46,16 @@ gene.annotate <- function(chrom, pos,
         resr <- sqlWrapper(dbc,
                            sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start ASC LIMIT 1',
                                    ## FIXME filter on protein_coding_only
-                                   gtxwhere(chrom = chrom[idx], pos_start_le = pos[idx]+1000000, pos_start_ge = pos)),
+                                   gtxwhere(chrom = chrom[idx], pos_start_le = pos[idx]+1000000, pos_start_ge = pos[idx])),
                            zrok = TRUE)
         if (nrow(resr) == 0) {
             resr.s <- '---' # no genes within 1Mb
         } else {
-            if (resr$pos_start - pos <= 10000) { # within 10kb
+            if (resr$pos_start - pos[idx] <= 10000) { # within 10kb
                 resr.s <- paste0('-', gene.label(resr$hgnc, resr$ensemblid))
-            } else if (resr$pos_start - pos <= 100000) { # within 100kb
+            } else if (resr$pos_start - pos[idx] <= 100000) { # within 100kb
                 resr.s <- paste0('--', gene.label(resr$hgnc, resr$ensemblid))
-            } else if (resr$pos_start - pos <= 1000000) { # within 1Mb
+            } else if (resr$pos_start - pos[idx] <= 1000000) { # within 1Mb
                 resr.s <- paste0('---', gene.label(resr$hgnc, resr$ensemblid))
             } else {
                 stop('internal error in gene.annotate resr construction')
