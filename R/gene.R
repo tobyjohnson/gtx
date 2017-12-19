@@ -7,7 +7,7 @@ gene.label <- function(hgnc, ensg) {
 gene.annotate <- function(chrom, pos,
                           protein_coding_only = TRUE, 
                           dbc = getOption("gtx.dbConnection", NULL)) {
-    stopifnot(length(chr) == length(pos))
+    stopifnot(length(chrom) == length(pos))
     gtxdbcheck(dbc)
     
     ## Current implementation involves a large number of SQL queries, which may be slow...
