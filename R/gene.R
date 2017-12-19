@@ -52,11 +52,11 @@ gene.annotate <- function(chrom, pos,
             resr.s <- '---' # no genes within 1Mb
         } else {
             if (resr$pos_start - pos <= 10000) { # within 10kb
-                resr.s <- paste0('-', gene.label(resl$hgnc, resl$ensemblid))
+                resr.s <- paste0('-', gene.label(resr$hgnc, resr$ensemblid))
             } else if (resr$pos_start - pos <= 100000) { # within 100kb
-                resr.s <- paste0('--', gene.label(resl$hgnc, resl$ensemblid))
+                resr.s <- paste0('--', gene.label(resr$hgnc, resr$ensemblid))
             } else if (resr$pos_start - pos <= 1000000) { # within 1Mb
-                resr.s <- paste0('---', gene.label(resl$hgnc, resl$ensemblid))
+                resr.s <- paste0('---', gene.label(resr$hgnc, resr$ensemblid))
             } else {
                 stop('internal error in gene.annotate resr construction')
             }
