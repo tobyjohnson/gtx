@@ -169,7 +169,8 @@ gtxwhat <- function(analysis1,
 }
 
 gtxfilter <- function(pval_le, maf_ge, rsq_ge,
-                      analysis, 
+                      analysis,
+                      tablename, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
     ## function to construct a WHERE string for constructing SQL queries
     ## logical AND within and between arguments
@@ -181,18 +182,33 @@ gtxfilter <- function(pval_le, maf_ge, rsq_ge,
                                     FROM analyses
                                     WHERE %s;',
                             gtxwhat(analysis1 = analysis)))
-    tablename <- paste0(sanitize1(amd$results_db, type = 'alphanum'), '.')
+
+    if (!missing(tablename)) {
+        tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
+    } else {
+        tablename <- ''
+    }
 
     ws1 <- list(
         if (missing(pval_le)) NULL
         else sprintf('pval<=%s', sanitize(pval_le, type = 'double')),
 
+        if (missing(maf_ge)) NULL # Two list elements for freq>= and freq<= if maf_ge argument used
+        else {
+            if (amd$has_freq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                sprintf('freq>=%s', sanitize(maf_ge, type = 'double'))
+            } else {
+                warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
+                NULL
+            }
+        },
+
         if (missing(maf_ge)) NULL
         else {
             if (amd$has_freq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
-                sprintf('freq>=%s AND freq<=%s', sanitize(maf_ge, type = 'double'), sanitize(1 - maf_ge, type = 'double'))
+                sprintf('freq<=%s', sanitize(1 - maf_ge, type = 'double'))
             } else {
-                warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
+                ## do not duplicate warning message from previous list element constructor
                 NULL
             }
         },
