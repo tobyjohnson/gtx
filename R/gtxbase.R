@@ -189,7 +189,7 @@ gtxfilter <- function(pval_le, maf_ge, rsq_ge,
 
         if (missing(maf_ge)) NULL
         else {
-            if (amd$has_freq) {
+            if (amd$has_freq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
                 sprintf('freq>=%s AND freq<=%s', sanitize(maf_ge, type = 'double'), sanitize(1 - maf_ge, type = 'double'))
             } else {
                 warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
@@ -199,7 +199,7 @@ gtxfilter <- function(pval_le, maf_ge, rsq_ge,
 
         if (missing(rsq_ge)) NULL
         else {
-            if (amd$has_rsq) {
+            if (amd$has_rsq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
                 sprintf('rsq>=%s', sanitize(rsq_ge, type = 'double'))
             } else {
                 warning('gtxfilter Rsq filtering skipped because has_rsq=False for analysis [ ', analysis, ' ]')
