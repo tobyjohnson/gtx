@@ -25,10 +25,14 @@ coloc.fast <- function(beta1, se1, beta2, se2,
                       sum(abf1[-1]*abf2[-1])/nv) else rep(NA, 5))
   res$bf <- res$bf/max(res$bf) # was: res$bf/res$bf[1] # caused division by zero for strongly colocalized signals
   res$posterior <- norm1(res$prior*res$bf)
+  ## compute model averaged effect size ratios
+  mw <- abf1[-1]*abf2[-1] # model weights
+  alpha12 <- sum(beta1[w]/beta2[w]*mw)/sum(mw)
+  alpha21 <- sum(beta2[w]/beta1[w]*mw)/sum(mw)
   if (is.finite(rounded)) {
     res$posterior = round(res$posterior, rounded)
   }
-  return(list(results = res, nvariants = length(w)))
+  return(list(results = res, nvariants = length(w), alpha12 = alpha12, alpha21 = alpha21))
 }
 
 ## TO DO
