@@ -23,7 +23,7 @@ coloc.fast <- function(beta1, se1, beta2, se2,
                       abf1[1]*sum(abf2[-1])/nv, 
                       (sum(abf1[-1])*sum(abf2[-1]) - sum(abf1[-1]*abf2[-1]))/(nv*(nv - 1)), 
                       sum(abf1[-1]*abf2[-1])/nv) else rep(NA, 5))
-  res$bf <- res$bf/res$bf[1]
+  res$bf <- res$bf/max(res$bf) # was: res$bf/res$bf[1] # caused division by zero for strongly colocalized signals
   res$posterior <- norm1(res$prior*res$bf)
   if (is.finite(rounded)) {
     res$posterior = round(res$posterior, rounded)
