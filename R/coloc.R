@@ -382,3 +382,42 @@ multicoloc.plot <- function(zmat,
 
     return(invisible(NULL))
 }
+
+multicoloc.kbs <- function(analysis1, analysis2,
+                       chrom, pos_start, pos_end, pos, 
+                       hgncid, ensemblid, rs, surround = 0,
+                       hard_clip = FALSE, style = 'heatplot',
+                       thresh_analysis = 0.1, thresh_entity = 0.1, 
+                       dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+
+  ## get summary stats
+  ss <- multicoloc.data(analysis1 = analysis1, analysis2 = analysis2,
+                         chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                         hgncid = hgncid, ensemblid = ensemblid, rs = rs,
+                         surround = surround, hard_clip = hard_clip, 
+                         dbc = dbc) %>% 
+          as.data.table()
+  
+  res <- sqlWrapper(dbc, 
+                    sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
+                            gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
+                    uniq = FALSE)
+  res$entity <- res$ensemblid # FIXME not guaranteed entity_type
+
+  ret <- ss[ ,
+              coloc.fast(beta1, se1, beta2, se2)$results,
+              by = .(analysis1, entity1)] %>% 
+         dplyr::select(-label, -prior, -bf) %>% 
+         left_join(., 
+                  res %>% 
+                    rename(entity1 = entity) %>% 
+                    select(entity1, hgncid), 
+                  by = "entity1") %>% 
+        dplyr::select(-posterior, -hypothesis, everything()) %>%
+        rename(tissue = analysis1) %>%
+        rename(ensembl_id = entity1) %>%
+        rename(hgnc_id = hgncid)
+  
+  return(ret)
+}
