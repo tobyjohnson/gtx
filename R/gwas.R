@@ -58,7 +58,7 @@ gwas <- function(analysis,
         mmpos <- sqlWrapper(dbc, 
                             sprintf('SELECT chrom, min(pos) AS minpos, max(pos) AS maxpos
                                FROM %s.gwas_results
-                               WHERE %s;'
+                               WHERE %s;', 
                               gtxanalysisdb(analysis), 
                               gtxwhat(analysis1 = analysis)),
                             uniq = FALSE)
