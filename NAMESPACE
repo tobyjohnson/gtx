@@ -20,6 +20,8 @@ export(fixNA)
 export(gls.approx.logistic)
 ## gtxbase, should these all be internal functions?
 export(gtxlog, gtxwhere, gtxregion, gtxentity, gtxanalyses)
+## gwas
+export(gwas)
 ## testsummary.R
 export(test.extract, test.extract.lm, test.extract.glm, test.extract.coxph)
 export(coeff.extract, coeff.extract.default)
