@@ -48,7 +48,7 @@ coloc <- function(analysis1, analysis2,
                   hgncid, ensemblid, rs, surround = 500000,
                   entity, entity1, entity2,
                   style = 'Z', 
-                  dbc = getOption("gtx.dbConnection", NULL)) {
+                  dbc = getOption("gtx.dbConnection", NULL), ...) {
   gtxdbcheck(dbc)
 
   ## Determine genomic region from arguments
@@ -100,7 +100,7 @@ coloc <- function(analysis1, analysis2,
 
   gtxlog('coloc query returned ', nrow(res), ' rows')
 
-  resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2)
+  resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
 
   pdesc1 <- sqlWrapper(dbc,
                        sprintf('SELECT description FROM analyses WHERE analysis = \'%s\';',
@@ -270,7 +270,7 @@ multicoloc <- function(analysis1, analysis2,
                        hgncid, ensemblid, rs, surround = 0,
                        hard_clip = FALSE, style = 'heatplot',
                        thresh_analysis = 0.1, thresh_entity = 0.1, 
-                       dbc = getOption("gtx.dbConnection", NULL)) {
+                       dbc = getOption("gtx.dbConnection", NULL), ...) {
   gtxdbcheck(dbc)
 
   ## get summary stats
@@ -290,7 +290,7 @@ multicoloc <- function(analysis1, analysis2,
 
   t0 <- as.double(Sys.time())
   resc1 <- ss[ ,
-              subset(coloc.fast(beta1, se1, beta2, se2)$results, hypothesis == 'H4')$posterior,
+              subset(coloc.fast(beta1, se1, beta2, se2, ...)$results, hypothesis == 'H4')$posterior,
               by = .(analysis1, entity1)]
   names(resc1)[3] <- 'Hxy'
   resc <- reshape(resc1, direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
@@ -388,7 +388,7 @@ multicoloc.kbs <- function(analysis1, analysis2,
                        hgncid, ensemblid, rs, surround = 0,
                        hard_clip = FALSE, style = 'heatplot',
                        thresh_analysis = 0.1, thresh_entity = 0.1, 
-                       dbc = getOption("gtx.dbConnection", NULL)) {
+                       dbc = getOption("gtx.dbConnection", NULL), ...) {
   gtxdbcheck(dbc)
 
   ## get summary stats
@@ -406,7 +406,7 @@ multicoloc.kbs <- function(analysis1, analysis2,
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
 
   ret <- ss[ ,
-              coloc.fast(beta1, se1, beta2, se2)$results,
+              coloc.fast(beta1, se1, beta2, se2, ...)$results,
               by = .(analysis1, entity1)] %>% 
          dplyr::select(-label, -prior, -bf) %>% 
          left_join(., 
