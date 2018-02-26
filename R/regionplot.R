@@ -106,19 +106,19 @@ regionplot <- function(analysis,
   pmin <- min(pvals$pval)
 
   pdesc <- sqlWrapper(dbc, 
-                      sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                      sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
                               gtxwhat(analysis1 = analysis)))
   if (nrow(pdesc) > 0) {
     main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
-	      sprintf('%s, n=%i vs %i', pdesc$description[1], pdesc$ncase[1], pdesc$ncontrol[1])
+	      sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
   	  } else if (!is.na(pdesc$ncohort[1])) {
-      	      sprintf('%s, n=%i', pdesc$description[1], pdesc$ncohort[1])
+      	      sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
 	  } else {
-	      sprintf('%s, n=?', pdesc$description[1])
+	      sprintf('%s, n=?', pdesc$label[1])
   	  }
     if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
   } else {
-    main <- 'NO DESCRIPTION' 
+    main <- 'NO LABEL' 
   }
   
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,

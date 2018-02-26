@@ -103,12 +103,12 @@ coloc <- function(analysis1, analysis2,
   resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
 
   pdesc1 <- sqlWrapper(dbc,
-                       sprintf('SELECT description FROM analyses WHERE analysis = \'%s\';',
-                               sanitize(analysis1, type = 'alphanum')))$description
+                       sprintf('SELECT label FROM analyses WHERE analysis = \'%s\';',
+                               sanitize(analysis1, type = 'alphanum')))$label
   if (!is.null(xentity1)) pdesc1 <- paste(xentity1$entity_label, pdesc1)
   pdesc2 <- sqlWrapper(dbc,
-                       sprintf('SELECT description FROM analyses WHERE analysis = \'%s\';',
-                               sanitize(analysis2, type = 'alphanum')))$description
+                       sprintf('SELECT label FROM analyses WHERE analysis = \'%s\';',
+                               sanitize(analysis2, type = 'alphanum')))$label
   if (!is.null(xentity2)) pdesc2 <- paste(xentity2$entity_label, pdesc2)
  
   if (identical(style, 'Z')) {
