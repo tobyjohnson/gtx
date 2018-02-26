@@ -17,6 +17,7 @@ multicoloc.data(analysis1, analysis2,
                 hgncid, ensemblid, rs, surround = 0,
                 hard_clip = FALSE, 
                 dbc = getOption("gtx.dbConnection", NULL))
+}
 \arguments{
   \item{analysis1}{The key value(s) for GWAS analysis/es to analyze}
   \item{analysis2}{The key value for the second GWAS analysis to analyze}
