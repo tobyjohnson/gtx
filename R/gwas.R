@@ -11,6 +11,7 @@ gwas <- function(analysis,
                  plot_ymax = 30,
                  manhattan_col = c('#064F7C', '#6D97BD'),
                  qqplot_col = '#064F7C',
+                 qqplot_alpha = 0.01,
                  manhattan_interspace = 50e6,
                  plot_fastbox = 2, 
                  dbc = getOption("gtx.dbConnection", NULL)) {
@@ -181,16 +182,14 @@ gwas <- function(analysis,
                                gtxfilter(pval_gt = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
                                          analysis = analysis,
                                          dbc = dbc)),
-                               uniq = TRUE)$nump)
-        pe <- (rank(pvals$pval) - 0.5)/(nrow(pvals) + nump) # expected p-values
+                               uniq = TRUE)$nump) + nrow(pvals)
+        pe <- (rank(pvals$pval) - 0.5)/nump # expected p-values
         t1 <- as.double(Sys.time())
         gtxlog('Counted truncated P-values and computed expected P-values in ', round(t1 - t0, 3), 's.')
 
         t0 <- as.double(Sys.time())
-        my_xlim <- c(0, -log10(min(pe)))
-        my_ylim <- c(0, ymax)
-        plot.new()
-        plot.window(my_xlim, my_ylim)
+        qq10.new(pmin = 10^-ymax) # annoying back conversion to p-value scale; FIXME qq10 code should directly support ymax
+        qq10.envelope(nump, pmin = 10^-ymax, alpha = qqplot_alpha, col = "grey")
         points(-log10(pe), pmin(-log10(pvals$pval), ymax), 
                pch = 19, cex = 0.5, col = qqplot_col)
         if (plot_fastbox > 0) {
@@ -202,19 +201,14 @@ gwas <- function(analysis,
             polygon(c(0, box_x)[c(1, 2, 2, 1)], c(0, box_y)[c(1, 1, 2, 2)], 
                     density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5), border = NA)
         }
-        #abline(h = -log10(manhattan_thresh), col = 'red', lty = 'dashed')
-        axis(1)
         if (truncp) {
             ## would be nice to more cleanly overwrite y axis label
             axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
             # could e.g. do setdiff(pretty(...), ymax)
         }
-        axis(2, las = 1)
         xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
         mtext(main, 3, 1,
               cex = min(1., xplt/strwidth(main, units = 'figure')))
-        ## need x-axis label
-        mtext(expression(-log[10](paste(italic(P), "-value"))), 2, 3)
         box()
         t1 <- as.double(Sys.time())
         gtxlog('QQ plot rendered in ', round(t1 - t0, 3), 's.')
