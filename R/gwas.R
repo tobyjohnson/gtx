@@ -92,7 +92,7 @@ gwas <- function(analysis,
         my_ylim <- c(0, -log10(minp)) 
         plot.new()
         plot.window(my_xlim + c(-1, 1)*50e6, my_ylim)
-        plot(pvals$plotpos, pmin(-log10(pvals$pval), my_ylim[2]), 
+        points(pvals$plotpos, pmin(-log10(pvals$pval), my_ylim[2]), 
              pch = 19, cex = 0.5, col = pvals$plotcol)
         for (idx in 1:nrow(mmpos)) {
             polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1,2,2,1)] + mmpos$offset[idx],
@@ -105,6 +105,9 @@ gwas <- function(analysis,
         lidx <- rep(1:2, length.out = nrow(mmpos))
         for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = idx, at = midpt))
         axis(2, las = 1)
+        title(xlab = "Genomic position by chromosome", 
+              ylab = expression(-log[10](paste(italic(P), "-value"))))
+        box()
         t1 <- as.double(Sys.time())
         gtxlog('Manhattan plot rendered in ', round(t1 - t0, 3), 's.')
         
