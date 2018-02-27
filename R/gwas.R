@@ -121,12 +121,12 @@ gwas <- function(analysis,
         plot.window(my_xlim, my_ylim)
         points(pvals$plotpos, pmin(-log10(pvals$pval), ymax), 
                pch = 19, cex = 0.5, col = pvals$plotcol)
-        for (idx in 1:nrow(mmpos)) {
-            polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1, 2, 2, 1)] + mmpos$offset[idx],
-                    c(0, 0, manhattan_fastbox, manhattan_fastbox),
-                    density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
-        }
         if (manhattan_fastbox > 0) {
+            for (idx in 1:nrow(mmpos)) {
+                polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1, 2, 2, 1)] + mmpos$offset[idx],
+                        c(0, 0, manhattan_fastbox, manhattan_fastbox),
+                        density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
+            }
             polygon(my_xlim[c(1, 2, 2, 1)], c(0, 0, manhattan_fastbox, manhattan_fastbox), 
                     density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5), border = NA)
         }
