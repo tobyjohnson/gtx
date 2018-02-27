@@ -50,7 +50,6 @@ gwas <- function(analysis,
         ## or a HUGE table of pairwise LD values (which could also be used for on-the-fly conditioning on 1 signal)
         
     }
-    return(res)
 
     ## works in progress
     if ('manhattan' %in% style) { # nice semantics
@@ -137,6 +136,8 @@ gwas <- function(analysis,
         ## loop over each row of res and draw a regionplot
         ## OR, do this if regionplot() called with no positional specifier
     }
+
+    return(res)
     
 }
 
