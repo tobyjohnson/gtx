@@ -74,6 +74,10 @@ gwas <- function(analysis,
                 sprintf('%s, n=?', pdesc$label[1])
             }
     ## no handling of entity is required in title
+    ## Filtering description, could make more pretty when maf or rsq filter not used
+    fdesc <- substitute(paste('Variants with ', MAF>=maf_ge, ' and ', rsq>=rsq_ge),
+                        list(maf_ge = if (!missing(maf_ge)) maf_ge else 0,
+                             rsq_ge = if (!missing(rsq_ge)) rsq_ge else 0))
     
     if ('manhattan' %in% style || 'qqplot' %in% style) {
         ## Make single query for either case
@@ -148,6 +152,7 @@ gwas <- function(analysis,
         xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
         mtext(main, 3, 1,
               cex = min(1., xplt/strwidth(main, units = 'figure')))
+        mtext(fdesc, 3, 0, cex = 0.5)
         mtext('Genomic position by chromosome', 1, 2)
         mtext(expression(-log[10](paste(italic(P), "-value"))), 2, 3)
         box()
@@ -209,6 +214,7 @@ gwas <- function(analysis,
         xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
         mtext(main, 3, 1,
               cex = min(1., xplt/strwidth(main, units = 'figure')))
+        mtext(fdesc, 3, 0, cex = 0.5)
         box()
         t1 <- as.double(Sys.time())
         gtxlog('QQ plot rendered in ', round(t1 - t0, 3), 's.')
