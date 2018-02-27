@@ -108,7 +108,7 @@ gwas <- function(analysis,
                     density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
         }
         polygon(my_xlim[c(1,2,2,1)], c(0, 0, manhattan_fastbox, manhattan_fastbox), 
-                density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5))
+                density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5), border = NA)
         abline(h = -log10(5e-08), col = 'red', lty = 'dashed')
         axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
         lidx <- rep(1:2, length.out = nrow(mmpos))
