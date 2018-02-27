@@ -71,4 +71,9 @@ manhattan <- function(p, SNP, chr, pos, pmin = NULL, ...) {
   return(invisible(NULL))
 }
 
-  
+order_chrom <- function(chrom) {
+    ## Currently only allow chrX, chrY, chrM
+    ## Should we reject XY as not properly coded (since contig with X and Y)?
+    ## SHould we allow synonyms for M like Mt?
+    return(order(match(chrom, c(1:22, 'X', 'Y', 'M')), na.last =TRUE))
+}  

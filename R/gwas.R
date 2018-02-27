@@ -24,7 +24,7 @@ gwas <- function(analysis,
                       uniq = FALSE)
     res <- data.table(res) # in future, sqlWrapper will return data.table objects always
     t1 <- as.double(Sys.time())
-    gtxlog('Results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
+    gtxlog('Significant results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
     
     t0 <- as.double(Sys.time())
     oo <- res[ , order(suppressWarnings(as.integer(chrom)), pos)]
@@ -55,15 +55,60 @@ gwas <- function(analysis,
     ## works in progress
     if ('manhattan' %in% style) { # nice semantics
         ## get min and max positions by chromosome, should this be a constant instead of lookup every time?
+        t0 <- as.double(Sys.time())
         mmpos <- sqlWrapper(dbc, 
                             sprintf('SELECT chrom, min(pos) AS minpos, max(pos) AS maxpos
                                FROM %s.gwas_results
-                               WHERE %s;', 
-                              gtxanalysisdb(analysis), 
-                              gtxwhat(analysis1 = analysis)),
+                               WHERE %s GROUP BY chrom;', 
+                               gtxanalysisdb(analysis), 
+                               gtxwhat(analysis1 = analysis)),
                             uniq = FALSE)
-        ## copy the python code to compute per-chromosome offsets
+        mmpos <- mmpos[order_chrom(mmpos$chrom), ]
+        mmpos$offset <- c(0, cumsum(as.double(mmpos$maxpos - mmpos$minpos + 50e6)))[1:nrow(mmpos)] - mmpos$minpos + 50e6
+        mmpos$midpt <- 0.5*(mmpos$maxpos - mmpos$minpos) + mmpos$offset
+        mmpos$col <- rep(c(rgb(0, .5, .5), rgb(.75, .75, .75)), length.out = nrow(mmpos))       
+        t1 <- as.double(Sys.time())
+        gtxlog('Computed chromosome offsets in ', round(t1 - t0, 3), 's.')
 
+        fast_box <- 4 # this should be a user configurable option, FIXME
+        t0 <- as.double(Sys.time())
+        pvals <- sqlWrapper(dbc,
+                            sprintf('SELECT chrom, pos, pval
+                               FROM %s.gwas_results
+                               WHERE %s AND %s;',
+                               gtxanalysisdb(analysis),
+                               gtxwhat(analysis1 = analysis),
+                               gtxfilter(pval_le = 10^-fast_box, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                         analysis = analysis,
+                                         dbc = dbc)),
+                            uniq = FALSE)
+        t1 <- as.double(Sys.time())
+        gtxlog('Manhattan results query returned ', nrow(pvals), ' rows in ', round(t1 - t0, 3), 's.')
+
+        t0 <- as.double(Sys.time())
+        pvals$plotpos <- mmpos$offset[match(pvals$chrom, mmpos$chrom)] + pvals$pos
+        pvals$plotcol <- mmpos$col[match(pvals$chrom, mmpos$chrom)]
+        minp <- max(min(pvals$pval), 1e-20) # FIXME print message if truncating
+        my_xlim <- c(min(mmpos$minpos+mmpos$offset), max(mmpos$maxpos+mmpos$offset))
+        my_ylim <- c(0, -log10(minp)) 
+        plot.new()
+        plot.window(my_xlim + c(-1, 1)*50e6, my_ylim)
+        plot(pvals$plotpos, pmin(-log10(pvals$pval), my_ylim[2]), 
+             pch = 19, cex = 0.5, col = pvals$plotcol)
+        for (idx in 1:nrow(mmpos)) {
+            polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1,2,2,1)] + mmpos$offset[idx],
+                    c(0, 0, fast_box, fast_box),
+                    density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
+        }
+        polygon(my_xlim[c(1,2,2,1)], c(0, 0, fast_box, fast_box), 
+                density = NA, col = rgb(.8, .8, .8, .5), border = rgb(.8, .8, .8, .5), lwd = 9*.5) # ibid
+        axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
+        lidx <- rep(1:2, length.out = nrow(mmpos))
+        for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = idx, at = midpt))
+        axis(2, las = 1)
+        t1 <- as.double(Sys.time())
+        gtxlog('Manhattan plot rendered in ', round(t1 - t0, 3), 's.')
+        
         ## aiming for style where non-genome-wide-significant signals are plotted faintly
         ## and perhaps with pseudo-points to avoid expensive overplotting
         ## then vertical lines linking to gene_annotation labels
