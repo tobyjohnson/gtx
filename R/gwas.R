@@ -6,10 +6,15 @@
 gwas <- function(analysis,
                  style = 'manhattan',
                  pval_thresh = 5e-08, maf_ge, rsq_ge,
+                 gene_annotate = TRUE,
+                 manhattan_col = c('#064F7C', '#6D97BD'),
+                 manhattan_interspace = 50e6,
+                 manhattan_fastbox = 4, 
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
     ## FIXME unclear how to handle analysis with entities
+    ## FIXME should throw error if entity_type is not NULL
     
     t0 <- as.double(Sys.time())
     res <- sqlWrapper(dbc,
@@ -40,10 +45,12 @@ gwas <- function(analysis,
         t1 <- as.double(Sys.time())
         gtxlog('Distance based pruning reduced to ', nrow(res), ' rows in ', round(t1 - t0, 3), 's. [PLEASE OPTIMIZE ME!]')
         ## important to prune before using the (currently) expensive gene.annotate() function
-        t0 <- as.double(Sys.time())
-        res[ , gene_annotation := gene.annotate(chrom, pos)]
-        t1 <- as.double(Sys.time())
-        gtxlog('Gene annotation added in ', round(t1 - t0, 3), 's. [PLEASE OPTIMIZE ME!]')
+        if (gene_annotate) {
+            t0 <- as.double(Sys.time())
+            res[ , gene_annotation := gene.annotate(chrom, pos)]
+            t1 <- as.double(Sys.time())
+            gtxlog('Gene annotation added in ', round(t1 - t0, 3), 's. [PLEASE OPTIMIZE ME!]')
+        }
         ## IN A FUTURE WORK we will introspect the existence of joint/conditional results
         ## and use if appropriate
         ## or support (via a Hail wrapper) on the fly LD-based pruning
@@ -63,13 +70,12 @@ gwas <- function(analysis,
                                gtxwhat(analysis1 = analysis)),
                             uniq = FALSE)
         mmpos <- mmpos[order_chrom(mmpos$chrom), ]
-        mmpos$offset <- c(0, cumsum(as.double(mmpos$maxpos - mmpos$minpos + 50e6)))[1:nrow(mmpos)] - mmpos$minpos + 50e6
+        mmpos$offset <- c(0, cumsum(as.double(mmpos$maxpos - mmpos$minpos + manhattan_interspace)))[1:nrow(mmpos)] - mmpos$minpos + manhattan_interspace
         mmpos$midpt <- 0.5*(mmpos$maxpos - mmpos$minpos) + mmpos$offset
-        mmpos$col <- rep(c(rgb(0, .5, .5), rgb(.75, .75, .75)), length.out = nrow(mmpos))       
+        mmpos$col <- rep(manhattan_col, length.out = nrow(mmpos))       
         t1 <- as.double(Sys.time())
         gtxlog('Computed chromosome offsets in ', round(t1 - t0, 3), 's.')
 
-        fast_box <- 4 # this should be a user configurable option, FIXME
         t0 <- as.double(Sys.time())
         pvals <- sqlWrapper(dbc,
                             sprintf('SELECT chrom, pos, pval
@@ -77,7 +83,7 @@ gwas <- function(analysis,
                                WHERE %s AND %s;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_le = 10^-fast_box, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                               gtxfilter(pval_le = 10^-manhattan_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
                                          analysis = analysis,
                                          dbc = dbc)),
                             uniq = FALSE)
@@ -91,15 +97,15 @@ gwas <- function(analysis,
         my_xlim <- c(min(mmpos$minpos+mmpos$offset), max(mmpos$maxpos+mmpos$offset))
         my_ylim <- c(0, -log10(minp)) 
         plot.new()
-        plot.window(my_xlim + c(-1, 1)*50e6, my_ylim)
+        plot.window(my_xlim + c(-1, 1)*manhattan_interspace, my_ylim)
         points(pvals$plotpos, pmin(-log10(pvals$pval), my_ylim[2]), 
              pch = 19, cex = 0.5, col = pvals$plotcol)
         for (idx in 1:nrow(mmpos)) {
             polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1,2,2,1)] + mmpos$offset[idx],
-                    c(0, 0, fast_box, fast_box),
+                    c(0, 0, manhattan_fastbox, manhattan_fastbox),
                     density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
         }
-        polygon(my_xlim[c(1,2,2,1)], c(0, 0, fast_box, fast_box), 
+        polygon(my_xlim[c(1,2,2,1)], c(0, 0, manhattan_fastbox, manhattan_fastbox), 
                 density = NA, col = rgb(.8, .8, .8, .5), border = rgb(.8, .8, .8, .5), lwd = 9*.5) # ibid
         axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
         lidx <- rep(1:2, length.out = nrow(mmpos))
