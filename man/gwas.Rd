@@ -9,6 +9,7 @@ gwas(analysis,
      style = 'manhattan',
      pval_thresh = 5e-08, maf_ge, rsq_ge,
      gene_annotate = TRUE,
+     manhattan_thresh = 5e-08, 
      manhattan_col = c('#064F7C', '#6D97BD'),
      manhattan_interspace = 50e6,
      manhattan_fastbox = 4, 
@@ -21,6 +22,7 @@ gwas(analysis,
   \item{maf_ge}{MAF greater-or-equal threshold}
   \item{rsq_ge}{Imputation r-squared greater-or-equal threshold}
   \item{gene_annotate}{Logical, whether to annotate top hits with gene names}
+  \item{manhattan_thresh}{P-value for threshold line on Manhattan plot}
   \item{manhattan_col}{Chromosome colour cycle for Manhattan plot}
   \item{manhattan_interspace}{Chromosome interspacing for Manhattan plot}
   \item{manhattan_fastbox}{Box height for fast Manhattan plot}

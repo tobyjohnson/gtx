@@ -7,6 +7,7 @@ gwas <- function(analysis,
                  style = 'manhattan',
                  pval_thresh = 5e-08, maf_ge, rsq_ge,
                  gene_annotate = TRUE,
+                 manhattan_thresh = 5e-08, 
                  manhattan_col = c('#064F7C', '#6D97BD'),
                  manhattan_interspace = 50e6,
                  manhattan_fastbox = 4, 
@@ -75,7 +76,7 @@ gwas <- function(analysis,
         mmpos$col <- rep(manhattan_col, length.out = nrow(mmpos))       
         t1 <- as.double(Sys.time())
         gtxlog('Computed chromosome offsets in ', round(t1 - t0, 3), 's.')
-
+        
         t0 <- as.double(Sys.time())
         pvals <- sqlWrapper(dbc,
                             sprintf('SELECT chrom, pos, pval
@@ -89,24 +90,26 @@ gwas <- function(analysis,
                             uniq = FALSE)
         t1 <- as.double(Sys.time())
         gtxlog('Manhattan results query returned ', nrow(pvals), ' rows in ', round(t1 - t0, 3), 's.')
-
+        
         t0 <- as.double(Sys.time())
         pvals$plotpos <- mmpos$offset[match(pvals$chrom, mmpos$chrom)] + pvals$pos
         pvals$plotcol <- mmpos$col[match(pvals$chrom, mmpos$chrom)]
         minp <- max(min(pvals$pval), 1e-20) # FIXME print message if truncating
-        my_xlim <- c(min(mmpos$minpos+mmpos$offset), max(mmpos$maxpos+mmpos$offset))
+        ## FIXME extend to at least 1e-10 even if no signals reach this level
+        my_xlim <- c(min(mmpos$minpos+mmpos$offset), max(mmpos$maxpos+mmpos$offset)) + c(-1, 1)*manhattan_interspace
         my_ylim <- c(0, -log10(minp)) 
         plot.new()
-        plot.window(my_xlim + c(-1, 1)*manhattan_interspace, my_ylim)
+        plot.window(my_xlim, my_ylim)
         points(pvals$plotpos, pmin(-log10(pvals$pval), my_ylim[2]), 
-             pch = 19, cex = 0.5, col = pvals$plotcol)
+               pch = 19, cex = 0.5, col = pvals$plotcol)
         for (idx in 1:nrow(mmpos)) {
             polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1,2,2,1)] + mmpos$offset[idx],
                     c(0, 0, manhattan_fastbox, manhattan_fastbox),
                     density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
         }
         polygon(my_xlim[c(1,2,2,1)], c(0, 0, manhattan_fastbox, manhattan_fastbox), 
-                density = NA, col = rgb(.8, .8, .8, .5), border = rgb(.8, .8, .8, .5), lwd = 9*.5) # ibid
+                density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5))
+        abline(h = -log10(5e-08), col = 'red', lty = 'dashed')
         axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
         lidx <- rep(1:2, length.out = nrow(mmpos))
         for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = idx, at = midpt))
