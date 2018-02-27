@@ -4,15 +4,15 @@
 ## pval_plot determines the threshold for true plotting
 
 gwas <- function(analysis,
-                 style = 'manhattan',
+                 style = c('manhattan', 'qqplot'), 
                  pval_thresh = 5e-08, maf_ge, rsq_ge,
                  gene_annotate = TRUE,
-                 manhattan_thresh = 5e-08,
                  plot_ymax = 30,
+                 manhattan_thresh = 5e-08,
                  manhattan_col = c('#064F7C', '#6D97BD'),
+                 manhattan_interspace = 50e6,
                  qqplot_col = '#064F7C',
                  qqplot_alpha = 0.01,
-                 manhattan_interspace = 50e6,
                  plot_fastbox = 2, 
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
