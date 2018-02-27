@@ -7,10 +7,11 @@ gwas <- function(analysis,
                  style = 'manhattan',
                  pval_thresh = 5e-08, maf_ge, rsq_ge,
                  gene_annotate = TRUE,
-                 manhattan_thresh = 5e-08, 
+                 manhattan_thresh = 5e-08,
+                 manhattan_ymax = 30,
                  manhattan_col = c('#064F7C', '#6D97BD'),
                  manhattan_interspace = 50e6,
-                 manhattan_fastbox = 4, 
+                 manhattan_fastbox = 2, 
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
@@ -107,9 +108,9 @@ gwas <- function(analysis,
         pvals$plotpos <- mmpos$offset[match(pvals$chrom, mmpos$chrom)] + pvals$pos
         pvals$plotcol <- mmpos$col[match(pvals$chrom, mmpos$chrom)]
         ymax <- max(10, ceiling(-log10(min(pvals$pval))))
-        if (ymax > 20) { # Hard coded threshold makes sense for control of visual display
-            warning('Truncating P-values at 1e-20')
-            ymax <- 20
+        if (ymax > manhattan_ymax) { # Hard coded threshold makes sense for control of visual display
+            warning('Truncating P-values at 1e-', ymax)
+            ymax <- manhattan_ymax
             truncp <- TRUE
         } else {
             truncp <- FALSE
@@ -131,17 +132,19 @@ gwas <- function(analysis,
         }
         abline(h = -log10(manhattan_thresh), col = 'red', lty = 'dashed')
         #axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
-        lidx <- rep(0:1, length.out = nrow(mmpos))
-        for (idx in 0:1) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = idx, at = midpt, cex = 0.5))
+        lidx <- rep(1:2, length.out = nrow(mmpos))
+        for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = c(0, 0.5)[idx], at = midpt, cex = 0.5))
         if (truncp) {
             ## would be nice to more cleanly overwrite y axis label
             axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
             # could e.g. do setdiff(pretty(...), ymax)
         }
         axis(2, las = 1)
-        title(main = main,
-              xlab = "Genomic position by chromosome", 
-              ylab = expression(-log[10](paste(italic(P), "-value"))))
+        xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+        mtext(main, 3, 1,
+              cex = min(1., xplt/strwidth(main, units = 'figure')))
+        mtext('Genomic position by chromosome', 1, 2)
+        mtext(expression(-log[10](paste(italic(P), "-value"))), 2, 3)
         box()
         t1 <- as.double(Sys.time())
         gtxlog('Manhattan plot rendered in ', round(t1 - t0, 3), 's.')
