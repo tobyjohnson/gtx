@@ -91,30 +91,56 @@ gwas <- function(analysis,
         t1 <- as.double(Sys.time())
         gtxlog('Manhattan results query returned ', nrow(pvals), ' rows in ', round(t1 - t0, 3), 's.')
         
+        pdesc <- sqlWrapper(dbc, 
+                            sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                                    gtxwhat(analysis1 = analysis)))
+        main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+                    sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
+                } else if (!is.na(pdesc$ncohort[1])) {
+                    sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
+                } else {
+                    sprintf('%s, n=?', pdesc$label[1])
+                }
+        ## no handling of entity is required in title
+
         t0 <- as.double(Sys.time())
         pvals$plotpos <- mmpos$offset[match(pvals$chrom, mmpos$chrom)] + pvals$pos
         pvals$plotcol <- mmpos$col[match(pvals$chrom, mmpos$chrom)]
-        minp <- max(min(pvals$pval), 1e-20) # FIXME print message if truncating
-        ## FIXME extend to at least 1e-10 even if no signals reach this level
-        my_xlim <- c(min(mmpos$minpos+mmpos$offset), max(mmpos$maxpos+mmpos$offset)) + c(-1, 1)*manhattan_interspace
-        my_ylim <- c(0, -log10(minp)) 
+        ymax <- max(10, ceiling(-log10(min(pvals$pval))))
+        if (ymax > 20) { # Hard coded threshold makes sense for control of visual display
+            warning('Truncating P-values at 1e-20')
+            ymax <- 20
+            truncp <- TRUE
+        } else {
+            truncp <- FALSE
+        }
+        my_xlim <- c(min(mmpos$minpos + mmpos$offset), max(mmpos$maxpos + mmpos$offset)) + c(-1, 1)*manhattan_interspace
+        my_ylim <- c(0, ymax)
         plot.new()
         plot.window(my_xlim, my_ylim)
-        points(pvals$plotpos, pmin(-log10(pvals$pval), my_ylim[2]), 
+        points(pvals$plotpos, pmin(-log10(pvals$pval), ymax), 
                pch = 19, cex = 0.5, col = pvals$plotcol)
         for (idx in 1:nrow(mmpos)) {
-            polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1,2,2,1)] + mmpos$offset[idx],
+            polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1, 2, 2, 1)] + mmpos$offset[idx],
                     c(0, 0, manhattan_fastbox, manhattan_fastbox),
                     density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
         }
-        polygon(my_xlim[c(1,2,2,1)], c(0, 0, manhattan_fastbox, manhattan_fastbox), 
-                density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5), border = NA)
-        abline(h = -log10(5e-08), col = 'red', lty = 'dashed')
-        axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
-        lidx <- rep(1:2, length.out = nrow(mmpos))
-        for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = idx, at = midpt))
+        if (manhattan_fastbox > 0) {
+            polygon(my_xlim[c(1, 2, 2, 1)], c(0, 0, manhattan_fastbox, manhattan_fastbox), 
+                    density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5), border = NA)
+        }
+        abline(h = -log10(manhattan_thresh), col = 'red', lty = 'dashed')
+        #axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
+        lidx <- rep(0:1, length.out = nrow(mmpos))
+        for (idx in 0:1) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = idx, at = midpt, cex = 0.5))
+        if (truncp) {
+            ## would be nice to more cleanly overwrite y axis label
+            axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
+            # could e.g. do setdiff(pretty(...), ymax)
+        }
         axis(2, las = 1)
-        title(xlab = "Genomic position by chromosome", 
+        title(main = main,
+              xlab = "Genomic position by chromosome", 
               ylab = expression(-log[10](paste(italic(P), "-value"))))
         box()
         t1 <- as.double(Sys.time())
