@@ -8,10 +8,11 @@ gwas <- function(analysis,
                  pval_thresh = 5e-08, maf_ge, rsq_ge,
                  gene_annotate = TRUE,
                  manhattan_thresh = 5e-08,
-                 manhattan_ymax = 30,
+                 plot_ymax = 30,
                  manhattan_col = c('#064F7C', '#6D97BD'),
+                 qqplot_col = '#064F7C',
                  manhattan_interspace = 50e6,
-                 manhattan_fastbox = 2, 
+                 plot_fastbox = 2, 
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
@@ -60,7 +61,44 @@ gwas <- function(analysis,
         
     }
 
-    ## works in progress
+    ## Plot description
+    pdesc <- sqlWrapper(dbc, 
+                        sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                                gtxwhat(analysis1 = analysis)))
+    main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+                sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
+            } else if (!is.na(pdesc$ncohort[1])) {
+                sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
+            } else {
+                sprintf('%s, n=?', pdesc$label[1])
+            }
+    ## no handling of entity is required in title
+    
+    if ('manhattan' %in% style || 'qqplot' %in% style) {
+        ## Make single query for either case
+        t0 <- as.double(Sys.time())
+        pvals <- sqlWrapper(dbc,
+                            sprintf('SELECT chrom, pos, pval
+                               FROM %s.gwas_results
+                               WHERE %s AND %s;',
+                               gtxanalysisdb(analysis),
+                               gtxwhat(analysis1 = analysis),
+                               gtxfilter(pval_le = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                         analysis = analysis,
+                                         dbc = dbc)),
+                            uniq = FALSE)
+        t1 <- as.double(Sys.time())
+        gtxlog('Manhattan/QQplot results query returned ', nrow(pvals), ' rows in ', round(t1 - t0, 3), 's.')
+        ymax <- max(10, ceiling(-log10(min(pvals$pval))))
+        if (ymax > plot_ymax) { # Hard coded threshold makes sense for control of visual display
+            ymax <- plot_ymax
+            warning('Truncating P-values at 1e-', ymax)
+            truncp <- TRUE
+        } else {
+            truncp <- FALSE
+        }
+    }
+
     if ('manhattan' %in% style) { # nice semantics
         ## get min and max positions by chromosome, should this be a constant instead of lookup every time?
         t0 <- as.double(Sys.time())
@@ -79,55 +117,21 @@ gwas <- function(analysis,
         gtxlog('Computed chromosome offsets in ', round(t1 - t0, 3), 's.')
         
         t0 <- as.double(Sys.time())
-        pvals <- sqlWrapper(dbc,
-                            sprintf('SELECT chrom, pos, pval
-                               FROM %s.gwas_results
-                               WHERE %s AND %s;',
-                               gtxanalysisdb(analysis),
-                               gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_le = 10^-manhattan_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
-                                         analysis = analysis,
-                                         dbc = dbc)),
-                            uniq = FALSE)
-        t1 <- as.double(Sys.time())
-        gtxlog('Manhattan results query returned ', nrow(pvals), ' rows in ', round(t1 - t0, 3), 's.')
-        
-        pdesc <- sqlWrapper(dbc, 
-                            sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
-                                    gtxwhat(analysis1 = analysis)))
-        main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
-                    sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
-                } else if (!is.na(pdesc$ncohort[1])) {
-                    sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
-                } else {
-                    sprintf('%s, n=?', pdesc$label[1])
-                }
-        ## no handling of entity is required in title
-
-        t0 <- as.double(Sys.time())
         pvals$plotpos <- mmpos$offset[match(pvals$chrom, mmpos$chrom)] + pvals$pos
         pvals$plotcol <- mmpos$col[match(pvals$chrom, mmpos$chrom)]
-        ymax <- max(10, ceiling(-log10(min(pvals$pval))))
-        if (ymax > manhattan_ymax) { # Hard coded threshold makes sense for control of visual display
-            ymax <- manhattan_ymax
-            warning('Truncating P-values at 1e-', ymax)
-            truncp <- TRUE
-        } else {
-            truncp <- FALSE
-        }
         my_xlim <- c(min(mmpos$minpos + mmpos$offset), max(mmpos$maxpos + mmpos$offset)) + c(-1, 1)*manhattan_interspace
         my_ylim <- c(0, ymax)
         plot.new()
         plot.window(my_xlim, my_ylim)
         points(pvals$plotpos, pmin(-log10(pvals$pval), ymax), 
                pch = 19, cex = 0.5, col = pvals$plotcol)
-        if (manhattan_fastbox > 0) {
+        if (plot_fastbox > 0) {
             for (idx in 1:nrow(mmpos)) {
                 polygon(c(mmpos$minpos[idx], mmpos$maxpos[idx])[c(1, 2, 2, 1)] + mmpos$offset[idx],
-                        c(0, 0, manhattan_fastbox, manhattan_fastbox),
+                        c(0, 0, plot_fastbox, plot_fastbox),
                         density = NA, col = mmpos$col[idx], border = mmpos$col[idx], lwd = 9*.5) # value 9 here is a box fudge to make box line up with pch=19 points
             }
-            polygon(my_xlim[c(1, 2, 2, 1)], c(0, 0, manhattan_fastbox, manhattan_fastbox), 
+            polygon(my_xlim[c(1, 2, 2, 1)], c(0, 0, plot_fastbox, plot_fastbox), 
                     density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5), border = NA)
         }
         abline(h = -log10(manhattan_thresh), col = 'red', lty = 'dashed')
@@ -167,6 +171,55 @@ gwas <- function(analysis,
     }
 
     if ('qqplot' %in% style) {
+        t0 <- as.double(Sys.time())
+        nump <- as.integer(sqlWrapper(getOption('gtx.dbConnection'),
+                                      sprintf('SELECT count(1) AS nump
+                               FROM %s.gwas_results
+                               WHERE %s AND pval > 1e-4 AND %s;',
+                               gtxanalysisdb(analysis),
+                               gtxwhat(analysis1 = analysis),
+                               gtxfilter(pval_gt = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                         analysis = analysis,
+                                         dbc = dbc)),
+                               uniq = TRUE)$nump)
+        pe <- (rank(pvals$pval) - 0.5)/(nrow(pvals) + nump) # expected p-values
+        t1 <- as.double(Sys.time())
+        gtxlog('Counted truncated P-values and computed expected P-values in ', round(t1 - t0, 3), 's.')
+
+        t0 <- as.double(Sys.time())
+        my_xlim <- c(0, -log10(min(pe)))
+        my_ylim <- c(0, ymax)
+        plot.new()
+        plot.window(my_xlim, my_ylim)
+        points(-log10(pe), pmin(-log10(pvals$pval), ymax), 
+               pch = 19, cex = 0.5, col = qqplot_col)
+        if (plot_fastbox > 0) {
+            box_x <- -log10(max(pe))
+            box_y <- -log10(max(pvals$pval))
+            lines(c(0, box_x),
+                  c(0, box_y),
+                  lwd = 9*.5, col = qqplot_col) # value 9 here is a box fudge to make box line up with pch=19 points
+            polygon(c(0, box_x)[c(1, 2, 2, 1)], c(0, box_y)[c(1, 1, 2, 2)], 
+                    density = 10, angle = 67.5, col = rgb(.75, .75, .75, .5), border = NA)
+        }
+        #abline(h = -log10(manhattan_thresh), col = 'red', lty = 'dashed')
+        axis(1)
+        if (truncp) {
+            ## would be nice to more cleanly overwrite y axis label
+            axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
+            # could e.g. do setdiff(pretty(...), ymax)
+        }
+        axis(2, las = 1)
+        xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+        mtext(main, 3, 1,
+              cex = min(1., xplt/strwidth(main, units = 'figure')))
+        ## need x-axis label
+        mtext(expression(-log[10](paste(italic(P), "-value"))), 2, 3)
+        box()
+        t1 <- as.double(Sys.time())
+        gtxlog('QQ plot rendered in ', round(t1 - t0, 3), 's.')
+        
+        
         ## Query total number of associations with p>thresh and passing other filters
         ##    in order to compute expected pvalues for the contents of res (need NOT TO PRUNE above...)
         ## Would we add a second set of points in grey for the filtered-out variants?

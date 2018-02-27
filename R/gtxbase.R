@@ -168,7 +168,7 @@ gtxwhat <- function(analysis1,
     }
 }
 
-gtxfilter <- function(pval_le, maf_ge, rsq_ge,
+gtxfilter <- function(pval_le, pval_gt, maf_ge, rsq_ge,
                       analysis,
                       tablename, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
@@ -192,6 +192,9 @@ gtxfilter <- function(pval_le, maf_ge, rsq_ge,
     ws1 <- list(
         if (missing(pval_le)) NULL
         else sprintf('pval<=%s', sanitize(pval_le, type = 'double')),
+
+        if (missing(pval_gt)) NULL
+        else sprintf('pval>%s', sanitize(pval_gt, type = 'double')),
 
         if (missing(maf_ge)) NULL # Two list elements for freq>= and freq<= if maf_ge argument used
         else {
