@@ -109,8 +109,8 @@ gwas <- function(analysis,
         pvals$plotcol <- mmpos$col[match(pvals$chrom, mmpos$chrom)]
         ymax <- max(10, ceiling(-log10(min(pvals$pval))))
         if (ymax > manhattan_ymax) { # Hard coded threshold makes sense for control of visual display
-            warning('Truncating P-values at 1e-', ymax)
             ymax <- manhattan_ymax
+            warning('Truncating P-values at 1e-', ymax)
             truncp <- TRUE
         } else {
             truncp <- FALSE
