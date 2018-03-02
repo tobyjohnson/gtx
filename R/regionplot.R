@@ -124,7 +124,7 @@ regionplot <- function(analysis,
   
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
-                 main = main,
+                 main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
                                        
@@ -224,7 +224,7 @@ regionplot.data <- function(analysis,
 
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
                            hgncid, ensemblid, rs, surround = 500000, 
-                           pmin = 1e-10, main, 
+                           pmin = 1e-10, main, fdesc, 
 			   protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
@@ -268,7 +268,9 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
     mtext(main, 3, 1,
           cex = min(1., xplt/strwidth(main, units = 'figure')))
   }
-  mtext(fdesc, 3, 0, cex = 0.5)
+  if (!missing(fdesc))
+      mtext(fdesc, 3, 0, cex = 0.5)
+  }
 
   ## Draw box last to overdraw any edge marks
   box()
