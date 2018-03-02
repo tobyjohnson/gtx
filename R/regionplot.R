@@ -6,7 +6,8 @@ regionplot <- function(analysis,
                        hgncid, ensemblid, rs, surround = 500000,
                        entity, 
                        style = 'signals', 
-                       protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
+                       protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot
+                       maf_ge, rsq_ge, 
                        dbc = getOption("gtx.dbConnection", NULL)) {
   # check database connection
   gtxdbcheck(dbc)
@@ -30,6 +31,7 @@ regionplot <- function(analysis,
                                chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                                entity = xentity$entity,
                                style = style,
+                               maf_ge = maf_ge, rsq_ge = rsq_ge, 
                                dbc = dbc)$pvals
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
@@ -39,6 +41,7 @@ regionplot <- function(analysis,
                              chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                              entity = xentity$entity,
                              style = style,
+                             maf_ge = maf_ge, rsq_ge = rsq_ge, 
                              dbc = dbc)$pvals
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
@@ -176,7 +179,8 @@ regionplot.data <- function(analysis,
                             chrom, pos_start, pos_end, pos, 
                             hgncid, ensemblid, rs, surround = 500000,
                             entity, 
-                            style = 'signals', 
+                            style = 'signals',
+                            maf_ge, rsq_ge, 
                             dbc = getOption("gtx.dbConnection", NULL)) {
     ## check database connection
     gtxdbcheck(dbc)
@@ -195,23 +199,25 @@ regionplot.data <- function(analysis,
     if (identical(style, 'classic')) {
         ## basic query without finemapping
         pvals <- sqlWrapper(dbc,
-                            sprintf('SELECT gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s %s AND pval IS NOT NULL;',
+                            sprintf('SELECT gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
                                     gtxanalysisdb(analysis), 
                                     gtxwhat(analysis1 = analysis),
+                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
                                     gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                    if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''),
+                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)),
                             uniq = FALSE)
     } else if (identical(style, 'signals')) {
         ## plot with finemapping annotation
         
         ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
         pvals <- sqlWrapper(dbc,
-                            sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND %s %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+                            sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
                                     gtxanalysisdb(analysis), 
                                     gtxanalysisdb(analysis), 
                                     gtxwhat(analysis1 = analysis, tablename = 'gwas_results'),
+                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
                                     gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
-                                    if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''),
+                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis, tablename = 'gwas_results')),
                             uniq = FALSE)
     }
     pvals <- pvals[order(pvals$pval), ]
