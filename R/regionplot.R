@@ -119,7 +119,7 @@ regionplot <- function(analysis,
 	      sprintf('%s, n=?', pdesc$label[1])
   	  }
   if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
-  fdesc <- gtxfilter_label(maf_ge = maf_ge, maf_lt = maf_lt, rsq_ge = rsq_ge, rsq_lt = rsq_lt)
+  fdesc <- gtxfilter_label(maf_ge = maf_ge, maf_lt = maf_lt, rsq_ge = rsq_ge, rsq_lt = rsq_lt, analysis = analysis)
   
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
