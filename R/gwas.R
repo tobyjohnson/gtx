@@ -75,9 +75,7 @@ gwas <- function(analysis,
             }
     ## no handling of entity is required in title
     ## Filtering description, could make more pretty when maf or rsq filter not used
-    fdesc <- substitute(paste('Variants with ', MAF>=maf_ge, ' and ', rsq>=rsq_ge),
-                        list(maf_ge = if (!missing(maf_ge)) maf_ge else 0,
-                             rsq_ge = if (!missing(rsq_ge)) rsq_ge else 0))
+    fdesc <- gtxfilter_label(maf_ge = maf_ge, maf_lt = maf_lt, rsq_ge = rsq_ge, rsq_lt = rsq_lt)
     
     if ('manhattan' %in% style || 'qqplot' %in% style) {
         ## Make single query for either case

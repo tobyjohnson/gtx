@@ -111,18 +111,15 @@ regionplot <- function(analysis,
   pdesc <- sqlWrapper(dbc, 
                       sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
                               gtxwhat(analysis1 = analysis)))
-  if (nrow(pdesc) > 0) {
-    main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
-	      sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
+  main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+              sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
   	  } else if (!is.na(pdesc$ncohort[1])) {
       	      sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
 	  } else {
 	      sprintf('%s, n=?', pdesc$label[1])
   	  }
-    if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
-  } else {
-    main <- 'NO LABEL' 
-  }
+  if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
+  fdesc <- gtxfilter_label(maf_ge = maf_ge, maf_lt = maf_lt, rsq_ge = rsq_ge, rsq_lt = rsq_lt)
   
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
@@ -270,6 +267,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
     mtext(main, 3, 1,
           cex = min(1., xplt/strwidth(main, units = 'figure')))
   }
+  mtext(fdesc, 3, 0, cex = 0.5)
 
   ## Draw box last to overdraw any edge marks
   box()
