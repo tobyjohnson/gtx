@@ -168,9 +168,11 @@ gtxwhat <- function(analysis1,
     }
 }
 
-gtxfilter <- function(pval_le, pval_gt, maf_ge, rsq_ge,
+gtxfilter <- function(pval_le, pval_gt,
+                      maf_ge, maf_lt,
+                      rsq_ge, rsq_lt, 
                       analysis,
-                      tablename, 
+                      tablename,
                       dbc = getOption("gtx.dbConnection", NULL)) {
     ## function to construct a WHERE string for constructing SQL queries
     ## logical AND within and between arguments
@@ -189,29 +191,38 @@ gtxfilter <- function(pval_le, pval_gt, maf_ge, rsq_ge,
         tablename <- ''
     }
 
+    ## set flags for whether to print warning messages
+    ## can be set at multiple places in code, but we only want to print messages once
+    warn_freq <- FALSE
+    warn_rsq <- FALSE
     ws1 <- list(
         if (missing(pval_le)) NULL
-        else sprintf('pval<=%s', sanitize(pval_le, type = 'double')),
+        else sprintf('pval<=%s', sanitize1(pval_le, type = 'double')),
 
         if (missing(pval_gt)) NULL
-        else sprintf('pval>%s', sanitize(pval_gt, type = 'double')),
+        else sprintf('pval>%s', sanitize1(pval_gt, type = 'double')),
 
         if (missing(maf_ge)) NULL # Two list elements for freq>= and freq<= if maf_ge argument used
         else {
             if (amd$has_freq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
-                sprintf('freq>=%s', sanitize(maf_ge, type = 'double'))
+                sprintf('(freq>=%s AND freq<=%s)',
+                        sanitize1(maf_ge, type = 'double'),
+                        sanitize1(1 - maf_ge, type = 'double'))
             } else {
-                warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
+                warn_freq <- TRUE
                 NULL
             }
         },
 
-        if (missing(maf_ge)) NULL
+        ## Note, maf_lt needs OR logic, where everything else uses AND
+        if (missing(maf_lt)) NULL # Two list elements for freq< and freq> if maf_lt argument used
         else {
             if (amd$has_freq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
-                sprintf('freq<=%s', sanitize(1 - maf_ge, type = 'double'))
+                sprintf('(freq<%s OR freq>%s)',
+                        sanitize1(maf_lt, type = 'double'),
+                        sanitize1(1 - maf_lt, type = 'double'))
             } else {
-                ## do not duplicate warning message from previous list element constructor
+                warn_freq <- TRUE
                 NULL
             }
         },
@@ -219,17 +230,33 @@ gtxfilter <- function(pval_le, pval_gt, maf_ge, rsq_ge,
         if (missing(rsq_ge)) NULL
         else {
             if (amd$has_rsq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
-                sprintf('rsq>=%s', sanitize(rsq_ge, type = 'double'))
+                sprintf('rsq>=%s', sanitize1(rsq_ge, type = 'double'))
             } else {
-                warning('gtxfilter Rsq filtering skipped because has_rsq=False for analysis [ ', analysis, ' ]')
+                warn_rsq <- TRUE
+                NULL
+            }
+        },
+
+        if (missing(rsq_lt)) NULL
+        else {
+            if (amd$has_rsq == 1) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                sprintf('rsq<%s', sanitize1(rsq_lt, type = 'double'))
+            } else {
+                warn_rsq <- TRUE
                 NULL
             }
         }
     )
-    ## format
+    if (warn_freq) warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
+    if (warn_rsq) warning('gtxfilter Rsq filtering skipped because has_rsq=False for analysis [ ', analysis, ' ]')
+
+    ## format, can simplify the inner paste0 since all list elements have length 1
     ws1f <- paste0("(", 
-                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " AND "))), 
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x))), 
                   ")", collapse = " AND ")
+    ## handle case where no arguments were non-missing but still need to generate
+    ## valid SQL clause for substitution into '... WHERE %s' or '... WHERE %s AND %s'
+    if (ws1f == '()') ws1f <- '(True)'
     return(ws1f)
 }
 
