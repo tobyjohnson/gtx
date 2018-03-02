@@ -268,7 +268,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
     mtext(main, 3, 1,
           cex = min(1., xplt/strwidth(main, units = 'figure')))
   }
-  if (!missing(fdesc))
+  if (!missing(fdesc)) {
       mtext(fdesc, 3, 0, cex = 0.5)
   }
 
