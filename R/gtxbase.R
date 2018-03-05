@@ -364,10 +364,11 @@ gtxanalyses <- function(analysis, analysis_not,
     dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
 
     ## create sanitized string of column names for SQL
-    columns_s <- paste(sanitize(union(c('analysis', 'entity_type', 'results_db'),
-                                      columns),
-                                type = 'alphanum'),
-                       collapse = ', ')
+    columns_s <- paste0('analyses.',
+                        sanitize(union(c('analysis', 'entity_type', 'results_db'),
+                                       columns),
+                                 type = 'alphanum'),
+                        collapse = ', ')
     
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
                      missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
