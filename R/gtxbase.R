@@ -378,10 +378,9 @@ gtxanalyses <- function(analysis, analysis_not,
                           uniq = FALSE)
     } else {
         res <- sqlWrapper(dbc,
-                          sprintf('SELECT %s FROM %s analyses %s WHERE %s',
+                          sprintf('SELECT %s FROM analyses %s WHERE %s',
                                   columns_s,
-                                  if (!missing(has_tag)) 'analyses_tags JOIN ' else '',
-                                  if (!missing(has_tag)) 'USING (analysis)' else '',
+                                  if (!missing(has_tag)) 'LEFT JOIN analyses_tags USING (analysis)' else '', # must be left join otherwise will only select analyses that appear >=1 time in analyses_tags
                                   gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                           description_contains = description_contains,
                                           phenotype_contains = phenotype_contains,
