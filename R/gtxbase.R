@@ -399,14 +399,16 @@ gtxanalyses <- function(analysis, analysis_not,
                      missing(has_tag))
     if (all_analyses) {
         res <- sqlWrapper(dbc,
-                          sprintf('SELECT %s FROM analyses %s',
+                          sprintf('SELECT %s %s FROM analyses %s',
                                   analysis_fields,
+                                  if (with_tags) 'analyses_tags.tag' else '',
                                   if (with_tags) sprintf('LEFT JOIN analyses_tags USING (analysis) WHERE %s', tag_is) else ''),
                           uniq = FALSE)
     } else {
         res <- sqlWrapper(dbc,
-                          sprintf('SELECT %s FROM analyses %s WHERE %s AND %s',
+                          sprintf('SELECT %s %s FROM analyses %s WHERE %s AND %s',
                                   analysis_fields,
+                                  if (with_tags) 'analyses_tags.tag' else '',
                                   if (with_tags) 'LEFT JOIN analyses_tags USING (analysis)' else '',
                                   gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                           description_contains = description_contains,
