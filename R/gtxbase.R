@@ -356,37 +356,64 @@ gtxanalyses <- function(analysis, analysis_not,
                         ncase_ge,
                         ncohort_ge,
                         ## if extra filters are added, be sure to update definition of all_analyses below
-                        columns = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
+                        analysis_fields = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
+                        tag_is,
+                        with_tags = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
 
-    ## create sanitized string of column names for SQL
-    columns_s <- paste0('analyses.',
-                        sanitize(union(c('analysis', 'entity_type', 'results_db'),
-                                       columns),
-                                 type = 'alphanum'),
-                        collapse = ', ')
+    ## sanitize and check desired analysis_fields, create sanitized string for SQL
+    acols <- names(sqlWrapper(dbc, 'SELECT * FROM analyses LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
+    analysis_fields <- sanitize(union(c('analysis', 'entity_type', 'results_db'),
+                              analysis_fields),
+                        type = 'alphanum')
+    analysis_fields_bad <- !(analysis_fields %in% acols)
+    if (any(analysis_fields_bad)) {
+        error('analysis_fields [ ', paste(analysis_fields[analysis_fields_bad], collapse = ', '), ' ] not found in TABLE analyses')
+    }
+    rm(acols) # clean up
+    analysis_fields <- paste0('analyses.', analysis_fields, collapse = ', ')
+
+    if (!missing(has_tag)) with_tags <- TRUE
+    
+    ## sanitize and check desired tag_is logicals
+    if (!missing(tag_is)) {
+        acols <- names(sqlWrapper(dbc, 'SELECT * FROM analyses_tags LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
+        tag_is <- sanitize(tag_is, type = 'alphanum')
+        tag_is_bad <- !(tag_is %in% acols)
+        if (any(tag_is_bad)) {
+            error('tag_is logicals [ ', paste(tag_is[tag_is_bad], collapse = ', '), ' ] not found in TABLE analyses_tags')
+        }
+        rm(acols)
+        paste0('(analysis_tags.', tag_is, ')', collapse = ' AND ')
+        with_tags <- TRUE
+    } else {
+        tag_is <- '(True)'
+    }
     
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
                      missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
                      missing(has_tag))
     if (all_analyses) {
         res <- sqlWrapper(dbc,
-                          sprintf('SELECT %s FROM analyses', columns_s),
+                          sprintf('SELECT %s FROM analyses %s',
+                                  analysis_fields,
+                                  if (with_tags) sprintf('LEFT JOIN analysis_tags USING (analysis) WHERE %s', tag_is) else ''),
                           uniq = FALSE)
     } else {
         res <- sqlWrapper(dbc,
-                          sprintf('SELECT %s FROM analyses %s WHERE %s',
-                                  columns_s,
-                                  if (!missing(has_tag)) 'LEFT JOIN analyses_tags USING (analysis)' else '', # must be left join otherwise will only select analyses that appear >=1 time in analyses_tags
+                          sprintf('SELECT %s FROM analyses %s WHERE %s AND %s',
+                                  analysis_fields,
+                                  if (with_tags) 'LEFT JOIN analysis_tags USING (analysis)' else '',
                                   gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                           description_contains = description_contains,
                                           phenotype_contains = phenotype_contains,
                                           has_tag = has_tag, 
-                                          ncase_ge = ncase_ge, ncohort_ge = ncohort_ge)),
+                                          ncase_ge = ncase_ge, ncohort_ge = ncohort_ge),
+                                  tagis),
                           uniq = FALSE)
     }
     res$has_access <- res$results_db %in% dbs$name
