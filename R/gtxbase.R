@@ -85,6 +85,7 @@ gtxwhat <- function(analysis1,
                     analysis_not, 
                     description_contains,
                     phenotype_contains,
+                    has_tag, 
                     ncase_ge,
                     ncohort_ge,
                     tablename) {
@@ -125,7 +126,10 @@ gtxwhat <- function(analysis1,
         else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "text")), # Sanitation may be too restrictive, should do something intelligent with whitespace
 
         if (missing(phenotype_contains)) NULL
-        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "text")) # Sanitation may be too restrictive
+        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "text")), # Sanitation may be too restrictive
+
+        if (missing(has_tag)) NULL
+        else sprintf("tag='%s'", sanitize(has_tag, type = "alphanum")) # Sanitation may be too restrictive
     )
     ## format
     ws1f <- paste0("(", 
@@ -348,26 +352,40 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
                         description_contains,
+                        has_tag,
                         ncase_ge,
                         ncohort_ge,
                         ## if extra filters are added, be sure to update definition of all_analyses below
+                        columns = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
+                                    'ncase', 'ncontrol', 'ncohort'),
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+
+    ## create sanitized string of column names for SQL
+    columns_s <- paste(sanitize(union(c('analysis', 'entity_type', 'results_db'),
+                                      columns),
+                                type = 'alphanum'),
+                       collapse = ', ')
     
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
-                     missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge))
+                     missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
+                     missing(has_tag))
     if (all_analyses) {
         res <- sqlWrapper(dbc,
-                          sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, unit, entity_type, results_db FROM analyses'), 
+                          sprintf('SELECT %s FROM analyses', columns_s),
                           uniq = FALSE)
     } else {
         res <- sqlWrapper(dbc,
-                          sprintf('SELECT analysis, description, phenotype, ncase, ncontrol, ncohort, unit, entity_type, results_db FROM analyses WHERE %s',
+                          sprintf('SELECT %s FROM %s analyses %s WHERE %s',
+                                  columns_s,
+                                  if (!missing(has_tag)) 'analyses_tags JOIN ' else '',
+                                  if (!missing(has_tag)) 'USING (analysis)' else '',
                                   gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                           description_contains = description_contains,
                                           phenotype_contains = phenotype_contains,
+                                          has_tag = has_tag, 
                                           ncase_ge = ncase_ge, ncohort_ge = ncohort_ge)),
                           uniq = FALSE)
     }
