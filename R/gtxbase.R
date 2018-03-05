@@ -401,19 +401,19 @@ gtxanalyses <- function(analysis, analysis_not,
         res <- sqlWrapper(dbc,
                           sprintf('SELECT %s FROM analyses %s',
                                   analysis_fields,
-                                  if (with_tags) sprintf('LEFT JOIN analysis_tags USING (analysis) WHERE %s', tag_is) else ''),
+                                  if (with_tags) sprintf('LEFT JOIN analyses_tags USING (analysis) WHERE %s', tag_is) else ''),
                           uniq = FALSE)
     } else {
         res <- sqlWrapper(dbc,
                           sprintf('SELECT %s FROM analyses %s WHERE %s AND %s',
                                   analysis_fields,
-                                  if (with_tags) 'LEFT JOIN analysis_tags USING (analysis)' else '',
+                                  if (with_tags) 'LEFT JOIN analyses_tags USING (analysis)' else '',
                                   gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                           description_contains = description_contains,
                                           phenotype_contains = phenotype_contains,
                                           has_tag = has_tag, 
                                           ncase_ge = ncase_ge, ncohort_ge = ncohort_ge),
-                                  tagis),
+                                  tag_is),
                           uniq = FALSE)
     }
     res$has_access <- res$results_db %in% dbs$name
