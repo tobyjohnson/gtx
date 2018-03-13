@@ -2,9 +2,11 @@ phewas.data <- function(chrom, pos, rs,
                         analysis, analysis_not, 
                         description_contains,
                         phenotype_contains,
+                        has_tag, 
                         ncase_ge,
                         ncohort_ge,
                         ## if extra filters are added, be sure to update definition of all_analyses below
+                        with_tags = FALSE,
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
 
@@ -17,12 +19,15 @@ phewas.data <- function(chrom, pos, rs,
     a1 <- gtxanalyses(analysis = analysis, analysis_not = analysis_not, 
                       description_contains = description_contains,
                       phenotype_contains = phenotype_contains,
+                      has_tag = has_tag, 
                       ncase_ge = ncase_ge, ncohort_ge = ncohort_ge,
+                      with_tags = with_tags, 
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
 
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
-                     missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge))
+                     missing(description_contains) && missing(has_tag) && 
+                     missing(ncase_ge) && missing(ncohort_ge))
 
     if (all_analyses) {
         ## Optimize for the case where all analyses are desired, to avoid having a
