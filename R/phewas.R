@@ -6,6 +6,8 @@ phewas.data <- function(chrom, pos, rs,
                         ncase_ge,
                         ncohort_ge,
                         ## if extra filters are added, be sure to update definition of all_analyses below
+                        analysis_fields = c('description', 'label', 'unit',
+                                    'ncase', 'ncontrol', 'ncohort'),
                         with_tags = FALSE,
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
@@ -21,6 +23,7 @@ phewas.data <- function(chrom, pos, rs,
                       phenotype_contains = phenotype_contains,
                       has_tag = has_tag, 
                       ncase_ge = ncase_ge, ncohort_ge = ncohort_ge,
+                      analysis_fields = analysis_fields, 
                       with_tags = with_tags, 
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
