@@ -197,7 +197,7 @@ multicoloc.data <- function(analysis1, analysis2,
   ## rather than directly selecting on WHERE entity IN ...
   
   gtxlog('Query region is chr', chrom, ':', pos_start, '-', pos_end, 
-         ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
+         ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)')
 
   eq <- sqlWrapper(dbc, 
                     sprintf('SELECT 
@@ -225,7 +225,7 @@ multicoloc.data <- function(analysis1, analysis2,
       pos_start <- ep$minpos
       pos_end <- ep$maxpos
       gtxlog('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
-             ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
+             ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)')
   }
 
   ## We use a (INNER) JOIN and silently drop rows that don't match
