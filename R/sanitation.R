@@ -2,7 +2,7 @@
 ## and make this file all non-gtx-specific SQL sanitation functions
 
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALSE) {
-  if (! 'OdbcConnection' %in% class(dbc)) stop('dbc does not appear to be an ODBC connection (not of class OdbcConnection)')
+  if (! 'Impala' %in% class(dbc)) stop('dbc does not appear to be an Impala connection (not of class Impala)')
   dbs <- dbGetQuery(dbc, 'SHOW DATABASES;')
   if (!is.data.frame(dbs)) stop('dbc does not appear to be an open database connection (SHOW DATABASES did not return a dataframe)')
   tables <- dbGetQuery(dbc, 'SHOW TABLES;')
@@ -216,7 +216,7 @@ sanitize1 <- function(x, values, type) {
 sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL RODBC usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
-    if (! 'OdbcConnection' %in% class(dbc)) stop('dbc does not appear to be an ODBC connection (not of class OdbcConnection)')
+    if (! 'Impala' %in% class(dbc)) stop('dbc does not appear to be an Impala connection (not of class Impala)')
     res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
