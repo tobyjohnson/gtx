@@ -295,11 +295,12 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
   yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
   xplt <- par("plt")[2] - par("plt")[1]
   xusr <- pos_end - pos_start # par("usr")[2] - par("usr")[1] 
-  return(with(sqlQuery(dbc, 
+  return(with(sqlWrapper(dbc, 
                        ## use SQL query to aggregate over multiple rows with same name to get whole span
                        sprintf('SELECT min(pos_start) AS pos_start, max(pos_end) AS pos_end, hgncid, ensemblid FROM genes WHERE %s %s GROUP BY ensemblid, hgncid ORDER BY pos_start', 
                                gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end),
-			       if (protein_coding_only) 'AND genetype=\'protein_coding\'' else '')),
+			       if (protein_coding_only) 'AND genetype=\'protein_coding\'' else ''),
+			uniq = FALSE, zrok = TRUE),
               {
                 label <- ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid)) # could also check NULL or NA?
                 ## compute start and end plot positions for each gene, using larger of transcript line and gene name annotation
@@ -358,9 +359,10 @@ regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5,
   if (missing(pos_start)) pos_start = floor(par("usr")[1])
   if (missing(pos_end)) pos_end = ceiling(par("usr")[2])
 
-  with(sqlQuery(dbc, 
+  with(sqlWrapper(dbc, 
                 sprintf('SELECT pos_start, pos_end, recombination_rate FROM genetic_map WHERE %s', 
-                        gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end))),
+                        gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end)),
+		uniq = FALSE, zrok = TRUE),
        {
          abline(h = yoff, col = "grey")
          yscale <- (par("usr")[4] - yoff)*.9/max(recombination_rate)

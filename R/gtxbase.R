@@ -362,7 +362,7 @@ gtxanalyses <- function(analysis, analysis_not,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
-    dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+    dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
 
     ## sanitize and check desired analysis_fields, create sanitized string for SQL
     acols <- names(sqlWrapper(dbc, 'SELECT * FROM analyses LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
