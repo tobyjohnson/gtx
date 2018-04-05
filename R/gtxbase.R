@@ -204,6 +204,9 @@ gtxregion <- function(chrom, pos_start, pos_end, pos,
   return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end))
 }
 
+gtxregion.gr <- function(gtxregion.ls) {
+	makeGRangesFromDataFrame(gtxregion.ls)
+}
 
 ## infer the entity id according to the type required for the analysis
 gtxentity <- function(analysis, entity, hgncid, ensemblid, 
