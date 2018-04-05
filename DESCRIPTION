@@ -4,12 +4,13 @@ Title: Genetics ToolboX
 Version: 2.0.1
 Date: 2017-04-28
 Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.Johnson@gsk.com"), 
+             person("Karsten", "Sieber", role = c("ctb"), email = "karsten.b.sieber@gsk.com"),
              person("Andrew", "Slater", role = c("ctb")),
              person("Li", "Li", role = c("ctb")))
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
-    RODBC,data.table
+    odbc,data.table,dplyr
 Suggests:
     knitr,RSQLite
 VignetteBuilder: knitr

@@ -1,4 +1,4 @@
-import(beeswarm, survival, meta, rmeta, data.table)
+import(beeswarm, survival, meta, rmeta, data.table, dplyr)
 ## abf.R
 export(abf.normal, abf.t, abf.Wakefield, coloc.fast)
 ## blat.R
@@ -9,7 +9,7 @@ export(blockassoc, blockstats, blockstats.lm, blockstats.glm, blockstats.coxph, 
 ## clinical.R
 export(clinical.import, clinical.derive, derivation.add)
 ## coloc.R
-export(coloc.fast, coloc)
+export(coloc.fast, coloc, multicoloc, multicoloc.data, multicoloc.kbs)
 ## demographics.R
 export(demographics, demographics.numeric, demographics.logical, demographics.factor, demographics.Surv, demographics.data.frame, prettypc)
 ## fitmix.R
@@ -20,6 +20,8 @@ export(fixNA)
 export(gls.approx.logistic)
 ## gtxbase, should these all be internal functions?
 export(gtxlog, gtxwhere, gtxregion, gtxentity, gtxanalyses)
+## gwas
+export(gwas)
 ## testsummary.R
 export(test.extract, test.extract.lm, test.extract.glm, test.extract.coxph)
 export(coeff.extract, coeff.extract.default)
@@ -57,7 +59,7 @@ export(pcaplot)
 ## pgx.R
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 ## phewas.R
-export(phewas.qq, phewas.data)
+export(phewas, phewas.qq, phewas.data)
 ## pipeline.R
 export(gtxpipe)
 ## pipeline.postanalysis.R
@@ -74,7 +76,7 @@ export(qq10, qq10.new, qq10.envelope, qq10.points, gclambda)
 export(qtplot, qtplot.character, qtplot.numeric)
 ## regionplot.R
 export(recomb.draw, regionplot.multiP)
-export(regionplot, regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination, regionplot.points)
+export(regionplot, regionplot.data, regionplot.new, regionplot.genelayout, regionplot.genedraw, regionplot.recombination, regionplot.points)
 ## sanitation.R # should these be internal?
 export(sanitize, sanitize1, sqlWrapper)
 ## snpdata.R

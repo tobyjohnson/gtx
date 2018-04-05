@@ -35,6 +35,11 @@ coloc(analysis1, analysis2,
   both contain summary statistics for multiple entities (e.g. from eQTL or
   pQTL analyses), the desired entities must be specified (see below).
 
+  Note that when using a \code{hgncid} or \code{ensemblid} gene
+  identifier to specify the region from which to use summary statistics,
+  the default \code{surround=500000} will \emph{not} include the full
+  cis eQTL region as usually specified.
+  
   The region of interest can be specified in several different ways.
   The region can be supplied as physical coordinates using the arguments
   \code{chrom}, \code{pos_start} and \code{pos_end}.  Alternatively, the

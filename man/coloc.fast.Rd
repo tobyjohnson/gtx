@@ -25,9 +25,11 @@ coloc.fast(data, rounded = 6, priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc
   \item{se2}{Name of standard error for phenotype 2 in data.}
 }
 \value{
-  A list with two elements, \code{results} which is a data frame of
-  posterior model probabilities, and \code{nvariants} which reports the
-  number of variants used in the analysis.
+  A list with four elements: \code{results} is a data frame of
+  posterior model probabilities; \code{nvariants} which reports the
+  number of variants used in the analysis; \code{alpha12} and
+  \code{alpha21} are estimates of the causal effect of each trait on the
+  other (see below).
 }
 \details{
   To be described.  Equivalent to Giambartolomei method but uses a
@@ -40,6 +42,10 @@ coloc.fast(data, rounded = 6, priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc
   function \code{coloc.fast}, if called with non-default options
   \code{priorsd1=0.15} and \code{priorsd2=0.15}, produces numerically
   identical results to \code{coloc} for every example I have checked.
+
+  \code{alpha12} and \code{alpha21} are estimates respectively of
+  beta1/beta2 and of beta2/beta1, if the true effect sizes were known
+  for the single causal variant under hypothesis 4.
 }
 \author{
   Toby Johnson \email{Toby.x.Johnson@gsk.com}
