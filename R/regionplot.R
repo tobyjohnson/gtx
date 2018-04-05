@@ -6,7 +6,8 @@ regionplot <- function(analysis,
                        hgncid, ensemblid, rs, surround = 500000,
                        entity, 
                        style = 'signals', 
-                       protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot   
+                       protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot
+                       maf_ge, rsq_ge, 
                        dbc = getOption("gtx.dbConnection", NULL)) {
   # check database connection
   gtxdbcheck(dbc)
@@ -21,24 +22,27 @@ regionplot <- function(analysis,
 
   ## Determine entity, if required, for each analysis
   xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
- 
+
+  ## Obtain pvals
+    
   if (identical(style, 'classic')) {
     ## basic query without finemapping
-    pvals <- sqlQuery(dbc, sprintf('SELECT gwas_results.pos, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE analysis=\'%s\' AND %s %s AND pval IS NOT NULL;',
-				   sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
-                                   sanitize(analysis, type = 'alphanum'),
-                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                   if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''))
+      pvals <- regionplot.data(analysis = analysis,
+                               chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+                               entity = xentity$entity,
+                               style = style,
+                               maf_ge = maf_ge, rsq_ge = rsq_ge, 
+                               dbc = dbc)$pvals
   } else if (identical(style, 'signals')) {
     ## plot with finemapping annotation
 
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- sqlQuery(dbc, sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE gwas_results.analysis=\'%s\' AND %s %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
-				   sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
-				   sanitize(gtxanalysisdb(analysis), type = 'alphanum'), # may not require sanitation
-				   sanitize(analysis, type = 'alphanum'),
-                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
-                                   if (!is.null(xentity)) sprintf(' AND feature=\'%s\'', xentity$entity) else ''))                                       
+    pvals <- regionplot.data(analysis = analysis,
+                             chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+                             entity = xentity$entity,
+                             style = style,
+                             maf_ge = maf_ge, rsq_ge = rsq_ge, 
+                             dbc = dbc)$pvals
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
@@ -105,24 +109,22 @@ regionplot <- function(analysis,
   pmin <- min(pvals$pval)
 
   pdesc <- sqlWrapper(dbc, 
-                      sprintf('SELECT description, ncase, ncontrol, ncohort FROM analyses WHERE analysis=\'%s\'',
-                              sanitize(analysis, type = 'alphanum')))
-  if (nrow(pdesc) > 0) {
-    main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
-	      sprintf('%s, n=%i vs %i', pdesc$description[1], pdesc$ncase[1], pdesc$ncontrol[1])
+                      sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                              gtxwhat(analysis1 = analysis)))
+  main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+              sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
   	  } else if (!is.na(pdesc$ncohort[1])) {
-      	      sprintf('%s, n=%i', pdesc$description[1], pdesc$ncohort[1])
+      	      sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
 	  } else {
-	      sprintf('%s, n=?', pdesc$description[1])
+	      sprintf('%s, n=?', pdesc$label[1])
   	  }
-    if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
-  } else {
-    main <- 'NO DESCRIPTION' 
-  }
+  if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
+  ## in future we may need to pass maf_lt and rsq_lt as well  
+  fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
   
   regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
-                 main = main,
+                 main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
                                        
@@ -171,9 +173,58 @@ regionplot <- function(analysis,
   return(invisible(NULL))
 }
 
+regionplot.data <- function(analysis,
+                            chrom, pos_start, pos_end, pos, 
+                            hgncid, ensemblid, rs, surround = 500000,
+                            entity, 
+                            style = 'signals',
+                            maf_ge, rsq_ge, 
+                            dbc = getOption("gtx.dbConnection", NULL)) {
+    ## check database connection
+    gtxdbcheck(dbc)
+    
+    ## Determine x-axis range from arguments
+    xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                         dbc = dbc)
+    chrom = xregion$chrom
+    pos_start = xregion$pos_start
+    pos_end = xregion$pos_end
+    
+    ## Determine entity, if required, for each analysis
+    xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
+    
+    if (identical(style, 'classic')) {
+        ## basic query without finemapping
+        pvals <- sqlWrapper(dbc,
+                            sprintf('SELECT gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
+                                    gtxanalysisdb(analysis), 
+                                    gtxwhat(analysis1 = analysis),
+                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
+                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)),
+                            uniq = FALSE)
+    } else if (identical(style, 'signals')) {
+        ## plot with finemapping annotation
+        
+        ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
+        pvals <- sqlWrapper(dbc,
+                            sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+                                    gtxanalysisdb(analysis), 
+                                    gtxanalysisdb(analysis), 
+                                    gtxwhat(analysis1 = analysis, tablename = 'gwas_results'),
+                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
+                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
+                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis, tablename = 'gwas_results')),
+                            uniq = FALSE)
+    }
+    pvals <- pvals[order(pvals$pval), ]
+    return(list(region = xregion, analysis = analysis, entity = xentity, pvals = pvals))
+}
+
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
                            hgncid, ensemblid, rs, surround = 500000, 
-                           pmin = 1e-10, main, 
+                           pmin = 1e-10, main, fdesc, 
 			   protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
@@ -217,6 +268,9 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
     mtext(main, 3, 1,
           cex = min(1., xplt/strwidth(main, units = 'figure')))
   }
+  if (!missing(fdesc)) {
+      mtext(fdesc, 3, 0, cex = 0.5)
+  }
 
   ## Draw box last to overdraw any edge marks
   box()
@@ -241,11 +295,12 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
   yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
   xplt <- par("plt")[2] - par("plt")[1]
   xusr <- pos_end - pos_start # par("usr")[2] - par("usr")[1] 
-  return(with(sqlQuery(dbc, 
+  return(with(sqlWrapper(dbc, 
                        ## use SQL query to aggregate over multiple rows with same name to get whole span
                        sprintf('SELECT min(pos_start) AS pos_start, max(pos_end) AS pos_end, hgncid, ensemblid FROM genes WHERE %s %s GROUP BY ensemblid, hgncid ORDER BY pos_start', 
                                gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end),
-			       if (protein_coding_only) 'AND genetype=\'protein_coding\'' else '')),
+			       if (protein_coding_only) 'AND genetype=\'protein_coding\'' else ''),
+			uniq = FALSE, zrok = TRUE),
               {
                 label <- ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid)) # could also check NULL or NA?
                 ## compute start and end plot positions for each gene, using larger of transcript line and gene name annotation
@@ -304,9 +359,10 @@ regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5,
   if (missing(pos_start)) pos_start = floor(par("usr")[1])
   if (missing(pos_end)) pos_end = ceiling(par("usr")[2])
 
-  with(sqlQuery(dbc, 
+  with(sqlWrapper(dbc, 
                 sprintf('SELECT pos_start, pos_end, recombination_rate FROM genetic_map WHERE %s', 
-                        gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end))),
+                        gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end)),
+		uniq = FALSE, zrok = TRUE),
        {
          abline(h = yoff, col = "grey")
          yscale <- (par("usr")[4] - yoff)*.9/max(recombination_rate)
