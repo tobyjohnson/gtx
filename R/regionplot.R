@@ -12,37 +12,32 @@ regionplot <- function(analysis,
   # check database connection
   gtxdbcheck(dbc)
 
-  ## Determine x-axis range from arguments
-  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
-                       dbc = dbc)
-  chrom = xregion$chrom
+  ## Obtain pvals by passing arguments through to regionplot.data()
+  pvals <- regionplot.data(analysis = analysis,
+                           chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                           hgncid = hgncid, ensemblid = ensemblid, rs = rs,
+                           surround = surround, 
+                           entity = entity,
+                           style = style,
+                           maf_ge = maf_ge, rsq_ge = rsq_ge, 
+                           dbc = dbc)
+
+  ## Determine x-axis range from attr'ibutes of data
+  ## was re-resolved from command line args
+  # xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+  #                        hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+  #                        dbc = dbc)
+  xregion <- attr(pvals, 'region')
+  chrom <- xregion$chrom
   pos_start = xregion$pos_start
   pos_end = xregion$pos_end
+  
+  ## Determine entity from attr'ibutes of data
+  xentity <- attr(pvals, 'entity')
 
-  ## Determine entity, if required, for each analysis
-  xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
-
-  ## Obtain pvals
-    
-  if (identical(style, 'classic')) {
-    ## basic query without finemapping
-      pvals <- regionplot.data(analysis = analysis,
-                               chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
-                               entity = xentity$entity,
-                               style = style,
-                               maf_ge = maf_ge, rsq_ge = rsq_ge, 
-                               dbc = dbc)$pvals
-  } else if (identical(style, 'signals')) {
-    ## plot with finemapping annotation
-
+  if ('signals' %in% style) {
     ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
-    pvals <- regionplot.data(analysis = analysis,
-                             chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
-                             entity = xentity$entity,
-                             style = style,
-                             maf_ge = maf_ge, rsq_ge = rsq_ge, 
-                             dbc = dbc)$pvals
+    ## (needs to be done within regionplot.data)
     signals <- sort(unique(na.omit(pvals$signal)))
     nsignals <- length(signals)
 
@@ -101,8 +96,6 @@ regionplot <- function(analysis,
       pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
       pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
     }
-  } else {
-    stop('style ', style, ' not recognised')
   }
 
   pvals <- within(pvals, impact[impact == ''] <- NA)
@@ -118,7 +111,7 @@ regionplot <- function(analysis,
 	  } else {
 	      sprintf('%s, n=?', pdesc$label[1])
   	  }
-  if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
+  if (!is.null(xentity)) main <- paste(xentity$entity_label, main) ## !!!! BREAKS PREVIOUS ATTR() IDEA...!!!!
   ## in future we may need to pass maf_lt and rsq_lt as well  
   fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
   
@@ -136,6 +129,18 @@ regionplot <- function(analysis,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
+  } else if (identical(style, 'ld')) {
+    ## best order for plotting
+    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
+    ## Plot variants shaded by LD
+    ## current db format means r<0.01 is not included in table, hence substitute missing with zero
+    pvals$r[is.na(pvals$r)] <- 0.
+    with(pvals, regionplot.points(pos, pval,
+                                  pch = ifelse(!is.na(impact), 23, 21),
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 0, .75), rgb(.33, .33, .33, .5)),
+                                  bg = ifelse(!is.na(impact), 
+                                              rgb((1 - r^2)*171, (1 - r^2)*171, 84*r^2 + 171, alpha = 255, maxColorValue = 255),
+                                              rgb(84*r^2 + 171, (1 - r^2)*171, (1 - r^2)*171, alpha = 255, maxColorValue = 255))))
   } else if (identical(style, 'signals')) {
     ## best order for plotting
     pvals <- pvals[order(!is.na(pvals$impact), pvals$posterior), ]
@@ -146,6 +151,8 @@ regionplot <- function(analysis,
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
+  } else {
+    stop('style ', style, ' not recognised')
   } 
 
   ## Highlight index SNP if pos or rs argument was used
@@ -187,11 +194,11 @@ regionplot.data <- function(analysis,
     xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
                          dbc = dbc)
-    chrom = xregion$chrom
+    chrom = xregion$chrom # note, overwriting command line arguments
     pos_start = xregion$pos_start
     pos_end = xregion$pos_end
     
-    ## Determine entity, if required, for each analysis
+    ## If required, determine entity and associated info including entity_label
     xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
     
     if ('signals' %in% style) {
@@ -238,7 +245,11 @@ regionplot.data <- function(analysis,
     }
     
     pvals <- pvals[order(pvals$pval), ]
-    return(list(region = xregion, analysis = analysis, entity = xentity, pvals = pvals))
+
+    attr(pvals, 'analysis') <- analysis
+    attr(pvals, 'region') <- xregion
+    attr(pvals, 'entity') <- xentity
+    return(pvals)
 }
 
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
