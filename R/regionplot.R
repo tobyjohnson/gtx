@@ -194,20 +194,10 @@ regionplot.data <- function(analysis,
     ## Determine entity, if required, for each analysis
     xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
     
-    if (identical(style, 'classic')) {
-        ## basic query without finemapping
-        pvals <- sqlWrapper(dbc,
-                            sprintf('SELECT gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
-                                    gtxanalysisdb(analysis), 
-                                    gtxwhat(analysis1 = analysis),
-                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
-                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)),
-                            uniq = FALSE)
-    } else if (identical(style, 'signals')) {
-        ## plot with finemapping annotation
-        
+    if ('signals' %in% style) {
+        ## if signals is one of the styles requested, merge the marginal p-values with conditional finemapping p-values
         ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
+        gtxlog('Querying marginal p-values joined with conditional p-values')
         pvals <- sqlWrapper(dbc,
                             sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
                                     gtxanalysisdb(analysis), 
@@ -217,7 +207,36 @@ regionplot.data <- function(analysis,
                                     gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
                                     gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis, tablename = 'gwas_results')),
                             uniq = FALSE)
+    } else {
+        ## otherwise, just return marginal p-values without finemapping
+        gtxlog('Querying marginal p-values')
+        pvals <- sqlWrapper(dbc,
+                            sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
+                                    gtxanalysisdb(analysis), 
+                                    gtxwhat(analysis1 = analysis),
+                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
+                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)),
+                            uniq = FALSE)
     }
+    
+    if ('ld' %in% style) {
+        # merge with LD information in userspace code since we need to
+        # pull the p-values first to find the top hit or otherwise chosen one
+        
+        # if (!missing(pos)) or (!missing(rs)) 
+        # then look up LD with the chosen variant instead of the top one
+        pval1 <- pvals[which.min(pvals$pval), c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+        pval1$r <- 1
+        gtxlog('Querying pairwise LD with chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt)
+        ld1 <- sqlWrapper(dbc, 
+                          sprintf('SELECT chrom2 AS chrom, pos2 AS pos, ref2 AS ref, alt2 AS alt, r FROM ld
+                                   WHERE chrom1=\'%s\' AND pos1=%s AND ref1=\'%s\' AND alt1=\'%s\';',
+                                  pval1$chrom, pval1$pos, pval1$ref, pval1$alt), # should we sanitize
+                          uniq = FALSE)
+        pvals <- merge(pvals, rbind(pval1, ld1), all.x = TRUE, all.y = FALSE)
+    }
+    
     pvals <- pvals[order(pvals$pval), ]
     return(list(region = xregion, analysis = analysis, entity = xentity, pvals = pvals))
 }
