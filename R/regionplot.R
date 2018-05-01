@@ -7,6 +7,7 @@ regionplot <- function(analysis,
                        entity, 
                        style = 'signals', 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot
+                       highlight_style = 'circle', 
                        maf_ge, rsq_ge, 
                        dbc = getOption("gtx.dbConnection", NULL)) {
   # check database connection
@@ -143,7 +144,7 @@ regionplot <- function(analysis,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
-    if (nrow(gp) > 0) with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
+    regionplot.highlight(gp, highlight_style = highlight_style)
   }
   if ('ld' %in% style) {
     regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
@@ -156,22 +157,23 @@ regionplot <- function(analysis,
     pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## current db format means r<0.01 is not included in table, hence substitute missing with zero
     pvals$r[is.na(pvals$r)] <- 0.
+    pvals$alpha <- .5 + .25*pvals$r^2 # currently use a single alpha for col and bg for coding and noncoding, so precalculate
     with(pvals, regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21),
-                                  col = ifelse(!is.na(impact), rgb(0, 0, 0, .75), rgb(.33, .33, .33, .5)),
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 0, alpha), rgb(.33, .33, .33, alpha)),
                                   bg = ifelse(!is.na(impact), 
-                                              rgb((1 - r^2)*.67, (1 - r^2)*.67, .33*r^2 + .67, alpha = .75),
-                                              rgb(.33*r^2 + .67, (1 - r^2)*.67, (1 - r^2)*.67, alpha = .5))))
-    if (nrow(gp) > 0) with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))
+                                              rgb((1 - r^2)*.67, (1 - r^2)*.67, .33*r^2 + .67, alpha),
+                                              rgb(.33*r^2 + .67, (1 - r^2)*.67, (1 - r^2)*.67, alpha))))
     ## (re)draw the index variant for pairwise LD over the top, in larger size and with no transparency
     with(merge(attr(pvals, "index_ld"), pvals), 
          regionplot.points(pos, pval, 
                            cex = 1.25, 
                            pch = ifelse(!is.na(impact), 23, 21),
-                           col = ifelse(!is.na(impact), rgb(0, 0, 0, 1), rgb(.33, .33, .33, 1)),
+                           col = ifelse(!is.na(impact), rgb(0, 0, 0, alpha = 1), rgb(.33, .33, .33, alpha = 1)),
                            bg = ifelse(!is.na(impact), 
                                        rgb(0, 0, 1, alpha = 1),
                                        rgb(1, 0, 0, alpha = 1))))
+    regionplot.highlight(gp, highlight_style = highlight_style)
   }  
   if ('signals' %in% style) {
     regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
@@ -188,7 +190,7 @@ regionplot <- function(analysis,
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
-    if (nrow(gp) > 0) with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
+    regionplot.highlight(gp, highlight_style = highlight_style)
   } 
 
   return(invisible(NULL))
@@ -269,7 +271,9 @@ regionplot.data <- function(analysis,
                        sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
                                gtxwhere(chrom = chrom, rs = rs)),
                         uniq = FALSE, zrok = TRUE)
-          pval1 <- merge(pvals, qrs) # default is all.x = FALSE, all.y = FALSE
+          # use merge as a way to subset on match by all of chrom/pos/ref/alt
+          # note default merge is all.x = FALSE, all.y = FALSE
+          pval1 <- merge(pvals, qrs)[ , c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
           if (identical(nrow(pval1), 1L)) {
             pval1$r <- 1
             gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
@@ -432,6 +436,25 @@ regionplot.points <- function(pos, pval,
     return(FALSE)
   }
   return(TRUE)
+}
+
+regionplot.highlight <- function(pvals, highlight_style) {
+    stopifnot(is.data.frame(pvals))
+    if (all(c('pos', 'pval') %in% names(pvals))) {
+        pvals <- subset(pvals, !is.na(pos) & !is.na(pval))
+        if (nrow(pvals) > 0) {
+            if ('circle' %in% highlight_style) {
+                regionplot.points(pvals$pos, pvals$pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75))
+            }
+            if ('pos' %in% highlight_style) {
+                text(pvals$pos, -log10(pvals$pval), pvals$pos, pos = 3, cex = 0.5)
+            }
+            ## in future will add options if 'rs' %in% highlight_style etc.
+        }
+    } else {
+        # silently do nothing, e.g. if pvals==data.frame(NULL)
+    }
+    return(invisible(NULL))
 }
 
 regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5, 
