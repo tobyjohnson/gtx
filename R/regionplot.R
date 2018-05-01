@@ -111,71 +111,76 @@ regionplot <- function(analysis,
 	  } else {
 	      sprintf('%s, n=?', pdesc$label[1])
   	  }
-  if (!is.null(xentity)) main <- paste(xentity$entity_label, main) ## !!!! BREAKS PREVIOUS ATTR() IDEA...!!!!
+  if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
   ## in future we may need to pass maf_lt and rsq_lt as well  
   fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
-  
-  regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+
+  ## Highlight index SNP(s) if pos or rs argument was used
+  gp <- data.frame(NULL)
+  if (!missing(pos)) {
+      ## funny syntax to avoid subset(pvals, pos=pos)
+      gp <- rbind(gp, pvals[pvals$pos %in% pos, c('pos', 'pval')])
+  }
+  if (!missing(rs)) {
+      # query this rs id
+      qrs <- sqlWrapper(dbc,
+                       sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
+                               gtxwhere(chrom = chrom, rs = rs)),
+                        uniq = FALSE, zrok = TRUE)
+      gp <- rbind(gp, merge(pvals, qrs, all.x = FALSE, all.y = TRUE)[ , c('pos', 'pval')])
+  }
+
+  if ('classic' %in% style) {
+    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
-                                       
-  if (identical(style, 'classic')) {
     ## best order for plotting
-    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## Plot all variants with VEP annotation as blue diamonds in top layer
+    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     with(pvals, regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
-  } else if (identical(style, 'ld')) {
+    with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
+  }
+  if ('ld' %in% style) {
+    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+                 pmin = pmin, 
+                 main = main, fdesc = fdesc, 
+                 protein_coding_only = protein_coding_only, 
+                 dbc = dbc)
     ## best order for plotting
-    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## Plot variants shaded by LD
+    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## current db format means r<0.01 is not included in table, hence substitute missing with zero
     pvals$r[is.na(pvals$r)] <- 0.
     with(pvals, regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(impact), 
-                                              rgb((1 - r^2)*171, (1 - r^2)*171, 84*r^2 + 171, alpha = 255, maxColorValue = 255),
-                                              rgb(84*r^2 + 171, (1 - r^2)*171, (1 - r^2)*171, alpha = 255, maxColorValue = 255))))
-  } else if (identical(style, 'signals')) {
+                                              rgb((1 - r^2)*.67, (1 - r^2)*.67, .33*r^2 + .67, alpha = .75),
+                                              rgb(.33*r^2 + .67, (1 - r^2)*.67, (1 - r^2)*.67, alpha = .5))))
+    with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))
+  }  
+  if ('signals' %in% style) {
+    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+                 pmin = pmin, 
+                 main = main, fdesc = fdesc, 
+                 protein_coding_only = protein_coding_only, 
+                 dbc = dbc)
     ## best order for plotting
-    pvals <- pvals[order(!is.na(pvals$impact), pvals$posterior), ]
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
+    pvals <- pvals[order(!is.na(pvals$impact), pvals$posterior), ]
     with(pvals, regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21), 
                                   cex = ifelse(c95, 1.25, .75), bg=colour, 
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
-  } else {
-    stop('style ', style, ' not recognised')
+    with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
   } 
-
-  ## Highlight index SNP if pos or rs argument was used
-  if (!missing(pos)) {
-      ## funny workaround to avoid subset(pvals, pos=pos)
-      ## means highlight won't work if the site is in gwas_results but not in sites
-      gp <- sqlWrapper(dbc,
-                       sprintf('SELECT chrom, pos FROM sites WHERE %s;',
-                               gtxwhere(chrom = chrom, pos = pos)),
-                       uniq = FALSE) # how to handle multiple sites at same pos?
-      with(subset(pvals, pos == gp$pos),
-           regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
-  }
-  if (!missing(rs)) {
-      gp <- sqlWrapper(dbc,
-                       sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
-                               gtxwhere(chrom = chrom, rs = rs))) # default uniq = TRUE
-      # note gtxwhere() with combination of chrom and rs will cause sqlWrapper error if index site not on this chrom
-      if (gp$chrom == chrom) {
-          with(subset(pvals, pos == gp$pos & ref == as.character(gp$ref) & alt == as.character(gp$alt)),
-               regionplot.points(pos, pval, pch = 1, cex = 2, col = "black"))
-      }
-  }
 
   return(invisible(NULL))
 }
