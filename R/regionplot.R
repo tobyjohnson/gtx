@@ -143,7 +143,7 @@ regionplot <- function(analysis,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
-    with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
+    if (nrow(gp) > 0) with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
   }
   if ('ld' %in% style) {
     regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
@@ -162,7 +162,16 @@ regionplot <- function(analysis,
                                   bg = ifelse(!is.na(impact), 
                                               rgb((1 - r^2)*.67, (1 - r^2)*.67, .33*r^2 + .67, alpha = .75),
                                               rgb(.33*r^2 + .67, (1 - r^2)*.67, (1 - r^2)*.67, alpha = .5))))
-    with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))
+    if (nrow(gp) > 0) with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))
+    ## (re)draw the index variant for pairwise LD over the top, in larger size and with no transparency
+    with(merge(attr(pvals, "index_ld"), pvals), 
+         regionplot.points(pos, pval, 
+                           cex = 1.25, 
+                           pch = ifelse(!is.na(impact), 23, 21),
+                           col = ifelse(!is.na(impact), rgb(0, 0, 0, 1), rgb(.33, .33, .33, 1)),
+                           bg = ifelse(!is.na(impact), 
+                                       rgb(0, 0, 1, alpha = 1),
+                                       rgb(1, 0, 0, alpha = 1))))
   }  
   if ('signals' %in% style) {
     regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
@@ -179,7 +188,7 @@ regionplot <- function(analysis,
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
     # legend indicating signals
     if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
-    with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
+    if (nrow(gp) > 0) with(gp, regionplot.points(pos, pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75)))                                  
   } 
 
   return(invisible(NULL))
@@ -232,25 +241,65 @@ regionplot.data <- function(analysis,
                             uniq = FALSE)
     }
     
+    # sort by increasing pval
+    pvals <- pvals[order(pvals$pval), ]
+    
     if ('ld' %in% style) {
         # merge with LD information in userspace code since we need to
-        # pull the p-values first to find the top hit or otherwise chosen one
+        # pull the p-values first to find the top hit or otherwise chosen variant
         
-        # if (!missing(pos)) or (!missing(rs)) 
-        # then look up LD with the chosen variant instead of the top one
-        pval1 <- pvals[which.min(pvals$pval), c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
-        pval1$r <- 1
-        gtxlog('Querying pairwise LD with chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt)
+        pval1 <- NULL # store chrom/pos/ref/alt of the index variant
+        if (!missing(pos)) {
+          ## funny syntax to avoid subset(pvals, pos %in% pos)
+          pval1 <- pvals[pvals$pos %in% pos, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          if (identical(nrow(pval1), 1L)) {
+            pval1$r <- 1
+            gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
+                   ' (selected by pos argument)')
+          } else {
+            gtxlog('Skipping pos argument [ ', paste(pos, collapse = ', '), 
+                   ' ] for pairwise LD index selection because matches ',
+                   nrow(pval1), ' variants')
+            pval1 <- NULL
+          }
+        }
+        if (is.null(pval1) && !missing(rs)) {
+          # query this rs id
+          qrs <- sqlWrapper(dbc,
+                       sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
+                               gtxwhere(chrom = chrom, rs = rs)),
+                        uniq = FALSE, zrok = TRUE)
+          pval1 <- merge(pvals, qrs) # default is all.x = FALSE, all.y = FALSE
+          if (identical(nrow(pval1), 1L)) {
+            pval1$r <- 1
+            gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
+                   ' (selected by rs argument)')
+          } else {
+            gtxlog('Skipping rs argument [ ', paste(rs, collapse = ', '), 
+                   ' ] for pairwise LD index selection because matches ',
+                   nrow(pval1), ' variants')
+            pval1 <- NULL
+          }
+        }
+        if (is.null(pval1)) {
+          pval1 <- pvals[which.min(pvals$pval), c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          pval1$r <- 1
+          gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt,
+                 ' (selected by smallest pval)')
+        }
+        stopifnot(identical(nrow(pval1), 1L))
         ld1 <- sqlWrapper(dbc, 
                           sprintf('SELECT chrom2 AS chrom, pos2 AS pos, ref2 AS ref, alt2 AS alt, r FROM ld
                                    WHERE chrom1=\'%s\' AND pos1=%s AND ref1=\'%s\' AND alt1=\'%s\';',
                                   pval1$chrom, pval1$pos, pval1$ref, pval1$alt), # should we sanitize
                           uniq = FALSE)
         pvals <- merge(pvals, rbind(pval1, ld1), all.x = TRUE, all.y = FALSE)
+        # sort by decreasing r^2 (will be resorted for plotting, so makes 
+        # a .data() call work as a useful proxy search
+        pvals <- pvals[order(pvals$r^2, decreasing = TRUE), ]
+        attr(pvals, 'index_ld') <- pval1
     }
     
-    pvals <- pvals[order(pvals$pval), ]
-
     attr(pvals, 'analysis') <- analysis
     attr(pvals, 'region') <- xregion
     attr(pvals, 'entity') <- xentity
