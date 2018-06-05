@@ -2,15 +2,15 @@
 ## and make this file all non-gtx-specific SQL sanitation functions
 
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALSE) {
-  if (! 'RODBC' %in% class(dbc)) stop('dbc does not appear to be a database connection (not of class RODBC)')
-  dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+  if (! 'Impala' %in% class(dbc)) stop('dbc does not appear to be an Impala connection (not of class Impala)')
+  dbs <- dbGetQuery(dbc, 'SHOW DATABASES;')
   if (!is.data.frame(dbs)) stop('dbc does not appear to be an open database connection (SHOW DATABASES did not return a dataframe)')
-  tables <- sqlQuery(dbc, 'SHOW TABLES;')
+  tables <- dbGetQuery(dbc, 'SHOW TABLES;')
   if (!is.data.frame(tables)) stop('dbc does not appear to be an open database connection (SHOW TABLES did not return a dataframe)')
   ## could add other checks for existence and schema of the tables present
   if (verbose) {
     if ('analyses' %in% tables$name) {
-      res <- sqlQuery(dbc, 'SELECT count(1) AS n FROM analyses')
+      res <- dbGetQuery(dbc, 'SELECT count(1) AS n FROM analyses')
       if (is.data.frame(res)) {
         message('TABLE analyses: ', prettyNum(res$n, big.mark = ',', scientific = FALSE), ' records')
       } else {
@@ -19,14 +19,14 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALS
     } else {
       stop('dbc does not provide TABLE analyses')
     }
-    res <- sqlQuery(dbc, 'SELECT DISTINCT results_db FROM ANALYSES')
+    res <- dbGetQuery(dbc, 'SELECT DISTINCT results_db FROM ANALYSES')
     if (is.data.frame(res)) {
       res1 <- sanitize(res$results_db, type = 'alphanum')
       res1a <- res1 %in% dbs$name # identify whether user has access
       message('TABLE analyses: gwas_results in databases: ', 
               paste(res1, ifelse(res1a, '[OK]', '[no access]'), collapse = ', '))
       for (results_db in res1[res1a]) { 
-        res2 <- sqlQuery(dbc, sprintf('SELECT count(1) AS n FROM %s.gwas_results', results_db))
+        res2 <- dbGetQuery(dbc, sprintf('SELECT count(1) AS n FROM %s.gwas_results', results_db))
         if (is.data.frame(res2)) {
           message('TABLE ', results_db, '.gwas_results: ', prettyNum(res2$n, big.mark = ',', scientific = FALSE), ' records')
         } else {
@@ -51,7 +51,7 @@ gtxanalysisdb <- function(analysis,
                           resolve = TRUE,
                           dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
-    dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+    dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
     if (resolve) {
         res <- sqlWrapper(dbc,
                           sprintf('SELECT results_db FROM analyses WHERE %s;',
@@ -216,8 +216,8 @@ sanitize1 <- function(x, values, type) {
 sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL RODBC usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
-    if (! 'RODBC' %in% class(dbc)) stop('dbc does not appear to be a database connection (not of class RODBC)')
-    res <- sqlQuery(dbc, sql, as.is = TRUE)
+    if (! 'Impala' %in% class(dbc)) stop('dbc does not appear to be an Impala connection (not of class Impala)')
+    res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
             if (zrok) return(res)

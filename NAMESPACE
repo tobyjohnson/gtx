@@ -59,7 +59,7 @@ export(pcaplot)
 ## pgx.R
 export(grade, binarise, pgx.trtreat, pgx.exposure, pgx.endpoints)
 ## phewas.R
-export(phewas.qq, phewas.data)
+export(phewas, phewas.qq, phewas.data)
 ## pipeline.R
 export(gtxpipe)
 ## pipeline.postanalysis.R

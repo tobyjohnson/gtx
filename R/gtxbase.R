@@ -358,12 +358,11 @@ gtxanalyses <- function(analysis, analysis_not,
                         ## if extra filters are added, be sure to update definition of all_analyses below
                         analysis_fields = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
-                        tag_is,
-                        with_tags = FALSE,
+                        tag_is, with_tags = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
-    dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+    dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
 
     ## sanitize and check desired analysis_fields, create sanitized string for SQL
     acols <- names(sqlWrapper(dbc, 'SELECT * FROM analyses LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
@@ -401,8 +400,11 @@ gtxanalyses <- function(analysis, analysis_not,
         res <- sqlWrapper(dbc,
                           sprintf('SELECT %s %s FROM analyses %s',
                                   analysis_fields,
-                                  if (with_tags) ', analyses_tags.tag' else '',
-                                  if (with_tags) sprintf('LEFT JOIN analyses_tags USING (analysis) WHERE %s', tag_is) else ''),
+                                  if (with_tags) ', t1.tag' else '',
+                                  if (with_tags) sprintf('LEFT JOIN (SELECT analysis, tag FROM analyses_tags WHERE %s) AS t1 USING (analysis)', tag_is) else ''),
+                                  ## This LEFT JOIN does not work as expected when tag_is is used
+                                  ## because, logically, the left join happens BEFORE the WHERE clause is applied
+                                  ## need the tag_is as a subquery because ... EXPLAIN
                           uniq = FALSE)
     } else {
         res <- sqlWrapper(dbc,
@@ -472,6 +474,9 @@ gtxregion <- function(chrom, pos_start, pos_end,
   return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end))
 }
 
+gtxregion.gr <- function(gtxregion.ls) {
+	makeGRangesFromDataFrame(gtxregion.ls)
+}
 
 ## infer the entity id according to the type required for the analysis
 gtxentity <- function(analysis, entity, hgncid, ensemblid, 
