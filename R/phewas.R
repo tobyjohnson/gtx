@@ -120,7 +120,7 @@ phewas.data <- function(chrom, pos, rs,
                                sanitize1(v1$pos, type = "int"),
                                sanitize1(v1$ref, type = "ACGT+"),
                                sanitize1(v1$alt, type = "ACGT+")),
-                       uniq = FALSE)
+                       uniq = FALSE, zrok = TRUE)
         }))
     } else {
         res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
@@ -133,7 +133,7 @@ phewas.data <- function(chrom, pos, rs,
                                sanitize1(v1$pos, type = "int"),
                                sanitize1(v1$ref, type = "ACGT+"),
                                sanitize1(v1$alt, type = "ACGT+")),
-                       uniq = FALSE)
+                       uniq = FALSE, zrok = TRUE)
         }))
     }
     ## Merge results of phewas query with metadata about analyses
