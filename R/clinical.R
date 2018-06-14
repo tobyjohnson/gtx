@@ -36,7 +36,7 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
         ## Date conversion, by grepping for SAS export format for dates.
         ## Alternatively, could try as.Date and convert only if results are (all) non-missing
         if (convert.Date && all(grepl("^[0-9]{2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[0-9]{4}$", na.omit(tmp[[colidx]])))) {
-          ## if (verbose) message(colidx, "Y/N converted to logical") # is very verbose
+          ## if (verbose) message(colidx, " Y/N converted to logical") # is very verbose
           tmp[[colidx]] <- as.Date(tmp[[colidx]], "%d%b%Y")
         }
       }
