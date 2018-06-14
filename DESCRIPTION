@@ -12,7 +12,8 @@ Imports:
 Depends:
     RODBC,data.table,dplyr
 Suggests:
-    knitr,RSQLite
+    knitr,RSQLite,
+    testthat
 VignetteBuilder: knitr
 License: GPL (>= 3)
 Description: A fork of the gtx package, which has been streamlined to 
@@ -20,4 +21,3 @@ Description: A fork of the gtx package, which has been streamlined to
 	statistics are available via SQL queries against a database.
 URL: https://cran.r-project.org/web/packages/gtx/index.html, 
 	https://github.com/tobyjohnson/gtx
-
