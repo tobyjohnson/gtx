@@ -22,12 +22,6 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
       tmp[[usubjid]] <- as.character(tmp[[usubjid]])
       ## Other than usubjid, all character columns are factors
       for (colidx in names(which(sapply(tmp, class) == "factor"))) {
-        ## If any levels have latin-9 encoding (aka ISO-8859-15) which seems to be
-        ## the default for SAS PROC EXPORT, convert to UTF-8 and label as such
-        if (any(Encoding(iconv(levels(tmp[[colidx]]), to = "UTF-8", from = "latin-9")) == "UTF-8")) {
-          levels(tmp[[colidx]]) <- iconv(levels(tmp[[colidx]]), to = "UTF-8", from = "latin-9")
-          ## if (verbose) message(colidx, " converted latin-9 to UTF-8") # is very verbose
-        }
         ## Replace empty strings with NA
         ev <- which(tmp[[colidx]] == "")
         if (length(ev) > 0) {
@@ -42,7 +36,7 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
         ## Date conversion, by grepping for SAS export format for dates.
         ## Alternatively, could try as.Date and convert only if results are (all) non-missing
         if (convert.Date && all(grepl("^[0-9]{2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[0-9]{4}$", na.omit(tmp[[colidx]])))) {
-          ## if (verbose) message(colidx, " converted to dates") # is very verbose
+          ## if (verbose) message(colidx, "Y/N converted to logical") # is very verbose
           tmp[[colidx]] <- as.Date(tmp[[colidx]], "%d%b%Y")
         }
       }
