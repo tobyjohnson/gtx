@@ -14,6 +14,6 @@ test_that("Zhernakova analysis entry exists", {
 	
 
 test_that("IPSDSN analysis entry exists ", {
-  expect_equal(nrow(gtxanalyses("eqtl_gene_blood_ipsdsn")), 1)
+  expect_equal(nrow(gtxanalyses("eqtl_blood_ipsdsn")), 1)
 })
 		
