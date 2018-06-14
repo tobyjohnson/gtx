@@ -17,7 +17,7 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"),
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
-    RODBC,data.table,dplyr,tidyr
+    RODBC,data.table,dplyr
 Suggests:
     knitr,RSQLite,
     testthat
