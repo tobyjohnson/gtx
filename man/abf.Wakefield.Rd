@@ -19,11 +19,6 @@ abf.Wakefield(beta, se, priorsd, log = FALSE)
 A vector of approximate Bayes factors, on a log scale if
  \code{log=TRUE}.  Higher values indicate stronger support for
  association (which is inverted relative to the original definition).
-
-
- See \dQuote{Bayes factors for genome-wide association studies:
-   comparison with P-values} by John Wakefield, 2009, Genetic
- Epidemiology 33(1):79-86 at \url{http://dx.doi.org/10.1002/gepi.20359}.
 }
 \description{
 Calculates an approximation to the Bayes factor for an alternative
@@ -43,6 +38,10 @@ For strong associations, calculating Bayes factors may be numerically
 unstable, and it is recommended to work on a log scale and rescale
 appropriately before attempting to calculate Bayes factors or
 posterior probabilities.
+
+See \dQuote{Bayes factors for genome-wide association studies:
+  comparison with P-values} by John Wakefield, 2009, Genetic
+Epidemiology 33(1):79-86 at \url{http://dx.doi.org/10.1002/gepi.20359}.
 }
 \examples{
   data(agtstats)
