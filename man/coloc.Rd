@@ -2,7 +2,7 @@
 % Please edit documentation in R/coloc.R
 \name{coloc}
 \alias{coloc}
-\title{coloc}
+\title{Colocalization analysis.}
 \usage{
 coloc(analysis1, analysis2, chrom, pos_start, pos_end, pos, hgncid, ensemblid,
   rs, surround = 5e+05, entity, entity1, entity2, style = "Z",

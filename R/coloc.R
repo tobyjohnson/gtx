@@ -47,7 +47,7 @@ coloc.fast <- function(beta1, se1, beta2, se2,
 
 #'
 #'
-#' coloc
+#' Colocalization analysis.
 #'
 #' Colocalization analysis.
 #'
