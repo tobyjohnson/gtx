@@ -118,7 +118,7 @@ coloc.fast <- function(beta1, se1, beta2, se2,
 #'  colocalization analysis, see \code{\link{coloc.fast}} for details.
 #'  The plot is generated as a side effect.
 #'
-#' @author Toby Johnson
+#' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
 
 coloc <- function(analysis1, analysis2,
                   chrom, pos_start, pos_end, pos, 

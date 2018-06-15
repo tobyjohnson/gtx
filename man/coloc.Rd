@@ -93,5 +93,5 @@ size) statistics for the two analyses, or \sQuote{none} to suppress
 plotting altogether.
 }
 \author{
-Toby Johnson
+Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }
