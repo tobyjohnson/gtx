@@ -141,8 +141,8 @@ coloc <- function(analysis1, analysis2,
       with(res, {
           plot(beta1/se1,
                beta2/se2,
-               xlim = range(c(0, beta1/se1)),
-               ylim = range(c(0, beta2/se2)), # forces (0,0) to be included in plot
+               xlim = range(c(0, beta1/se1), na.rm = TRUE),
+               ylim = range(c(0, beta2/se2), na.rm = TRUE), # forces (0,0) to be included in plot
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
 	  abline(h = 0)
@@ -156,8 +156,8 @@ coloc <- function(analysis1, analysis2,
       with(res, {
           plot(flip*beta1/se1,
                flip*beta2/se2,
-               xlim = c(0, max(flip*beta1/se1)),
-               ylim = range(c(0, flip*beta2/se2)), 
+               xlim = c(0, max(flip*beta1/se1, na.rm = TRUE)),
+               ylim = range(c(0, flip*beta2/se2), na.rm = TRUE), 
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
@@ -169,8 +169,8 @@ coloc <- function(analysis1, analysis2,
       with(res, {
           plot(beta1,
                beta2,
-               xlim = range(c(0, beta1)),
-               ylim = range(c(0, beta2)), # forces (0,0) to be included in plot
+               xlim = range(c(0, beta1), na.rm = TRUE),
+               ylim = range(c(0, beta2), na.rm = TRUE), # forces (0,0) to be included in plot
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
 	  abline(h = 0)
@@ -184,8 +184,8 @@ coloc <- function(analysis1, analysis2,
       with(res, {
           plot(flip*beta1,
                flip*beta2,
-               xlim = c(0, max(flip*beta1)),
-               ylim = range(c(0, flip*beta2)), 
+               xlim = c(0, max(flip*beta1, na.rm = TRUE)),
+               ylim = range(c(0, flip*beta2), na.rm = TRUE), 
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
