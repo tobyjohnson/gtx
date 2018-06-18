@@ -107,11 +107,6 @@ coloc <- function(analysis1, analysis2,
                   dbc = getOption("gtx.dbConnection", NULL), ...) {
   gtxdbcheck(dbc)
 
-  ## query analysis labels before variant summary stats,
-  ## because this is a quicker way to fail if the analyses do not exist
-  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = xentity1, nlabel = FALSE)
-  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = xentity2, nlabel = FALSE)
-
   ## query variant-level summary stats
   res <- coloc.data(analysis1 = analysis1, analysis2 = analysis2,
                     chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos,
@@ -120,14 +115,34 @@ coloc <- function(analysis1, analysis2,
                     dbc = dbc)  
   gtxlog('coloc.data query returned ', nrow(res), ' rows')
 
+  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = attr(res, 'entity1'), nlabel = FALSE)
+  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), nlabel = FALSE)
+  
   ## compute coloc probabilities
   resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
 
-  if (identical(style, 'Z')) {
-      ## would like to draw one sided plot, but unclear what to do when sign(beta1)==0. HMMMM FIXME
+  if ('Z' %in% style || 'Z1' %in% style) {
+      # compute Z statistics if needed for plots
+      res <- within(res, { z1 <- beta1/se1 ; z2 <- beta2/se2 })
+  }
+  if ('beta1' %in% style || 'Z1' %in% style) {
+      # prepare for sign flipping if needed for half-scatter plots
+      bs = sign(res$beta)
+      bz = which(bs == 0L)
+      if (length(bz) > 0) {
+          warning('Randomly flipping signs of beta2 for ', length(bz), ' variant(s) with beta1==0.')
+          bs[bz] <- ifelse(runif(length(bz)) < 0.5, -1L, 1L)
+      }
+      stopifnot(all(bs == -1L | bs == 1L))
+      res$flip <- bs
+  }
+  
+  if ('Z' %in% style) {
       with(res, {
           plot(beta1/se1,
                beta2/se2,
+               xlim = range(c(0, beta1/se1)),
+               ylim = range(c(0, beta2/se2)), # forces (0,0) to be included in plot
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
 	  abline(h = 0)
@@ -135,13 +150,27 @@ coloc <- function(analysis1, analysis2,
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association Z score'),
                     ylab = paste(pdesc2, 'association Z score'))
-	  mtext(paste0('colocalization at chr', chrom, ':', pos_start, '-', pos_end), 3, 3)
+	  mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
       })
-  } else if (identical(style, 'beta')) {
-      ## would like to draw one sided plot, but unclear what to do when sign(beta1)==0. HMMMM FIXME
+  } else if ('Z1' %in% style) {
+      with(res, {
+          plot(flip*beta1/se1,
+               flip*beta2/se2,
+               xlim = c(0, max(flip*beta1/se1)),
+               ylim = range(c(0, flip*beta2/se2)), 
+               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               ann = FALSE)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+                    xlab = paste(pdesc1, 'association Z score'),
+                    ylab = paste(pdesc2, 'association Z score'))
+	  mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
+      })
+  } else if ('beta' %in% style) {
       with(res, {
           plot(beta1,
                beta2,
+               xlim = range(c(0, beta1)),
+               ylim = range(c(0, beta2)), # forces (0,0) to be included in plot
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
 	  abline(h = 0)
@@ -149,15 +178,24 @@ coloc <- function(analysis1, analysis2,
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association effect size'),
                     ylab = paste(pdesc2, 'association effect size'))
-	  mtext(paste0('colocalization at chr', chrom, ':', pos_start, '-', pos_end), 3, 3)
+          mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
       })
-  } else if (identical(style, 'none')) {
-      # do not draw plot
-  } else {
-      stop('Unrecognized style; must be Z, beta, or none')
+  } else if ('beta1' %in% style) {
+      with(res, {
+          plot(flip*beta1,
+               flip*beta2,
+               xlim = c(0, max(flip*beta1)),
+               ylim = range(c(0, flip*beta2)), 
+               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               ann = FALSE)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+                    xlab = paste(pdesc1, 'association effect size'),
+                    ylab = paste(pdesc2, 'association effect size'))
+          mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
+      })
   }
 
-  return(resc)
+  return(resc) # in future, will return invisible res with resc as an attribute
 }
 
 
