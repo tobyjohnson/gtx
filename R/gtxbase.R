@@ -350,7 +350,8 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 ## function to return pretty printing label for an analysis
 ## analysis is the analysis id
 ## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
-gtxanalysis_label <- function(analysis, entity, nlabel = TRUE) {
+gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
+                              dbc = getOption("gtx.dbConnection", NULL)) {
     ares <- sqlWrapper(dbc,
                        sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
                                gtxwhat(analysis1 = analysis)))

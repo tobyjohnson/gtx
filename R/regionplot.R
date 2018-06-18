@@ -102,7 +102,7 @@ regionplot <- function(analysis,
   pvals <- within(pvals, impact[impact == ''] <- NA)
   pmin <- min(pvals$pval)
 
-  main <- gtxanalysis_label(analysis = analysis, entity = xentity, nlabel = TRUE)
+  main <- gtxanalysis_label(analysis = analysis, entity = xentity, nlabel = TRUE, dbc = dbc)
   ## in future we may need to pass maf_lt and rsq_lt as well  
   fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
 

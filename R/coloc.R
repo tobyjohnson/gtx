@@ -115,8 +115,8 @@ coloc <- function(analysis1, analysis2,
                     dbc = dbc)  
   gtxlog('coloc.data query returned ', nrow(res), ' rows')
 
-  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = attr(res, 'entity1'), nlabel = FALSE)
-  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), nlabel = FALSE)
+  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = attr(res, 'entity1'), nlabel = FALSE, dbc = dbc)
+  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), nlabel = FALSE, dbc = dbc)
   
   ## compute coloc probabilities
   resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
