@@ -41,13 +41,10 @@ coloc.fast <- function(beta1, se1, beta2, se2,
 ## Sanitation for required length 1
 ## Wrapper for SQL queries that must return data frame of 1 or >=1 rows
 
-
-
-coloc <- function(analysis1, analysis2,
+coloc.data <- function(analysis1, analysis2,
                   chrom, pos_start, pos_end, pos, 
                   hgncid, ensemblid, rs, surround = 500000,
                   entity, entity1, entity2,
-                  style = 'Z', 
                   dbc = getOption("gtx.dbConnection", NULL), ...) {
   gtxdbcheck(dbc)
 
@@ -55,9 +52,6 @@ coloc <- function(analysis1, analysis2,
   xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                        hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
                        dbc = dbc)
-  chrom = xregion$chrom
-  pos_start = xregion$pos_start
-  pos_end = xregion$pos_end
 
   ## substitute generic entity for entity1 and entity2 if needed
   if (missing(entity1) && !missing(entity)) entity1 <- entity
@@ -89,28 +83,46 @@ coloc <- function(analysis1, analysis2,
                                  USING (chrom, pos, ref, alt);',
                             gtxanalysisdb(analysis1), 
                             gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
-                            gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end),
+                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
                             if (!is.null(xentity1)) sprintf(' AND feature=\'%s\'', xentity1$entity) else '', # FIXME will change to entity
                             gtxanalysisdb(analysis2), 
-                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis
-                            gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end),
+                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis, different to arguments analysis1 and analysis2
+                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
                             if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
                             ),
                     uniq = FALSE) # expect >=1 rows
 
-  gtxlog('coloc query returned ', nrow(res), ' rows')
+  attr(res, 'region') <- xregion
+  attr(res, 'entity1') <- xentity1
+  attr(res, 'entity2') <- xentity2  
 
+  return(res)
+}
+  
+coloc <- function(analysis1, analysis2,
+                  chrom, pos_start, pos_end, pos, 
+                  hgncid, ensemblid, rs, surround = 500000,
+                  entity, entity1, entity2,
+                  style = 'Z', 
+                  dbc = getOption("gtx.dbConnection", NULL), ...) {
+  gtxdbcheck(dbc)
+
+  ## query analysis labels before variant summary stats,
+  ## because this is a quicker way to fail if the analyses do not exist
+  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = xentity1, nlabel = FALSE)
+  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = xentity2, nlabel = FALSE)
+
+  ## query variant-level summary stats
+  res <- coloc.data(analysis1 = analysis1, analysis2 = analysis2,
+                    chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos,
+                    hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                    entity = entity, entity1 = entity1, entity2 = entity2,
+                    dbc = dbc)  
+  gtxlog('coloc.data query returned ', nrow(res), ' rows')
+
+  ## compute coloc probabilities
   resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
 
-  pdesc1 <- sqlWrapper(dbc,
-                       sprintf('SELECT label FROM analyses WHERE analysis = \'%s\';',
-                               sanitize(analysis1, type = 'alphanum')))$label
-  if (!is.null(xentity1)) pdesc1 <- paste(xentity1$entity_label, pdesc1)
-  pdesc2 <- sqlWrapper(dbc,
-                       sprintf('SELECT label FROM analyses WHERE analysis = \'%s\';',
-                               sanitize(analysis2, type = 'alphanum')))$label
-  if (!is.null(xentity2)) pdesc2 <- paste(xentity2$entity_label, pdesc2)
- 
   if (identical(style, 'Z')) {
       ## would like to draw one sided plot, but unclear what to do when sign(beta1)==0. HMMMM FIXME
       with(res, {
@@ -147,6 +159,7 @@ coloc <- function(analysis1, analysis2,
 
   return(resc)
 }
+
 
 ## analysis1 must have entities, analysis2 must not
 ## note that surround=0 is a sensible default because
