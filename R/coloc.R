@@ -160,6 +160,8 @@ coloc <- function(analysis1, analysis2,
                ylim = range(c(0, flip*beta2/se2), na.rm = TRUE), 
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association Z score'),
                     ylab = paste(pdesc2, 'association Z score'))
@@ -188,6 +190,8 @@ coloc <- function(analysis1, analysis2,
                ylim = range(c(0, flip*beta2), na.rm = TRUE), 
                pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
                ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
           mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association effect size'),
                     ylab = paste(pdesc2, 'association effect size'))
