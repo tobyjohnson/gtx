@@ -152,7 +152,8 @@ coloc <- function(analysis1, analysis2,
                     ylab = paste(pdesc2, 'association Z score'))
 	  mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
       })
-  } else if ('Z1' %in% style) {
+  }
+  if ('Z1' %in% style) {
       with(res, {
           plot(flip*beta1/se1,
                flip*beta2/se2,
@@ -167,7 +168,8 @@ coloc <- function(analysis1, analysis2,
                     ylab = paste(pdesc2, 'association Z score'))
 	  mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
       })
-  } else if ('beta' %in% style) {
+  }
+  if ('beta' %in% style) {
       with(res, {
           plot(beta1,
                beta2,
@@ -182,7 +184,8 @@ coloc <- function(analysis1, analysis2,
                     ylab = paste(pdesc2, 'association effect size'))
           mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
       })
-  } else if ('beta1' %in% style) {
+  }
+  if ('beta1' %in% style) {
       with(res, {
           plot(flip*beta1,
                flip*beta2,
