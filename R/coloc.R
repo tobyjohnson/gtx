@@ -127,7 +127,7 @@ coloc <- function(analysis1, analysis2,
   }
   if ('beta1' %in% style || 'Z1' %in% style) {
       # prepare for sign flipping if needed for half-scatter plots
-      bs = sign(res$beta)
+      bs = sign(res$beta1)
       bz = which(bs == 0L)
       if (length(bz) > 0) {
           warning('Randomly flipping signs of beta2 for ', length(bz), ' variant(s) with beta1==0.')
