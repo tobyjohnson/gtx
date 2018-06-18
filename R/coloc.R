@@ -119,6 +119,7 @@ coloc.fast <- function(beta1, se1, beta2, se2,
 #'  The plot is generated as a side effect.
 #'
 #' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
+#' @export
 
 coloc <- function(analysis1, analysis2,
                   chrom, pos_start, pos_end, pos, 
