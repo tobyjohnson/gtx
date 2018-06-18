@@ -101,6 +101,7 @@ abf.Wakefield <- function(beta, se, priorsd, log = FALSE) {
 #' with(agtstats, plot(BF.normal, BF.numeric)) # excellent agreement
 #'
 #' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
+#'
 #' @export
 abf.normal <- function(beta, se, priorscale, gridrange = 3, griddensity = 20) {
   gridrange <- max(1, gridrange)
@@ -114,6 +115,44 @@ abf.normal <- function(beta, se, priorscale, gridrange = 3, griddensity = 20) {
 }
 
 ## ABF for t distribution prior (a priori beta/priorscale ~ standard t distribution)
+#'
+#' Calculate approximate Bayes factor (ABF) for t distribution prior.
+#'
+#'  Calculates an approximation to the Bayes Factor for an alternative
+#'  model where the parameter beta is a priori t distributed, against a smaller
+#'  model where beta is zero, by approximating
+#'  the likelihood function with a normal distribution.
+#'
+#'  This uses the same normal approximation for the likelihood function as
+#'    \dQuote{Bayes factors for genome-wide association studies:
+#'    comparison with P-values} by John Wakeley, 2009, Genetic Epidemiology
+#'    33(1):79-86 at \url{http://dx.doi.org/10.1002/gepi.20359}.  However,
+#'    in contrast to that work, a t distribution is used for the prior,
+#'    which means it is necessary to use a numerical algorithm to calculate
+#'    the (approximate) Bayes factor.
+#'
+#' @param beta 		Vector of effect size estimates.
+#' @param se		Vector of associated standard errors.
+#' @param priorscale	Scalar specifying the scale (standard deviation) of the prior on true effect sizes.
+#' @param df		Degrees of freedom for t distribution prior.
+#' @param gridrange	Parameter controlling range of grid for numerical integration.
+#' @param griddensity	Parameter controlling density of points in grid for numerical integration.
+#'
+#' @return
+#' 	A vector of approximate Bayes factors.
+#'
+#' @examples
+#' data(agtstats)
+#' agtstats$pval <- with(agtstats, pchisq((beta/se.GC)^2, df = 1, lower.tail = FALSE))
+#' max1 <- function(bf) return(bf/max(bf, na.rm = TRUE))
+#' agtstats$BF.normal <- with(agtstats, max1(abf.Wakefield(beta, se.GC, 0.05)))
+#' agtstats$BF.t <- with(agtstats, max1(abf.t(beta, se.GC, 0.0208)))
+#' with(agtstats, plot(-log10(pval), log(BF.normal)))
+#' with(agtstats, plot(-log10(pval), log(BF.t)))
+#' 
+#' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
+#'
+#' @export
 abf.t <- function(beta, se, priorscale, df = 1, gridrange = 3, griddensity = 20) {
   gridrange <- max(1, gridrange)
   griddensity <- max(1, griddensity)
