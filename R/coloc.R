@@ -133,7 +133,7 @@ coloc <- function(analysis1, analysis2,
           warning('Randomly flipping signs of beta2 for ', length(bz), ' variant(s) with beta1==0.')
           bs[bz] <- ifelse(runif(length(bz)) < 0.5, -1L, 1L)
       }
-      stopifnot(all(bs == -1L | bs == 1L))
+      stopifnot(all(bs == -1L | bs == 1L, na.rm = TRUE))
       res$flip <- bs
   }
   
