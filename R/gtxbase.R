@@ -494,7 +494,7 @@ gtxregion <- function(chrom, pos_start, pos_end,
   }
 
   return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
-              label =   sprintf('chr%s:%s-%s', chrom, ':', pos_start, '-', pos_end)))
+              label =   sprintf('chr%s:%s-%s', chrom, pos_start, pos_end)))
 }
 
 
