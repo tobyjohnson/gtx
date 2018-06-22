@@ -35,6 +35,66 @@ coloc.fast <- function(beta1, se1, beta2, se2,
   return(list(results = res, nvariants = length(w), alpha12 = alpha12, alpha21 = alpha21))
 }
 
+coloc.compute <- function(data,
+                          priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
+                          join_type = 'inner',
+                          summary_only = FALSE) {
+    stopifnot(is.data.frame(data))
+    stopifnot(all(c('beta1', 'se1', 'beta2', 'se2') %in% names(data)))
+    stopifnot(join_type %in% c('inner', 'left', 'right', 'outer'))
+    data <- within(data, {
+        lnabf1 <- abf.Wakefield(beta1, se1, priorsd1, log = TRUE)
+        lnabf2 <- abf.Wakefield(beta2, se2, priorsd2, log = TRUE)
+        inc1 <- if (join_type == 'inner' | join_type == 'left') !is.na(lnabf1) else TRUE
+        inc2 <- if (join_type == 'inner' | join_type == 'right') !is.na(lnabf2) else TRUE
+        inc <- inc1 & inc2
+    })
+    data <- data[which(data$inc), ]
+    data <- within(data, {
+        inc1 <- NULL
+        inc2 <- NULL
+        inc <- NULL
+    })        
+    abf1 <- norm1(c(0, data$lnabf1), log = TRUE)
+    abf2 <- norm1(c(0, data$lnabf2), log = TRUE)
+    abf1[is.na(abf1)] <- 0
+    abf2[is.na(abf2)] <- 0
+    data$abf1 <- abf1[-1]
+    data$abf2 <- abf2[-1]
+    attr(data, 'nullabf1') <- abf1[1]
+    attr(data, 'nullabf2') <- abf2[1]
+
+    nv <- nrow(data)
+    ## compute colocalization model probabilities
+    prior <- norm1(c(1, priorc1*nv, priorc2*nv, priorc1*priorc2*nv*(nv - 1), priorc12*nv))
+    names(prior) <- c('H0', 'H1', 'H2', 'H1,2', 'H12')
+    bf = if (nv > 0) c(abf1[1]*abf2[1], 
+                       sum(abf1[-1])*abf2[1]/nv, 
+                       abf1[1]*sum(abf2[-1])/nv, 
+                       (sum(abf1[-1])*sum(abf2[-1]) - sum(abf1[-1]*abf2[-1]))/(nv*(nv - 1)), 
+                       sum(abf1[-1]*abf2[-1])/nv) else rep(NA, 5)
+    bf <- bf/max(bf)
+    names(bf) <- names(prior)
+    posterior <- norm1(prior*bf)
+    names(posterior) <- names(prior)
+
+    ## compute model averaged effect size ratios
+    mw <- data$abf1*data$abf2 # model weights
+    alpha12 <- sum(mw*data$beta1/data$beta2)/sum(mw)
+    alpha21 <- sum(mw*data$beta2/data$beta1)/sum(mw)
+
+    if (summary_only) {
+        return(list(nv = nv, prior = prior, bf = bf, posterior = posterior, alpha12 = alpha12, alpha21 = alpha21))
+    } else {
+        attr(data, 'coloc') <- list(nv = nv, prior = prior, bf = bf, posterior = posterior, alpha12 = alpha12, alpha21 = alpha21)
+        ## should we include the assumed priors?
+        return(data)
+    }
+
+    ## should never:
+    return(invisible(NULL))
+}
+
 ## TO DO
 ## Function rename rationalization
 ##   regionplot.region -> gtxregion
@@ -93,9 +153,9 @@ coloc.data <- function(analysis1, analysis2,
                     uniq = FALSE) # expect >=1 rows
 
   attr(res, 'region') <- xregion
-  attr(res, 'entity1') <- xentity1
-  attr(res, 'entity2') <- xentity2  
-
+  attr(res, 'entity1') <- xentity1 # if NULL then no attr is set
+  attr(res, 'entity2') <- xentity2 # if NULL then no attr is set
+  
   return(res)
 }
   
@@ -104,7 +164,9 @@ coloc <- function(analysis1, analysis2,
                   hgncid, ensemblid, rs, surround = 500000,
                   entity, entity1, entity2,
                   style = 'Z', 
-                  dbc = getOption("gtx.dbConnection", NULL), ...) {
+                  priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
+                  join_type = 'inner',
+                  dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
 
   ## query variant-level summary stats
@@ -119,86 +181,110 @@ coloc <- function(analysis1, analysis2,
   pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), nlabel = FALSE, dbc = dbc)
   
   ## compute coloc probabilities
-  resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
+  resc <- coloc.compute(res,
+                        priorsd1 = priorsd1, priorsd2 = priorsd2,
+                        priorc1 = priorc1, priorc2 = priorc2, priorc12 = priorc12,
+                        join_type = join_type)
 
+  ## compute extra variables and symbol/colour for plotting
   if ('Z' %in% style || 'Z1' %in% style) {
       # compute Z statistics if needed for plots
-      res <- within(res, { z1 <- beta1/se1 ; z2 <- beta2/se2 })
+      resc <- within(resc, { z1 <- beta1/se1 ; z2 <- beta2/se2 })
   }
   if ('beta1' %in% style || 'Z1' %in% style) {
       # prepare for sign flipping if needed for half-scatter plots
-      bs = sign(res$beta1)
+      bs = sign(resc$beta1)
       bz = which(bs == 0L)
       if (length(bz) > 0) {
           warning('Randomly flipping signs of beta2 for ', length(bz), ' variant(s) with beta1==0.')
           bs[bz] <- ifelse(runif(length(bz)) < 0.5, -1L, 1L)
       }
       stopifnot(all(bs == -1L | bs == 1L, na.rm = TRUE))
-      res$flip <- bs
+      resc$flip <- bs
   }
+
+  ## tidy this up, put twochannel in gtxbase; more carefully name the plot style variables
+  twochannel <- function(x, y, grey = 0.67, alpha = 0.5) {
+      r <- pmin(pmax(1+x*y-y, 0), 1)
+      g <- pmin(pmax(1+x*y-x, 0), 1)
+      b <- pmin(pmax(1+x*y-y-x, 0), 1)
+      return(rgb(grey*r, grey*g, grey*b, alpha = alpha))
+  }
+  p1 <- gtx:::norm1(c(attr(resc, 'nullabf1'), priorc1*resc$abf1))
+  p2 <- gtx:::norm1(c(attr(resc, 'nullabf2'), priorc2*resc$abf2))
+  cs1 <- gtx:::credset(p1)[-1]
+  cs2 <- gtx:::credset(p2)[-1]
+  bg <- twochannel(x = p1[-1]/max(p1),
+                   y = p2[-1]/max(p2))
+  cex <- 0.75 + 0.5*p1[-1] + 0.5*p2[-1]
+  pch = ifelse(cs1, ifelse(cs2, 22, 25), ifelse(cs2, 24, 21))
   
   if ('Z' %in% style) {
-      with(res, {
+      with(resc, {
           plot(beta1/se1,
                beta2/se2,
                xlim = range(c(0, beta1/se1), na.rm = TRUE),
                ylim = range(c(0, beta2/se2), na.rm = TRUE), # forces (0,0) to be included in plot
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
                ann = FALSE)
 	  abline(h = 0)
 	  abline(v = 0)
-          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association Z score'),
                     ylab = paste(pdesc2, 'association Z score'))
-	  mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
+	  mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
       })
   }
   if ('Z1' %in% style) {
-      with(res, {
+      with(resc, {
           plot(flip*beta1/se1,
                flip*beta2/se2,
                xlim = c(0, max(flip*beta1/se1, na.rm = TRUE)),
                ylim = range(c(0, flip*beta2/se2), na.rm = TRUE), 
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
                ann = FALSE)
 	  abline(h = 0)
 	  abline(v = 0)
-          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association Z score'),
                     ylab = paste(pdesc2, 'association Z score'))
-	  mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
+	  mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
       })
   }
   if ('beta' %in% style) {
-      with(res, {
+      with(resc, {
           plot(beta1,
                beta2,
                xlim = range(c(0, beta1), na.rm = TRUE),
                ylim = range(c(0, beta2), na.rm = TRUE), # forces (0,0) to be included in plot
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
                ann = FALSE)
 	  abline(h = 0)
 	  abline(v = 0)
-          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association effect size'),
                     ylab = paste(pdesc2, 'association effect size'))
-          mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
+          mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
       })
   }
   if ('beta1' %in% style) {
-      with(res, {
+      with(resc, {
           plot(flip*beta1,
                flip*beta2,
                xlim = c(0, max(flip*beta1, na.rm = TRUE)),
                ylim = range(c(0, flip*beta2), na.rm = TRUE), 
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
                ann = FALSE)
 	  abline(h = 0)
 	  abline(v = 0)
-          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
                     xlab = paste(pdesc1, 'association effect size'),
                     ylab = paste(pdesc2, 'association effect size'))
-          mtext(paste('colocalization at', attr(res, 'region')$label), 3, 3) # should force to fit plot area
+          mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
       })
   }
 
