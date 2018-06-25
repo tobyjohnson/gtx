@@ -21,37 +21,10 @@ Type 'q()' to quit R.
 ✔ | OK F W S | Context
 ⠏ |  0       | coloc⠋ |  1       | coloc✔ |  1       | coloc [0.1 s]
 ⠏ |  0       | my-test⠋ |  1       | my-test✔ |  1       | my-test
-⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  2 1     | QTLs⠸ |  2 2     | QTLs✖ |  2 2     | QTLs [10.4 s]
+⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  3       | QTLs⠸ |  3 1     | QTLs✖ |  3 1     | QTLs [11.6 s]
 ────────────────────────────────────────────────────────────────────────────────
-test-QTLs.R:14: error: IPSDSN coloc  HLA-DRB5
-could not find function "gather"
-1: coloc("gsk_ukb500k_imputed_interim_bolt_f_3571_0_0_f_BIN_Back_pain_for_3_months_vs_no_pain", 
-       "eqtl_gene_ipsdsn", chrom = "6", pos = 32566577, surround = 4e+05, entity = "ENSG00000198502", 
-       style = "none") at /home/gmd78366/workspace/gtx/tests/testthat/test-QTLs.R:14
-2: coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...) at /home/gmd78366/workspace/gtx/R/coloc.R:106
-3: res %>% gather(key = stat_test, value = stat_value, -hypothesis) %>% unite(stat_test, 
-       stat_test:hypothesis, sep = "_") %>% spread(key = stat_test, value = stat_value) at /home/gmd78366/workspace/gtx/R/coloc.R:27
-4: withVisible(eval(quote(`_fseq`(`_lhs`)), env, env))
-5: eval(quote(`_fseq`(`_lhs`)), env, env)
-6: eval(quote(`_fseq`(`_lhs`)), env, env)
-7: `_fseq`(`_lhs`)
-8: freduce(value, `_function_list`)
-9: function_list[[i]](value)
-
-test-QTLs.R:21: error: IPSDSN coloc SOX5
-could not find function "gather"
-1: coloc("gsk_ukb500k_imputed_interim_bolt_f_3571_0_0_f_BIN_Back_pain_for_3_months_vs_no_pain", 
-       "eqtl_gene_ipsdsn", chrom = "6", pos = 32566577, surround = 4e+05, entity = "SOX5", 
-       style = "none") at /home/gmd78366/workspace/gtx/tests/testthat/test-QTLs.R:21
-2: coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...) at /home/gmd78366/workspace/gtx/R/coloc.R:106
-3: res %>% gather(key = stat_test, value = stat_value, -hypothesis) %>% unite(stat_test, 
-       stat_test:hypothesis, sep = "_") %>% spread(key = stat_test, value = stat_value) at /home/gmd78366/workspace/gtx/R/coloc.R:27
-4: withVisible(eval(quote(`_fseq`(`_lhs`)), env, env))
-5: eval(quote(`_fseq`(`_lhs`)), env, env)
-6: eval(quote(`_fseq`(`_lhs`)), env, env)
-7: `_fseq`(`_lhs`)
-8: freduce(value, `_function_list`)
-9: function_list[[i]](value)
+test-QTLs.R:24: failure: IPSDSN coloc SOX5
+res$nvariants is not strictly more than 0. Difference: 0
 ────────────────────────────────────────────────────────────────────────────────
 ⠏ |  0       | regionplot⠋ |  0 1     | regionplot✖ |  0 1     | regionplot [7.5 s]
 ────────────────────────────────────────────────────────────────────────────────
@@ -76,10 +49,10 @@ SQL [ SELECT chrom, pos FROM sites WHERE (chrom='12') AND (pos=32566577); ] retu
 ⠏ |  0       | my-test⠋ |  1       | my-test✔ |  1       | my-test [0.1 s]
 
 ══ Results ═════════════════════════════════════════════════════════════════════
-Duration: 19.0 s
+Duration: 20.1 s
 
-OK:       5
-Failed:   3
+OK:       6
+Failed:   2
 Warnings: 0
 Skipped:  0
 > 
