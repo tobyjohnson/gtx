@@ -19,14 +19,14 @@ Type 'q()' to quit R.
 
 > devtools::test()
 ✔ | OK F W S | Context
-⠏ |  0       | coloc⠋ |  1       | coloc⠙ |  2       | coloc✔ |  2       | coloc [4.8 s]
+⠏ |  0       | coloc⠋ |  1       | coloc✔ |  1       | coloc [8.5 s]
 ⠏ |  0       | my-test⠋ |  1       | my-test✔ |  1       | my-test
-⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  3       | QTLs⠸ |  3 1     | QTLs✖ |  3 1     | QTLs [9.6 s]
+⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  3       | QTLs⠸ |  3 1     | QTLs✖ |  3 1     | QTLs [16.0 s]
 ────────────────────────────────────────────────────────────────────────────────
 test-QTLs.R:24: failure: IPSDSN coloc SOX5
 res$nvariants is not strictly more than 0. Difference: 0
 ────────────────────────────────────────────────────────────────────────────────
-⠏ |  0       | regionplot⠋ |  0 1     | regionplot✖ |  0 1     | regionplot [7.0 s]
+⠏ |  0       | regionplot⠋ |  0 1     | regionplot✖ |  0 1     | regionplot [10.7 s]
 ────────────────────────────────────────────────────────────────────────────────
 test-regionplot.R:4: error: basic regionplot works
 SQL [ SELECT chrom, pos FROM sites WHERE (chrom='12') AND (pos=32566577); ] returned 0 rows, expected >=1 rows
@@ -46,12 +46,12 @@ SQL [ SELECT chrom, pos FROM sites WHERE (chrom='12') AND (pos=32566577); ] retu
        pos = pos)), uniq = FALSE) at /home/gmd78366/workspace/gtx/R/regionplot.R:155
 9: stop("SQL [ ", sql, " ] returned 0 rows, expected ", if (uniq) "1 row" else ">=1 rows") at /home/gmd78366/workspace/gtx/R/sanitation.R:224
 ────────────────────────────────────────────────────────────────────────────────
-⠏ |  0       | tables⠋ |  1       | tables⠙ |  2       | tables✔ |  2       | tables [18.8 s]
+⠏ |  0       | tables⠋ |  1       | tables⠙ |  2       | tables✔ |  2       | tables [24.9 s]
 
 ══ Results ═════════════════════════════════════════════════════════════════════
-Duration: 41.0 s
+Duration: 62.0 s
 
-OK:       8
+OK:       7
 Failed:   2
 Warnings: 0
 Skipped:  0
