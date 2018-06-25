@@ -9,17 +9,17 @@ test_that("IPSDSN analysis entry exists ", {
   expect_equal(nrow(gtxanalyses("eqtl_gene_ipsdsn")), 1)
 })
 
-test_that("IPSDSN coloc  HLA-DRB5", {
+test_that("IPSDSN coloc PTEN", {
 
-	res = coloc('gsk_ukb500k_imputed_interim_bolt_f_3571_0_0_f_BIN_Back_pain_for_3_months_vs_no_pain', 
-		       'eqtl_gene_ipsdsn', chrom = '6', pos = 32566577, surround = 400e3, 
-		       entity = 'ENSG00000198502', style="none")
+	res = coloc('eqtl_gene_blood_zhernakova', 
+		       'eqtl_gene_ipsdsn', chrom = '10', pos = 87863113, surround = 400e3, 
+		       entity = 'ENSG00000171862', style="none")
 	expect_gt(res$nvariants, 10) # should be 18
 })
 
-test_that("IPSDSN coloc SOX5", {
-	res = coloc('gsk_ukb500k_imputed_interim_bolt_f_3571_0_0_f_BIN_Back_pain_for_3_months_vs_no_pain', 
-		     'eqtl_gene_ipsdsn', chrom = '6', pos = 32566577, surround = 400e3, 
-		     entity = 'SOX5', style="none")
+test_that("IPSDSN coloc MGAT3", {
+	res = coloc('eqtl_gene_blood_zhernakova', 
+		     'eqtl_gene_ipsdsn', chrom = '22', pos = 39883229, surround = 400e3, 
+		     entity = 'MGAT3', style="none")
 	expect_gt(res$nvariants, 0) 
 })
