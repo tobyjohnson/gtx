@@ -39,6 +39,14 @@ coloc.compute <- function(data,
                           priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
                           join_type = 'inner',
                           summary_only = FALSE) {
+    ## coloc_compute replaces lnabf that are NA by -Inf , hance zero probability.
+    ## Can be used two ways:
+    ##   1. Set to *match* the type of join used in the preceding db query, so that rows
+    ##      missing from one side of the query are handled appropriately.
+    ##   2. Use a broader db query e.g. full/outer join, then set this option to
+    ##      use the results *as if* a narrower query had been used.  E.g. previous
+    ##      behaviour was always to do full/outer join db query and then drop NAs in
+    ##      coloc.fast, hence as if a normal/inner join query had been done.
     stopifnot(is.data.frame(data))
     stopifnot(all(c('beta1', 'se1', 'beta2', 'se2') %in% names(data)))
     stopifnot(join_type %in% c('inner', 'left', 'right', 'outer'))
