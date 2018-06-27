@@ -355,7 +355,7 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 ## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
 gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
                               dbc = getOption("gtx.dbConnection", NULL)) {
-    ares <- sqlWrapper(dbc,
+    ares <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
                        sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
                                gtxwhat(analysis1 = analysis)))
     if (nlabel) {
