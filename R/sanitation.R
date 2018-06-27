@@ -214,9 +214,11 @@ sanitize1 <- function(x, values, type) {
 ## -- allow zero rows is zrok=TRUE
 ##
 sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
-    ## Note this function is for generic SQL RODBC usage
+    ## Note this function is for generic SQL usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
-    if (! 'Impala' %in% class(dbc)) stop('dbc does not appear to be an Impala connection (not of class Impala)')
+    if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc)) {
+        stop('dbc does not appear to be an Impala connection (not of class Impala or SQLiteConnection)')
+    }
     res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
