@@ -14,7 +14,7 @@ gene.annotate <- function(chrom, pos,
     if (identical(length(chrom), 0L)) return(NULL)
     
     ann <- sapply(1:length(chrom), function(idx) {
-        res <- sqlWrapper(dbc,
+        res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                           sprintf('SELECT hgncid, ensemblid FROM genes WHERE %s ORDER BY pos_start',
                                   ## FIXME filter on protein_coding_only
                                   gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx], pos_start_le = pos[idx])),
@@ -25,7 +25,7 @@ gene.annotate <- function(chrom, pos,
             return(paste0('[', paste(unique(gene.label(res$hgncid, res$ensemblid)), collapse = ';'), ']'))
         }
         ## Otherwise, query nearest genes to left and right (arbitrary tie breaking, FIXME to be perfect)
-        resl <- sqlWrapper(dbc,
+        resl <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc),
                            sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_end DESC LIMIT 1',
                                    ## FIXME filter on protein_coding_only
                                    gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx]-1000000, pos_end_le = pos[idx])),
@@ -43,7 +43,7 @@ gene.annotate <- function(chrom, pos,
                 stop('internal error in gene.annotate resl construction')
             }
         }
-        resr <- sqlWrapper(dbc,
+        resr <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                            sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start ASC LIMIT 1',
                                    ## FIXME filter on protein_coding_only
                                    gtxwhere(chrom = chrom[idx], pos_start_le = pos[idx]+1000000, pos_start_ge = pos[idx])),
