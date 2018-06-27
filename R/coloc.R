@@ -35,11 +35,137 @@ coloc.fast <- function(beta1, se1, beta2, se2,
   return(list(results = res, nvariants = length(w), alpha12 = alpha12, alpha21 = alpha21))
 }
 
+coloc.compute <- function(data,
+                          priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
+                          join_type = 'inner',
+                          summary_only = FALSE) {
+    ## coloc_compute replaces lnabf that are NA by -Inf , hance zero probability.
+    ## Can be used two ways:
+    ##   1. Set to *match* the type of join used in the preceding db query, so that rows
+    ##      missing from one side of the query are handled appropriately.
+    ##   2. Use a broader db query e.g. full/outer join, then set this option to
+    ##      use the results *as if* a narrower query had been used.  E.g. previous
+    ##      behaviour was always to do full/outer join db query and then drop NAs in
+    ##      coloc.fast, hence as if a normal/inner join query had been done.
+    stopifnot(is.data.frame(data))
+    stopifnot(all(c('beta1', 'se1', 'beta2', 'se2') %in% names(data)))
+    stopifnot(join_type %in% c('inner', 'left', 'right', 'outer'))
+    data <- within(data, {
+        lnabf1 <- abf.Wakefield(beta1, se1, priorsd1, log = TRUE)
+        lnabf2 <- abf.Wakefield(beta2, se2, priorsd2, log = TRUE)
+        inc1 <- if (join_type == 'inner' | join_type == 'left') !is.na(lnabf1) else TRUE
+        inc2 <- if (join_type == 'inner' | join_type == 'right') !is.na(lnabf2) else TRUE
+        inc <- inc1 & inc2
+    })
+    data <- data[which(data$inc), ]
+    data <- within(data, {
+        inc1 <- NULL
+        inc2 <- NULL
+        inc <- NULL
+    })        
+    abf1 <- norm1(c(0, data$lnabf1), log = TRUE)
+    abf2 <- norm1(c(0, data$lnabf2), log = TRUE)
+    abf1[is.na(abf1)] <- 0
+    abf2[is.na(abf2)] <- 0
+    data$abf1 <- abf1[-1]
+    data$abf2 <- abf2[-1]
+    attr(data, 'nullabf1') <- abf1[1]
+    attr(data, 'nullabf2') <- abf2[1]
+
+    nv <- nrow(data)
+    ## compute colocalization model probabilities
+    prior <- norm1(c(1, priorc1*nv, priorc2*nv, priorc1*priorc2*nv*(nv - 1), priorc12*nv))
+    names(prior) <- c('H0', 'H1', 'H2', 'H1,2', 'H12')
+    bf = if (nv > 0) c(abf1[1]*abf2[1], 
+                       sum(abf1[-1])*abf2[1]/nv, 
+                       abf1[1]*sum(abf2[-1])/nv, 
+                       (sum(abf1[-1])*sum(abf2[-1]) - sum(abf1[-1]*abf2[-1]))/(nv*(nv - 1)), 
+                       sum(abf1[-1]*abf2[-1])/nv) else rep(NA, 5)
+    bf <- bf/max(bf)
+    names(bf) <- names(prior)
+    posterior <- norm1(prior*bf)
+    names(posterior) <- names(prior)
+
+    ## compute model averaged effect size ratios
+    mw <- data$abf1*data$abf2 # model weights
+    alpha12 <- sum(mw*data$beta1/data$beta2)/sum(mw)
+    alpha21 <- sum(mw*data$beta2/data$beta1)/sum(mw)
+
+    if (summary_only) {
+        return(list(nv = nv, prior = prior, bf = bf, posterior = posterior, alpha12 = alpha12, alpha21 = alpha21))
+    } else {
+        attr(data, 'coloc') <- list(nv = nv, prior = prior, bf = bf, posterior = posterior, alpha12 = alpha12, alpha21 = alpha21)
+        ## should we include the assumed priors?
+        return(data)
+    }
+
+    ## should never:
+    return(invisible(NULL))
+}
+
 ## TO DO
 ## Function rename rationalization
 ##   regionplot.region -> gtxregion
 ## Sanitation for required length 1
 ## Wrapper for SQL queries that must return data frame of 1 or >=1 rows
+
+coloc.data <- function(analysis1, analysis2,
+                  chrom, pos_start, pos_end, pos, 
+                  hgncid, ensemblid, rs, surround = 500000,
+                  entity, entity1, entity2,
+                  dbc = getOption("gtx.dbConnection", NULL), ...) {
+  gtxdbcheck(dbc)
+
+  ## Determine genomic region from arguments
+  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                       dbc = dbc)
+
+  ## substitute generic entity for entity1 and entity2 if needed
+  if (missing(entity1) && !missing(entity)) entity1 <- entity
+  if (missing(entity2) && !missing(entity)) entity2 <- entity
+
+  ## Determine entity, if required, for each analysis
+  xentity1 <- gtxentity(analysis1, entity = entity1, hgncid = hgncid, ensemblid = ensemblid)
+  xentity2 <- gtxentity(analysis2, entity = entity2, hgncid = hgncid, ensemblid = ensemblid)
+
+  ## Get association statistics
+  res <- sqlWrapper(dbc, 
+                    sprintf('SELECT 
+                                 t1.beta AS beta1, t1.se AS se1, 
+                                 t2.beta AS beta2, t2.se AS se2 
+                             FROM 
+                                 (SELECT
+                                      chrom, pos, ref, alt, beta, se, pval 
+                                  FROM %s.gwas_results 
+                                  WHERE
+                                      %s AND %s %s
+                                 ) AS t1 
+                                 FULL JOIN 
+                                 (SELECT 
+                                      chrom, pos, ref, alt, beta, se, pval 
+                                  FROM %s.gwas_results 
+                                  WHERE 
+                                      %s AND %s %s
+                                 ) AS t2
+                                 USING (chrom, pos, ref, alt);',
+                            gtxanalysisdb(analysis1), 
+                            gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
+                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
+                            if (!is.null(xentity1)) sprintf(' AND feature=\'%s\'', xentity1$entity) else '', # FIXME will change to entity
+                            gtxanalysisdb(analysis2), 
+                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis, different to arguments analysis1 and analysis2
+                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
+                            if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
+                            ),
+                    uniq = FALSE) # expect >=1 rows
+
+  attr(res, 'region') <- xregion
+  attr(res, 'entity1') <- xentity1 # if NULL then no attr is set
+  attr(res, 'entity2') <- xentity2 # if NULL then no attr is set
+  
+  return(res)
+}
 
 
 #'
@@ -123,105 +249,133 @@ coloc <- function(analysis1, analysis2,
                   hgncid, ensemblid, rs, surround = 500000,
                   entity, entity1, entity2,
                   style = 'Z', 
-                  dbc = getOption("gtx.dbConnection", NULL), ...) {
+                  priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
+                  join_type = 'inner',
+                  dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
 
-  ## Determine genomic region from arguments
-  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
-                       dbc = dbc)
-  chrom = xregion$chrom
-  pos_start = xregion$pos_start
-  pos_end = xregion$pos_end
+  ## query variant-level summary stats
+  res <- coloc.data(analysis1 = analysis1, analysis2 = analysis2,
+                    chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos,
+                    hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                    entity = entity, entity1 = entity1, entity2 = entity2,
+                    dbc = dbc)  
+  gtxlog('coloc.data query returned ', nrow(res), ' rows')
 
-  ## substitute generic entity for entity1 and entity2 if needed
-  if (missing(entity1) && !missing(entity)) entity1 <- entity
-  if (missing(entity2) && !missing(entity)) entity2 <- entity
+  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = attr(res, 'entity1'), nlabel = FALSE, dbc = dbc)
+  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), nlabel = FALSE, dbc = dbc)
+  
+  ## compute coloc probabilities
+  resc <- coloc.compute(res,
+                        priorsd1 = priorsd1, priorsd2 = priorsd2,
+                        priorc1 = priorc1, priorc2 = priorc2, priorc12 = priorc12,
+                        join_type = join_type)
 
-  ## Determine entity, if required, for each analysis
-  xentity1 <- gtxentity(analysis1, entity = entity1, hgncid = hgncid, ensemblid = ensemblid)
-  xentity2 <- gtxentity(analysis2, entity = entity2, hgncid = hgncid, ensemblid = ensemblid)
-
-  ## Get association statistics
-  res <- sqlWrapper(dbc, 
-                    sprintf('SELECT 
-                                 t1.beta AS beta1, t1.se AS se1, 
-                                 t2.beta AS beta2, t2.se AS se2 
-                             FROM 
-                                 (SELECT
-                                      chrom, pos, ref, alt, beta, se, pval 
-                                  FROM %s.gwas_results 
-                                  WHERE
-                                      %s AND %s %s
-                                 ) AS t1 
-                                 FULL JOIN 
-                                 (SELECT 
-                                      chrom, pos, ref, alt, beta, se, pval 
-                                  FROM %s.gwas_results 
-                                  WHERE 
-                                      %s AND %s %s
-                                 ) AS t2
-                                 USING (chrom, pos, ref, alt);',
-                            gtxanalysisdb(analysis1), 
-                            gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
-                            gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end),
-                            if (!is.null(xentity1)) sprintf(' AND feature=\'%s\'', xentity1$entity) else '', # FIXME will change to entity
-                            gtxanalysisdb(analysis2), 
-                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis
-                            gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end),
-                            if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
-                            ),
-                    uniq = FALSE) # expect >=1 rows
-
-  gtxlog('coloc query returned ', nrow(res), ' rows')
-
-  resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
-
-  pdesc1 <- sqlWrapper(dbc,
-                       sprintf('SELECT label FROM analyses WHERE analysis = \'%s\';',
-                               sanitize(analysis1, type = 'alphanum')))$label
-  if (!is.null(xentity1)) pdesc1 <- paste(xentity1$entity_label, pdesc1)
-  pdesc2 <- sqlWrapper(dbc,
-                       sprintf('SELECT label FROM analyses WHERE analysis = \'%s\';',
-                               sanitize(analysis2, type = 'alphanum')))$label
-  if (!is.null(xentity2)) pdesc2 <- paste(xentity2$entity_label, pdesc2)
- 
-  if (identical(style, 'Z')) {
-      ## would like to draw one sided plot, but unclear what to do when sign(beta1)==0. HMMMM FIXME
-      with(res, {
-          plot(beta1/se1,
-               beta2/se2,
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
-               ann = FALSE)
-	  abline(h = 0)
-	  abline(v = 0)
-          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
-                    xlab = paste(pdesc1, 'association Z score'),
-                    ylab = paste(pdesc2, 'association Z score'))
-	  mtext(paste0('colocalization at chr', chrom, ':', pos_start, '-', pos_end), 3, 3)
-      })
-  } else if (identical(style, 'beta')) {
-      ## would like to draw one sided plot, but unclear what to do when sign(beta1)==0. HMMMM FIXME
-      with(res, {
-          plot(beta1,
-               beta2,
-               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1,
-               ann = FALSE)
-	  abline(h = 0)
-	  abline(v = 0)
-          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=', round(resc$results$posterior*100), '%', collapse = ', '),
-                    xlab = paste(pdesc1, 'association effect size'),
-                    ylab = paste(pdesc2, 'association effect size'))
-	  mtext(paste0('colocalization at chr', chrom, ':', pos_start, '-', pos_end), 3, 3)
-      })
-  } else if (identical(style, 'none')) {
-      # do not draw plot
-  } else {
-      stop('Unrecognized style; must be Z, beta, or none')
+  ## compute extra variables and symbol/colour for plotting
+  if ('Z' %in% style || 'Z1' %in% style) {
+      # compute Z statistics if needed for plots
+      resc <- within(resc, { z1 <- beta1/se1 ; z2 <- beta2/se2 })
+  }
+  if ('beta1' %in% style || 'Z1' %in% style) {
+      # prepare for sign flipping if needed for half-scatter plots
+      bs = sign(resc$beta1)
+      bz = which(bs == 0L)
+      if (length(bz) > 0) {
+          warning('Randomly flipping signs of beta2 for ', length(bz), ' variant(s) with beta1==0.')
+          bs[bz] <- ifelse(runif(length(bz)) < 0.5, -1L, 1L)
+      }
+      stopifnot(all(bs == -1L | bs == 1L, na.rm = TRUE))
+      resc$flip <- bs
   }
 
-  return(resc)
+  ## tidy this up, put twochannel in gtxbase; more carefully name the plot style variables
+  twochannel <- function(x, y, grey = 0.67, alpha = 0.5) {
+      r <- pmin(pmax(1+x*y-y, 0), 1)
+      g <- pmin(pmax(1+x*y-x, 0), 1)
+      b <- pmin(pmax(1+x*y-y-x, 0), 1)
+      return(rgb(grey*r, grey*g, grey*b, alpha = alpha))
+  }
+  p1 <- gtx:::norm1(c(attr(resc, 'nullabf1'), priorc1*resc$abf1))
+  p2 <- gtx:::norm1(c(attr(resc, 'nullabf2'), priorc2*resc$abf2))
+  cs1 <- gtx:::credset(p1)[-1]
+  cs2 <- gtx:::credset(p2)[-1]
+  bg <- twochannel(x = p1[-1]/max(p1),
+                   y = p2[-1]/max(p2))
+  cex <- 0.75 + 0.5*p1[-1] + 0.5*p2[-1]
+  pch = ifelse(cs1, ifelse(cs2, 22, 25), ifelse(cs2, 24, 21))
+  
+  if ('Z' %in% style) {
+      with(resc, {
+          plot(beta1/se1,
+               beta2/se2,
+               xlim = range(c(0, beta1/se1), na.rm = TRUE),
+               ylim = range(c(0, beta2/se2), na.rm = TRUE), # forces (0,0) to be included in plot
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
+               ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
+                    xlab = paste(pdesc1, 'association Z score'),
+                    ylab = paste(pdesc2, 'association Z score'))
+	  mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
+      })
+  }
+  if ('Z1' %in% style) {
+      with(resc, {
+          plot(flip*beta1/se1,
+               flip*beta2/se2,
+               xlim = c(0, max(flip*beta1/se1, na.rm = TRUE)),
+               ylim = range(c(0, flip*beta2/se2), na.rm = TRUE), 
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
+               ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
+                    xlab = paste(pdesc1, 'association Z score'),
+                    ylab = paste(pdesc2, 'association Z score'))
+	  mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
+      })
+  }
+  if ('beta' %in% style) {
+      with(resc, {
+          plot(beta1,
+               beta2,
+               xlim = range(c(0, beta1), na.rm = TRUE),
+               ylim = range(c(0, beta2), na.rm = TRUE), # forces (0,0) to be included in plot
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
+               ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
+                    xlab = paste(pdesc1, 'association effect size'),
+                    ylab = paste(pdesc2, 'association effect size'))
+          mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
+      })
+  }
+  if ('beta1' %in% style) {
+      with(resc, {
+          plot(flip*beta1,
+               flip*beta2,
+               xlim = c(0, max(flip*beta1, na.rm = TRUE)),
+               ylim = range(c(0, flip*beta2), na.rm = TRUE), 
+               cex = cex, pch = pch, bg = bg, col = rgb(.33, .33, .33, .5), 
+               ann = FALSE)
+	  abline(h = 0)
+	  abline(v = 0)
+          mtext.fit(main = paste0('H', c('0', 'x', 'y', 'x,y', 'xy'), '=',
+                                  round(attr(resc, 'coloc')$posterior*100), '%', collapse = ', '),
+                    xlab = paste(pdesc1, 'association effect size'),
+                    ylab = paste(pdesc2, 'association effect size'))
+          mtext(paste('colocalization at', attr(resc, 'region')$label), 3, 3) # should force to fit plot area
+      })
+  }
+
+  return(resc) # in future, will return invisible res with resc as an attribute
 }
+
 
 ## analysis1 must have entities, analysis2 must not
 ## note that surround=0 is a sensible default because

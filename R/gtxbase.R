@@ -350,7 +350,28 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 
 }
 
-
+## function to return pretty printing label for an analysis
+## analysis is the analysis id
+## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
+gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
+                              dbc = getOption("gtx.dbConnection", NULL)) {
+    ares <- sqlWrapper(dbc,
+                       sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                               gtxwhat(analysis1 = analysis)))
+    if (nlabel) {
+        if (!is.na(ares$ncase) && !is.na(ares$ncontrol)) {
+            alabel <- sprintf('%s, n=%i vs %i', ares$label, ares$ncase, ares$ncontrol)
+        } else if (!is.na(ares$ncohort)) {
+            alabel <- sprintf('%s, n=%i', ares$label, ares$ncohort)
+        } else {
+            alabel <- sprintf('%s, n=?', ares$label)
+        }
+    } else {
+        alabel <- ares$label
+    }
+    if (!is.null(entity)) alabel <- paste(entity$entity_label, alabel)
+    return(alabel)
+}
 
 gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
@@ -477,7 +498,9 @@ gtxregion <- function(chrom, pos_start, pos_end,
   } else {
     stop('gtxregion() failed due to inadequate arguments')
   }
-  return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end))
+
+  return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+              label =   sprintf('chr%s:%s-%s', chrom, pos_start, pos_end)))
 }
 
 
