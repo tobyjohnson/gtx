@@ -19,14 +19,17 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALS
     } else {
       stop('dbc does not provide TABLE analyses')
     }
-    res <- dbGetQuery(dbc, 'SELECT DISTINCT results_db FROM ANALYSES')
+    # This query is NOT run against the cached table since we're trying to check the main dbc
+    res <- sqlWrapper(dbc, 
+                      'SELECT DISTINCT results_db FROM analyses',
+                      uniq = FALSE)
     if (is.data.frame(res)) {
       res1 <- sanitize(res$results_db, type = 'alphanum')
       res1a <- res1 %in% dbs$name # identify whether user has access
       message('TABLE analyses: gwas_results in databases: ', 
               paste(res1, ifelse(res1a, '[OK]', '[no access]'), collapse = ', '))
       for (results_db in res1[res1a]) { 
-        res2 <- dbGetQuery(dbc, sprintf('SELECT count(1) AS n FROM %s.gwas_results', results_db))
+        res2 <- sqlWrapper(dbc, sprintf('SELECT count(1) AS n FROM %s.gwas_results', results_db))
         if (is.data.frame(res2)) {
           message('TABLE ', results_db, '.gwas_results: ', prettyNum(res2$n, big.mark = ',', scientific = FALSE), ' records')
         } else {
@@ -53,7 +56,7 @@ gtxanalysisdb <- function(analysis,
     gtxdbcheck(dbc)
     dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
     if (resolve) {
-        res <- sqlWrapper(dbc,
+        res <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
                           sprintf('SELECT results_db FROM analyses WHERE %s;',
                                   gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE 
         if (res$results_db %in% dbs$name) {
@@ -63,7 +66,7 @@ gtxanalysisdb <- function(analysis,
             stop('analysis [ ', analysis, ' ] no access to required database [ ', res$resultsdb, ' ]')
         }
     } else {
-        res <- sqlWrapper(dbc,
+        res <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
                           sprintf('SELECT analysis, results_db FROM analyses WHERE %s;',
                                   gtxwhat(analysis = analysis)), # sanitation by gtxwhat
                           uniq = FALSE)
