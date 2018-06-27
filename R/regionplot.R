@@ -1,3 +1,488 @@
+## regionplot.new and associated functions
+## assumes database connection is provided by getOption("gtx.dbConnection")
+
+regionplot <- function(analysis,
+                       chrom, pos_start, pos_end, pos, 
+                       hgncid, ensemblid, rs, surround = 500000,
+                       entity, 
+                       style = 'signals', 
+                       protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot
+                       highlight_style = 'circle', 
+                       maf_ge, rsq_ge, 
+                       dbc = getOption("gtx.dbConnection", NULL)) {
+  # check database connection
+  gtxdbcheck(dbc)
+
+  ## Obtain pvals by passing arguments through to regionplot.data()
+  pvals <- regionplot.data(analysis = analysis,
+                           chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                           hgncid = hgncid, ensemblid = ensemblid, rs = rs,
+                           surround = surround, 
+                           entity = entity,
+                           style = style,
+                           maf_ge = maf_ge, rsq_ge = rsq_ge, 
+                           dbc = dbc)
+
+  ## Determine x-axis range from attr'ibutes of data
+  ## was re-resolved from command line args
+  # xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+  #                        hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+  #                        dbc = dbc)
+  xregion <- attr(pvals, 'region')
+  chrom <- xregion$chrom
+  pos_start = xregion$pos_start
+  pos_end = xregion$pos_end
+  
+  ## Determine entity from attr'ibutes of data
+  xentity <- attr(pvals, 'entity')
+
+  if ('signals' %in% style) {
+    ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
+    ## (needs to be done within regionplot.data)
+    signals <- sort(unique(na.omit(pvals$signal)))
+    nsignals <- length(signals)
+
+    if (nsignals == 0) {
+      message("No signals from conditional/joint analyses overlap this region")
+      ## No signals from conditional stepwise analyses at the threshold those analyses were done to
+      ## If at least one P<=1e-4, fine map based on assumption of one signal
+      ## Otherwise, no fine mapping (the fixed prior, not dependent on allele freq,
+      ##   gives unexpected results for very weak association signals)
+      if (min(pvals$pval) <= 1e-4) {
+        pvals <- within(pvals, {
+          posterior <- norm1(abf.Wakefield(beta, se, priorsd = 1, log = TRUE), log = TRUE)
+          posterior <- ifelse(!is.na(posterior), posterior, 0) # bad hack
+          c95 <- credset(posterior)
+          ## Colour with red->grey scale for the one signal
+          colour <- rgb((255 - 171)*posterior/max(posterior)+171, 
+                        (0 - 171)*posterior/max(posterior)+171, 
+                        (0 - 171)*posterior/max(posterior)+171, 
+                        alpha = 127, maxColorValue = 255)
+        })
+        nsignals <- 1 # used for legend below # SHOULD HAVE SOME KIND OF ANNOTATION WHEN THERE ARE NO REAL SIGNALS LIKE THIS
+        colvec <- rgb(255, 0, 0, maxColorValue = 255) # used for legend below
+      } else {
+        pvals <- within(pvals, {
+          posterior <- NA # set just so that ordering for plotting does not throw error
+	  c95 <- FALSE
+          colour <- rgb(171, 171, 171, alpha = 127, maxColorValue = 255)
+        })
+      }
+    } else {
+      message(nsignals, " signal(s) from conditional/joint analyses overlap this region") 
+      ## one or more signals, same code works for one as >one except for setting up nice colour vector
+      if (nsignals == 1) {
+        colvec <- rgb(255, 0, 0, maxColorValue = 255)
+      } else {
+        colvec <- rainbow(nsignals, start = .6667, end = .3333) # blue-magenta-red-yellow-green avoiding cyan part of spectrum
+      }
+      pvals <- within(pvals, {
+        posterior <- rep(NA, length(pval))
+        colour <- rep(NA, length(pval))
+        c95 <- rep(NA, length(pval))
+        for (idx in 1:nsignals) {
+          f <- !is.na(signal) & signal == signals[idx]
+          if (any(f)) {
+            posterior[f] <- norm1(abf.Wakefield(beta_cond[f], se_cond[f], priorsd = 1, log = TRUE), log = TRUE)
+            posterior[f] <- ifelse(!is.na(posterior[f]), posterior[f], 0) # bad hack
+            c95[f] <- credset(posterior[f])
+            colour[f] <- rgb((col2rgb(colvec[idx])[1] - 171)*posterior[f]/max(posterior[f])+171, 
+                             (col2rgb(colvec[idx])[2] - 171)*posterior[f]/max(posterior[f])+171, 
+                             (col2rgb(colvec[idx])[3] - 171)*posterior[f]/max(posterior[f])+171, 
+                             alpha = 127, maxColorValue = 255)
+          }
+          f <- NULL
+      }})
+      # ensure one point per variant, using the annotation for the signal with the highest posterior
+      pvals <- pvals[order(pvals$posterior, decreasing = TRUE), ]
+      pvals <- pvals[!duplicated(with(pvals, paste(chrom, pos, ref, alt, sep = "_"))), ]
+    }
+  }
+
+  pvals <- within(pvals, impact[impact == ''] <- NA)
+  pmin <- min(pvals$pval)
+
+  pdesc <- sqlWrapper(dbc, 
+                      sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                              gtxwhat(analysis1 = analysis)))
+  main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
+              sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
+  	  } else if (!is.na(pdesc$ncohort[1])) {
+      	      sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
+	  } else {
+	      sprintf('%s, n=?', pdesc$label[1])
+  	  }
+  if (!is.null(xentity)) main <- paste(xentity$entity_label, main)
+  ## in future we may need to pass maf_lt and rsq_lt as well  
+  fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
+
+  ## Highlight index SNP(s) if pos or rs argument was used
+  gp <- data.frame(NULL)
+  if (!missing(pos)) {
+      ## funny syntax to avoid subset(pvals, pos=pos)
+      gp <- rbind(gp, pvals[pvals$pos %in% pos, c('pos', 'pval')])
+  }
+  if (!missing(rs)) {
+      # query this rs id
+      qrs <- sqlWrapper(dbc,
+                       sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
+                               gtxwhere(chrom = chrom, rs = rs)),
+                        uniq = FALSE, zrok = TRUE)
+      gp <- rbind(gp, merge(pvals, qrs, all.x = FALSE, all.y = TRUE)[ , c('pos', 'pval')])
+  }
+
+  if ('classic' %in% style) {
+    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+                 pmin = pmin, 
+                 main = main, fdesc = fdesc, 
+                 protein_coding_only = protein_coding_only, 
+                 dbc = dbc)
+    ## best order for plotting
+    ## Plot all variants with VEP annotation as blue diamonds in top layer
+    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
+    with(pvals, regionplot.points(pos, pval,
+                                  pch = ifelse(!is.na(impact), 23, 21),
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
+                                  bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
+    regionplot.highlight(gp, highlight_style = highlight_style)
+  }
+  if ('ld' %in% style) {
+    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+                 pmin = pmin, 
+                 main = main, fdesc = fdesc, 
+                 protein_coding_only = protein_coding_only, 
+                 dbc = dbc)
+    ## best order for plotting
+    ## Plot variants shaded by LD
+    pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
+    ## current db format means r<0.01 is not included in table, hence substitute missing with zero
+    pvals$r[is.na(pvals$r)] <- 0.
+    pvals$alpha <- .5 + .25*pvals$r^2 # currently use a single alpha for col and bg for coding and noncoding, so precalculate
+    with(pvals, regionplot.points(pos, pval,
+                                  pch = ifelse(!is.na(impact), 23, 21),
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 0, alpha), rgb(.33, .33, .33, alpha)),
+                                  bg = ifelse(!is.na(impact), 
+                                              rgb((1 - r^2)*.67, (1 - r^2)*.67, .33*r^2 + .67, alpha),
+                                              rgb(.33*r^2 + .67, (1 - r^2)*.67, (1 - r^2)*.67, alpha))))
+    ## (re)draw the index variant for pairwise LD over the top, in larger size and with no transparency
+    with(merge(attr(pvals, "index_ld"), pvals), 
+         regionplot.points(pos, pval, 
+                           cex = 1.25, 
+                           pch = ifelse(!is.na(impact), 23, 21),
+                           col = ifelse(!is.na(impact), rgb(0, 0, 0, alpha = 1), rgb(.33, .33, .33, alpha = 1)),
+                           bg = ifelse(!is.na(impact), 
+                                       rgb(0, 0, 1, alpha = 1),
+                                       rgb(1, 0, 0, alpha = 1))))
+    regionplot.highlight(gp, highlight_style = highlight_style)
+  }  
+  if ('signals' %in% style) {
+    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+                 pmin = pmin, 
+                 main = main, fdesc = fdesc, 
+                 protein_coding_only = protein_coding_only, 
+                 dbc = dbc)
+    ## best order for plotting
+    ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
+    pvals <- pvals[order(!is.na(pvals$impact), pvals$posterior), ]
+    with(pvals, regionplot.points(pos, pval,
+                                  pch = ifelse(!is.na(impact), 23, 21), 
+                                  cex = ifelse(c95, 1.25, .75), bg=colour, 
+                                  col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
+    # legend indicating signals
+    if (nsignals > 0) legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5), pt.bg = colvec, legend=1:nsignals, horiz=T, bty="n", cex=.5)
+    regionplot.highlight(gp, highlight_style = highlight_style)
+  } 
+
+  return(invisible(NULL))
+}
+
+regionplot.data <- function(analysis,
+                            chrom, pos_start, pos_end, pos, 
+                            hgncid, ensemblid, rs, surround = 500000,
+                            entity, 
+                            style = 'signals',
+                            maf_ge, rsq_ge, 
+                            dbc = getOption("gtx.dbConnection", NULL)) {
+    ## check database connection
+    gtxdbcheck(dbc)
+    
+    ## Determine x-axis range from arguments
+    xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                         dbc = dbc)
+    chrom = xregion$chrom # note, overwriting command line arguments
+    pos_start = xregion$pos_start
+    pos_end = xregion$pos_end
+    
+    ## If required, determine entity and associated info including entity_label
+    xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
+    
+    if ('signals' %in% style) {
+        ## if signals is one of the styles requested, merge the marginal p-values with conditional finemapping p-values
+        ## need to think more carefully about how to make sure any conditional analyses are either fully in, or fully out, of the plot
+        gtxlog('Querying marginal p-values joined with conditional p-values')
+        pvals <- sqlWrapper(dbc,
+                            sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond, impact FROM (SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, beta, se, pval, signal, beta_cond, se_cond, pval_cond FROM %s.gwas_results LEFT JOIN %s.gwas_results_cond USING (chrom, pos, ref, alt, analysis) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL) as t1 LEFT JOIN vep using (chrom, pos, ref, alt);',
+                                    gtxanalysisdb(analysis), 
+                                    gtxanalysisdb(analysis), 
+                                    gtxwhat(analysis1 = analysis, tablename = 'gwas_results'),
+                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
+                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'), 
+                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis, tablename = 'gwas_results')),
+                            uniq = FALSE)
+    } else {
+        ## otherwise, just return marginal p-values without finemapping
+        gtxlog('Querying marginal p-values')
+        pvals <- sqlWrapper(dbc,
+                            sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
+                                    gtxanalysisdb(analysis), 
+                                    gtxwhat(analysis1 = analysis),
+                                    if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
+                                    gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                    gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)),
+                            uniq = FALSE)
+    }
+    
+    # sort by increasing pval
+    pvals <- pvals[order(pvals$pval), ]
+    
+    if ('ld' %in% style) {
+        # merge with LD information in userspace code since we need to
+        # pull the p-values first to find the top hit or otherwise chosen variant
+        
+        pval1 <- NULL # store chrom/pos/ref/alt of the index variant
+        if (!missing(pos)) {
+          ## funny syntax to avoid subset(pvals, pos %in% pos)
+          pval1 <- pvals[pvals$pos %in% pos, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          if (identical(nrow(pval1), 1L)) {
+            pval1$r <- 1
+            gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
+                   ' (selected by pos argument)')
+          } else {
+            gtxlog('Skipping pos argument [ ', paste(pos, collapse = ', '), 
+                   ' ] for pairwise LD index selection because matches ',
+                   nrow(pval1), ' variants')
+            pval1 <- NULL
+          }
+        }
+        if (is.null(pval1) && !missing(rs)) {
+          # query this rs id
+          qrs <- sqlWrapper(dbc,
+                       sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
+                               gtxwhere(chrom = chrom, rs = rs)),
+                        uniq = FALSE, zrok = TRUE)
+          # use merge as a way to subset on match by all of chrom/pos/ref/alt
+          # note default merge is all.x = FALSE, all.y = FALSE
+          pval1 <- merge(pvals, qrs)[ , c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          if (identical(nrow(pval1), 1L)) {
+            pval1$r <- 1
+            gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
+                   ' (selected by rs argument)')
+          } else {
+            gtxlog('Skipping rs argument [ ', paste(rs, collapse = ', '), 
+                   ' ] for pairwise LD index selection because matches ',
+                   nrow(pval1), ' variants')
+            pval1 <- NULL
+          }
+        }
+        if (is.null(pval1)) {
+          pval1 <- pvals[which.min(pvals$pval), c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          pval1$r <- 1
+          gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt,
+                 ' (selected by smallest pval)')
+        }
+        stopifnot(identical(nrow(pval1), 1L))
+        ld1 <- sqlWrapper(dbc, 
+                          sprintf('SELECT chrom2 AS chrom, pos2 AS pos, ref2 AS ref, alt2 AS alt, r FROM ld
+                                   WHERE chrom1=\'%s\' AND pos1=%s AND ref1=\'%s\' AND alt1=\'%s\';',
+                                  pval1$chrom, pval1$pos, pval1$ref, pval1$alt), # should we sanitize
+                          uniq = FALSE)
+        pvals <- merge(pvals, rbind(pval1, ld1), all.x = TRUE, all.y = FALSE)
+        # sort by decreasing r^2 (will be resorted for plotting, so makes 
+        # a .data() call work as a useful proxy search
+        pvals <- pvals[order(pvals$r^2, decreasing = TRUE), ]
+        attr(pvals, 'index_ld') <- pval1
+    }
+    
+    attr(pvals, 'analysis') <- analysis
+    attr(pvals, 'region') <- xregion
+    attr(pvals, 'entity') <- xentity
+    return(pvals)
+}
+
+regionplot.new <- function(chrom, pos_start, pos_end, pos, 
+                           hgncid, ensemblid, rs, surround = 500000, 
+                           pmin = 1e-10, main, fdesc, 
+			   protein_coding_only = TRUE,   
+                           dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+    
+  ## Determine x-axis range from arguments
+  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                       dbc = dbc)
+  chrom = xregion$chrom
+  pos_start = xregion$pos_start
+  pos_end = xregion$pos_end
+
+  ## Determine y-axis upper limit
+  ymax <- ceiling(-log10(pmin) + 0.5)
+
+  ## Determine amount of y-axis space needed for gene annotation
+  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only)
+  
+  ## Set up plotting area
+  plot.new()
+  par(mar = c(4, 4, 4, 4) + 0.1, xaxs = 'i') # xaxs='i' stops R expanding x axis
+  plot.window(c(pos_start, pos_end), range(gl$yline))
+  
+  ## Draw axes, and axis labels
+  abline(h = 0, col = "grey")
+  with(list(xpretty = pretty(c(pos_start, pos_end)*1e-6)),
+       axis(1, at = xpretty*1e6, labels = xpretty))
+  axis(2, at = pretty(c(0, ymax)), las = 1)
+  mtext(paste0("chr", chrom, " position (Mb)"), 1, 3)
+  mtext(expression(paste("Association ", -log[10](paste(P, "-value")))), 2, 3)
+
+  ## Add recombination rate and gene annotation
+  ##  regionplot.recombination determines position range from par("usr")
+  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]))
+  ##  regionplot.genedraw uses previously determined layout
+  regionplot.genedraw(gl)
+
+  ## Add title, scaled to fit if necessary, CHANGE TO USE mtext.fit() FIXME
+  if (!missing(main)) {
+    xplt <- par("plt")[2] - par("plt")[1] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+    mtext(main, 3, 1,
+          cex = min(1., xplt/strwidth(main, units = 'figure')))
+  }
+  if (!missing(fdesc)) {
+      mtext(fdesc, 3, 0, cex = 0.5)
+  }
+
+  ## Draw box last to overdraw any edge marks
+  box()
+
+  return(invisible(NULL))
+}
+
+regionplot.genedraw <- function(gl) {
+  arrows(gl$genelayout$pos_start, gl$genelayout$y, x1 = gl$genelayout$pos_end,
+         length = 0, lwd = 2, col = "blue")
+  text(gl$genelayout$pos_mid, gl$genelayout$y - .25*strheight("M", cex = gl$cex),
+       gl$genelayout$label,
+       adj = c(.5, 1), font = 3, cex = gl$cex, col = "blue")
+  return(invisible(NULL))
+}
+
+regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
+				   protein_coding_only = TRUE, 
+                                   dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+  
+  yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
+  xplt <- par("plt")[2] - par("plt")[1]
+  xusr <- pos_end - pos_start # par("usr")[2] - par("usr")[1] 
+  return(with(sqlWrapper(dbc, 
+                       ## use SQL query to aggregate over multiple rows with same name to get whole span
+                       sprintf('SELECT min(pos_start) AS pos_start, max(pos_end) AS pos_end, hgncid, ensemblid FROM genes WHERE %s %s GROUP BY ensemblid, hgncid ORDER BY pos_start', 
+                               gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end),
+			       if (protein_coding_only) 'AND genetype=\'protein_coding\'' else ''),
+			uniq = FALSE, zrok = TRUE),
+              {
+                label <- ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid)) # could also check NULL or NA?
+                ## compute start and end plot positions for each gene, using larger of transcript line and gene name annotation
+                pos_mid <- .5*(pos_start + pos_end)
+                xwidth <- strwidth(label, units = 'figure', cex = cex)*xusr/xplt
+                xpad <- max(10000, strwidth('M', units = 'figure', cex = cex)*xusr/xplt)
+                xstart <- pmin(pos_start, pos_mid - .5*xwidth) - xpad
+                xend <- pmax(pos_end, pos_mid + .5*xwidth) + xpad
+                ## layout engine based on putting each gene on the highest line possible
+                iline <- rep(NA, length(label))
+                if (length(label) > 0) {
+                  iline[1] <- 0
+                  if (length(label) > 1) {
+                    for (idx in 2:length(label)) {
+                      iline[idx] <- with(rbind(aggregate(xend[1:(idx - 1)], by = list(tline = iline[1:(idx - 1)]), FUN = max),
+                                               data.frame(tline = max(iline[1:(idx - 1)]) + 1, x = -Inf)),
+                                         min(tline[x < xstart[idx]]))
+                    }
+                  }
+                }
+                fy <- max(iline + 1)*2*strheight("M", units = "figure", cex = cex)/yplt # fraction of total figure region needed
+                if (fy > 0.6) {
+                  warning('Squashing gene annotation to fit within .6 of plot area')
+                  fy <- 0.6
+                }
+                yd1 = ymax/(0.9-fy) * 0.1
+                yd2 = ymax/(0.9-fy) * fy
+                yline <- c(-(yd1 + yd2), -yd1, 0, ymax)
+                y <- -(iline/max(iline + 1)*yd2 + yd1)
+                list(cex = cex, yline = yline, genelayout = data.frame(label, pos_start, pos_end, pos_mid, iline, y))
+              }))
+}
+
+regionplot.points <- function(pos, pval,
+                              pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1, 
+                              suppressWarning = FALSE) {
+  ymax <- floor(par("usr")[4])
+  y <- -log10(pval)
+  f <- y > ymax
+  points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg, cex = cex)
+  if (any(f) && !suppressWarning) {
+    # would be nice to more cleanly overwrite y axis label
+    axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
+    text(mean(range(pos[f])), ymax, 'Plot truncated', adj = c(0.5, 0), cex = 0.5)
+    return(FALSE)
+  }
+  return(TRUE)
+}
+
+regionplot.highlight <- function(pvals, highlight_style) {
+    stopifnot(is.data.frame(pvals))
+    if (all(c('pos', 'pval') %in% names(pvals))) {
+        pvals <- subset(pvals, !is.na(pos) & !is.na(pval))
+        if (nrow(pvals) > 0) {
+            if ('circle' %in% highlight_style) {
+                regionplot.points(pvals$pos, pvals$pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75))
+            }
+            if ('pos' %in% highlight_style) {
+                text(pvals$pos, -log10(pvals$pval), pvals$pos, pos = 3, cex = 0.5)
+            }
+            ## in future will add options if 'rs' %in% highlight_style etc.
+        }
+    } else {
+        # silently do nothing, e.g. if pvals==data.frame(NULL)
+    }
+    return(invisible(NULL))
+}
+
+regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5, 
+                                     dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+
+  ## Recombination segments (r) that fall wholly or partly within [pos_start, pos_end]
+  ## have r.pos_end >= pos_start and r.pos_start <= pos_end
+  if (missing(pos_start)) pos_start = floor(par("usr")[1])
+  if (missing(pos_end)) pos_end = ceiling(par("usr")[2])
+
+  with(sqlWrapper(dbc, 
+                sprintf('SELECT pos_start, pos_end, recombination_rate FROM genetic_map WHERE %s', 
+                        gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end)),
+		uniq = FALSE, zrok = TRUE),
+       {
+         abline(h = yoff, col = "grey")
+         yscale <- (par("usr")[4] - yoff)*.9/max(recombination_rate)
+         lines(c(pos_start, pos_end[length(pos_end)]),
+               yoff + c(recombination_rate, recombination_rate[length(recombination_rate)])*yscale,
+               type = "s", col = "cyan3")
+         with(list(ypretty = pretty(c(0, max(recombination_rate)))),
+              axis(4, at = yoff + ypretty*yscale, labels = ypretty, las = 1))
+       })
+  mtext("Recombination rate (cM/Mb)", 4, 3)
+  return(invisible(NULL))
+}
+
 #library for region plot
 #Author: Li Li, modified based on Toby's code
 
