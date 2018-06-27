@@ -63,17 +63,8 @@ gwas <- function(analysis,
     }
 
     ## Plot description
-    pdesc <- sqlWrapper(dbc, 
-                        sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
-                                gtxwhat(analysis1 = analysis)))
-    main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
-                sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
-            } else if (!is.na(pdesc$ncohort[1])) {
-                sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
-            } else {
-                sprintf('%s, n=?', pdesc$label[1])
-            }
     ## no handling of entity is required in title
+    main <- gtxanalysis_label(analysis = analysis, entity = NULL, nlabel = TRUE, dbc = dbc)
     ## Filtering description
     ## in future we may need to pass maf_lt and rsq_lt as well  
     fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
