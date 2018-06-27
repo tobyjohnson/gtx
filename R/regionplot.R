@@ -383,7 +383,7 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
   yplt <- par("plt")[4] - par("plt")[3] # figure as fraction of plot, assumes no subsequent changes to par("mar")
   xplt <- par("plt")[2] - par("plt")[1]
   xusr <- pos_end - pos_start # par("usr")[2] - par("usr")[1] 
-  return(with(sqlWrapper(dbc, 
+  return(with(sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                        ## use SQL query to aggregate over multiple rows with same name to get whole span
                        sprintf('SELECT min(pos_start) AS pos_start, max(pos_end) AS pos_end, hgncid, ensemblid FROM genes WHERE %s %s GROUP BY ensemblid, hgncid ORDER BY pos_start', 
                                gtxwhere(chrom = chrom, pos_end_ge = pos_start, pos_start_le = pos_end),

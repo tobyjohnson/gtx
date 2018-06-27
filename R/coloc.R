@@ -356,7 +356,7 @@ multicoloc <- function(analysis1, analysis2,
                          dbc = dbc)
   ss <- data.table(ss) # could inline
   
-  res <- sqlWrapper(dbc, 
+  res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                     sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
                     uniq = FALSE)
@@ -480,7 +480,7 @@ multicoloc.kbs <- function(analysis1, analysis2,
                          dbc = dbc) %>% 
           as.data.table()
   
-  res <- sqlWrapper(dbc, 
+  res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                     sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
                     uniq = FALSE)
