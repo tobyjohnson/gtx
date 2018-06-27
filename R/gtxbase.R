@@ -183,8 +183,9 @@ gtxfilter <- function(pval_le, pval_gt,
     ## queries TABLE analyses to determine results_db table name and
     ## to efficiently handle whether freq and rsq are NULL
 
-    ## query analysis metadata
-    amd <- sqlWrapper(dbc, sprintf('SELECT results_db, has_freq, has_rsq
+    ## query analysis metadata, using cache if it exists
+    amd <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
+                      sprintf('SELECT results_db, has_freq, has_rsq
                                     FROM analyses
                                     WHERE %s;',
                             gtxwhat(analysis1 = analysis)))
@@ -278,7 +279,9 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 
     ## query analysis metadata, note this is inefficient since gtxfilter() may
     ## be making the same/similar query (potentially multiple times)
-    amd <- sqlWrapper(dbc, sprintf('SELECT has_freq, has_rsq
+    ## added, using cache if it exists
+    amd <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
+                      sprintf('SELECT has_freq, has_rsq
                                     FROM analyses
                                     WHERE %s;',
                             gtxwhat(analysis1 = analysis)))
@@ -365,7 +368,9 @@ gtxanalyses <- function(analysis, analysis_not,
     dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
 
     ## sanitize and check desired analysis_fields, create sanitized string for SQL
-    acols <- names(sqlWrapper(dbc, 'SELECT * FROM analyses LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
+    ## added, using cache if it exists
+    acols <- names(sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
+                              'SELECT * FROM analyses LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
     analysis_fields <- sanitize(union(c('analysis', 'entity_type', 'results_db'),
                               analysis_fields),
                         type = 'alphanum')
@@ -397,6 +402,7 @@ gtxanalyses <- function(analysis, analysis_not,
                      missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
                      missing(has_tag))
     if (all_analyses) {
+        ## This query cannot use cache unless JOIN with analyses_tags, and subquery, are supported
         res <- sqlWrapper(dbc,
                           sprintf('SELECT %s %s FROM analyses %s',
                                   analysis_fields,
