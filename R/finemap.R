@@ -212,6 +212,7 @@ cleo <- function(analysis,
     }
     
     return(list(nsignals = length(attr(data, 'nullppc_cleo')),
+                pci = pci, 
                 signals = datas,
                 aggregate = dataa))
 }
