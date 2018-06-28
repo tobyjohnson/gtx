@@ -2,6 +2,8 @@
 
 ## The user interface to finemapping functionality is regionplot() and regionplot.data()
 
+## Detailed multisignal results are exposed via cleo()
+
 ## Trying to use the following notation
 ## ppc = posterior probability of causality
 ## ccs = credibly causal set
@@ -69,6 +71,9 @@ fm_cleo.data <- function(analysis,
                            uniq = FALSE, zrok = TRUE)
         t1 <- as.double(Sys.time())
         gtxlog('Query returned ', nrow(ss), ' summary statistics in ', round(t1 - t0, 3), 's.')
+        ## modify xregion, extend to include the range of positions actually spanned by these signals
+        xregion$pos_start <- min(ss$pos)
+        xregion$pos_end <- max(ss$pos)
     } else {
         ss <- sqlWrapper(dbc,
                          sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %s.gwas_results_cond LIMIT 0;', 
@@ -132,4 +137,81 @@ fm_cleo <- function(analysis,
         ## data have no rows, FIXME add expected columns and attr()ibutes
         return(data)
     }
+}
+
+cleo <- function(analysis,
+                 chrom, pos_start, pos_end, pos, 
+                 hgncid, ensemblid, rs, surround = 500000,
+                 priorsd = 1., priorc = 1e-5, ccs_size = 0.95, 
+                 dbc = getOption("gtx.dbConnection", NULL)) {
+    ## database connection is checked within fm_cleo.data() call
+
+    ## If in future, priorsd and priorc are columns in analyses
+    ## *here* is the place we would query and use those values
+
+    ## call fm_cleo with ccs_only = FALSE
+    data <- fm_cleo(analysis = analysis,
+                    chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos,
+                    hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                    priorsd = priorsd, priorc = priorc, ccs_size = ccs_size, ccs_only = FALSE,
+                    dbc = dbc)
+    xregion <- attr(data, 'region')
+
+    ## annotate data by signals
+    gtxlog('Merging with protein coding annotation')
+    t0 <- as.double(Sys.time())
+    vep <- sqlWrapper(dbc,
+                      sprintf('SELECT chrom, pos, ref, alt, impact FROM vep WHERE %s;',
+                              gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end)),
+                      uniq = FALSE, zrok = TRUE)    
+    t1 <- as.double(Sys.time())
+    gtxlog('Query returned ', length(ds), ' annotations within query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
+    t0 <- as.double(Sys.time())
+    ## note, merge does not preserve attr()ibutes
+    datas <- merge(data, vep, by = c('chrom', 'pos', 'ref', 'alt'), all.x = TRUE, all.y = FALSE) 
+    ## FIXME there's an interesting possibility to use all.y=TRUE to capture impactful variants that are not in the FM analysis
+    ## and potentially flag this to the user
+    t1 <- as.double(Sys.time())
+    gtxlog('Merged with CLEO results in ', round(t1 - t0, 3), 's.')
+
+    ## PCI is probability of causal impact
+    datai <- subset(datas, !is.na(impact), drop = FALSE) # FIXME when content of impact changes
+    if (nrow(datai) > 0) {
+        pci1 <- aggregate(datai[, 'ppc_cleo', drop = FALSE], 
+                         by = list(signal = datai$signal),
+                         FUN = sum, na.rm = TRUE)
+        pci1 <- pci1[order(pci1$ppc_cleo, decreasing = TRUE), ]
+        pci <- pci1$ppc_cleo
+        names(pci) <- pci1$signal
+        ## FIXME do setdiff with names(attr(data, 'nullppc_cleo')) to add true zeros
+    } else {
+        pci <- NULL # FIXME should be all zero with signals from names(attr(data, 'nullppc_cleo'))
+    }
+
+    ## aggregate over signals
+    gtxlog('Aggregating over signals')
+    t0 <- as.double(Sys.time())
+    dsumppc <- aggregate(data[ , 'ppc_cleo', drop = FALSE], 
+                         by = with(data, list(chrom = chrom, pos = pos, ref = ref, alt = alt)),
+                         FUN = sum, na.rm = TRUE)
+    dorccs <- aggregate(data[ , 'ccs_cleo', drop = FALSE], 
+                        by = with(data, list(chrom = chrom, pos = pos, ref = ref, alt = alt)),
+                        FUN = any)
+    dataa <- merge(merge(dsumppc, dorccs, by = c('chrom', 'pos', 'ref', 'alt'), all = TRUE),
+                   vep, by = c('chrom', 'pos', 'ref', 'alt'), all.x = TRUE, all.y = FALSE)
+    dataa <- dagg[with(dataa, order(chrom, pos, ref, alt)), ]
+    t1 <- as.double(Sys.time())
+    gtxlog('Aggregated in ', round(t1 - t0, 3), 's.')
+
+    datas = subset(datas, ccs_cleo) # drop to signalwise CCS
+    
+    ##Preserve original attributes, note this list should be introspected not hard coded (FIXME)
+    for (a in c('analysis', 'region', 'params_cleo', 'nullppc_cleo')) {
+        attr(datai, a) <- attr(data, a)
+        attr(dataa, a) <- attr(data, a)
+    }
+    
+    return(list(nsignals = length(attr(data, 'nullppc_cleo')),
+                signals = datas,
+                aggregate = dataa))
 }
