@@ -210,8 +210,13 @@ cleo <- function(analysis,
         attr(datai, a) <- attr(data, a)
         attr(dataa, a) <- attr(data, a)
     }
+
+    nullppc <- attr(data, 'nullppc_cleo')
+    nullppc <- nullppc[order(nullppc)]
     
     return(list(nsignals = length(attr(data, 'nullppc_cleo')),
+                nullppc = nullppc,
+                altppc = 1. - nullppc, # need to think of a better name for this 'alt model ppc'
                 pci = pci, 
                 signals = datas,
                 aggregate = dataa))
