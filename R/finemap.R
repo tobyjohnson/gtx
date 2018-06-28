@@ -72,7 +72,7 @@ fm_cleo.data <- function(analysis,
     } else {
         ss <- sqlWrapper(dbc,
                          sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %s.gwas_results_cond LIMIT 0;', 
-                                 gtxanalysisdb(analysis)) 
+                                 gtxanalysisdb(analysis)), 
                          uniq = FALSE, zrok = TRUE)
     }
     attr(ss, 'analysis') <- analysis
