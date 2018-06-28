@@ -57,7 +57,7 @@ fm_cleo.data <- function(analysis,
                      uniq = FALSE, zrok = TRUE)$signal
     t1 <- as.double(Sys.time())
     gtxlog('Query returned ', length(ds), ' signal(s) overlapping query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
-    if (nrow(ds) > 0) {
+    if (length(ds) > 0) {
         gtxlog('Querying summary statistics from CLEO analyses')
         t0 <- as.double(Sys.time())
         ss <- sqlWrapper(dbc,
