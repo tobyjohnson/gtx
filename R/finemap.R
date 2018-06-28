@@ -93,38 +93,43 @@ fm_cleo <- function(analysis,
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround, 
                          dbc = dbc)
 
-    ## compute lnABF+ln(priorc) for each variant for each signal,
-    ## relative to lnabf==lnabfp==0. for each signal null
-    data$lnabf <- with(data, abf.Wakefield(beta_cond, se_cond, priorsd = priorsd, log = TRUE))
-    data$lnabfp <- data$lnabf + log(priorc)
-    ## rescale so max is 0, over variants *and the null*
-    ## including null should not be needed *here*, if CLEO has selected significant signals, unless priorc is *very* small
-    ## FIXME this is a more stable scaling to use in other fm calculations
-    maxlnabfp <- aggregate(data[ , 'lnabfp', drop = FALSE], by = list(signal = data$signal), FUN = max, na.rm = TRUE)
-    maxlnabfp$lnabfp <- pmax(maxlnabfp$lnabfp, 0.)
-    ## compute unnormalized ppc (ppcu)
-    data$ppcu <- exp(data$lnabfp - maxlnabfp$lnabfp[match(data$signal, maxlnabfp$signal)])
-    ## compute sum over variants and nulls within signals, normalize
-    sumppcu <- aggregate(data[ , 'ppcu', drop = FALSE], by = list(signal = data$signal), FUN = sum, na.rm = TRUE)
-    sumppcu$nullppcu <- exp(0. - maxlnabfp$lnabfp)[match(sumppcu$signal, maxlnabfp$signal)]
-    sumppcu$sumppcu <- sumppcu$ppcu + sumppcu$nullppcu
-    sumppcu$nullppc <- sumppcu$nullppcu/sumppcu$sumppcu
-    data$ppc_cleo <- data$ppcu/sumppcu$sumppcu[match(data$signal, sumppcu$signal)]
-    ## clean up data
-    data$lnabfp <- NULL
-    data$ppcu <- NULL
-    ## compute credibly causal sets
-    data$ccs_cleo <- NA
-    for (sig in sumppcu$signal) {
-        ww <- which(data$signal == sig)
-        data$ccs_cleo[ww] <- gtx:::credset(c(nullppc[match(sig, names(nullppc))], data$ppc[ww]), cred = ccs_size)[-1]
+    if (nrow(data) > 0) {
+        ## compute lnABF+ln(priorc) for each variant for each signal,
+        ## relative to lnabf==lnabfp==0. for each signal null
+        data$lnabf <- with(data, abf.Wakefield(beta_cond, se_cond, priorsd = priorsd, log = TRUE))
+        data$lnabfp <- data$lnabf + log(priorc)
+        ## rescale so max is 0, over variants *and the null*
+        ## including null should not be needed *here*, if CLEO has selected significant signals, unless priorc is *very* small
+        ## FIXME this is a more stable scaling to use in other fm calculations
+        maxlnabfp <- aggregate(data[ , 'lnabfp', drop = FALSE], by = list(signal = data$signal), FUN = max, na.rm = TRUE)
+        maxlnabfp$lnabfp <- pmax(maxlnabfp$lnabfp, 0.)
+        ## compute unnormalized ppc (ppcu)
+        data$ppcu <- exp(data$lnabfp - maxlnabfp$lnabfp[match(data$signal, maxlnabfp$signal)])
+        ## compute sum over variants and nulls within signals, normalize
+        sumppcu <- aggregate(data[ , 'ppcu', drop = FALSE], by = list(signal = data$signal), FUN = sum, na.rm = TRUE)
+        sumppcu$nullppcu <- exp(0. - maxlnabfp$lnabfp)[match(sumppcu$signal, maxlnabfp$signal)]
+        sumppcu$sumppcu <- sumppcu$ppcu + sumppcu$nullppcu
+        sumppcu$nullppc <- sumppcu$nullppcu/sumppcu$sumppcu
+        data$ppc_cleo <- data$ppcu/sumppcu$sumppcu[match(data$signal, sumppcu$signal)]
+        ## clean up data
+        data$lnabfp <- NULL
+        data$ppcu <- NULL
+        ## extract null ppcs
+        nullppc <- sumppcu$nullppc 
+        names(nullppc) <- sumppcu$signal
+        ## compute credibly causal sets
+        data$ccs_cleo <- NA
+        for (sig in sumppcu$signal) {
+            ww <- which(data$signal == sig)
+            data$ccs_cleo[ww] <- gtx:::credset(c(nullppc[match(sig, names(nullppc))], data$ppc[ww]), cred = ccs_size)[-1]
+        }
+        ## add as attr()ibutes
+        attr(data, 'params_cleo') <- list(priorsd = priorsd, priorc = priorc, ccs_size = ccs_size)
+        attr(data, 'nullppc_cleo') <- nullppc
+        if (ccs_only) data <- subset(data, ccs_cleo)
+        return(data)
+    } else {
+        ## data have no rows, FIXME add expected columns and attr()ibutes
+        return(data)
     }
-    ## prepare null ppcs
-    nullppc <- sumppcu$nullppc 
-    names(nullppc) <- sumppcu$signal
-    ## add as attr()ibutes
-    attr(data, 'params_cleo') <- list(priorsd = priorsd, priorc = priorc, ccs_size = ccs_size)
-    attr(data, 'nullppc_cleo') <- nullppc
-    if (ccs_only) data <- subset(data, ccs_cleo)
-    return(data)
 }
