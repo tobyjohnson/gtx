@@ -199,7 +199,7 @@ cleo <- function(analysis,
                         FUN = any)
     dataa <- merge(merge(dsumppc, dorccs, by = c('chrom', 'pos', 'ref', 'alt'), all = TRUE),
                    vep, by = c('chrom', 'pos', 'ref', 'alt'), all.x = TRUE, all.y = FALSE)
-    dataa <- dagg[with(dataa, order(chrom, pos, ref, alt)), ]
+    dataa <- dataa[with(dataa, order(chrom, pos, ref, alt)), ]
     t1 <- as.double(Sys.time())
     gtxlog('Aggregated in ', round(t1 - t0, 3), 's.')
 
