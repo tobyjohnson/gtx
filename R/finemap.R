@@ -165,7 +165,7 @@ cleo <- function(analysis,
                               gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end)),
                       uniq = FALSE, zrok = TRUE)    
     t1 <- as.double(Sys.time())
-    gtxlog('Query returned ', length(ds), ' annotations within query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
+    gtxlog('Query returned ', nrow(vep), ' annotations within query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
     t0 <- as.double(Sys.time())
     ## note, merge does not preserve attr()ibutes
     datas <- merge(data, vep, by = c('chrom', 'pos', 'ref', 'alt'), all.x = TRUE, all.y = FALSE) 
