@@ -160,9 +160,9 @@ regionplot <- function(analysis,
         if (length(ww) > 0L) {
             pprel <- pvals$pp_cleo[ww]
             pprel <- pprel/max(pprel, na.rm = TRUE) # relative pp *within signal*
-            bg_cleo[ww] <- rgb((col2rgb(colvec[idx])[1] - .67)*pprel + .67, 
-                               (col2rgb(colvec[idx])[2] - .67)*pprel + .67
-                               (col2rgb(colvec[idx])[3] - .67)*pprel + .67, 
+            bg_cleo[ww] <- rgb((col2rgb(colvec[idx])[1]/255 - .67)*pprel + .67, 
+                               (col2rgb(colvec[idx])[2]/255 - .67)*pprel + .67,
+                               (col2rgb(colvec[idx])[3]/255 - .67)*pprel + .67, 
                                alpha = .5)
         }
     }
