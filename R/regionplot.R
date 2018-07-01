@@ -109,7 +109,10 @@ regionplot <- function(analysis,
                  dbc = dbc)
     ## best order for plotting is highest pp on top, with impact on top of that
     pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_signal), ]
-    pvals <- within(pvals, pprel <- pp_signal/max(pp_signal, na.rm = TRUE)) # relative posterior prob for colouring
+    pvals <- within(pvals, {
+        pprel <- pp_signal/max(pp_signal, na.rm = TRUE) # relative posterior prob for colouring
+        alpha <- .5 + .25*pprel # currently use a single alpha for col and bg for coding and noncoding, so precalculate
+    })
     with(pvals, regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   cex = ifelse(cs_signal, 1.25, .75), 
@@ -144,7 +147,7 @@ regionplot <- function(analysis,
     pvals$pp_cleo[is.na(pvals$pp_cleo)] <- 0. # just in case
     pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_cleo), ] # a
 
-    colvec <-  # used for legend below
+    ## colvec is vector of identifying colour for each signal
     if (length(signals) == 1L) {
         colvec <- rgb(1, 0, 0) # red
     } else {
