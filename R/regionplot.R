@@ -144,8 +144,7 @@ regionplot <- function(analysis,
     }
     ## best order for plotting
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
-    pvals$pp_cleo[is.na(pvals$pp_cleo)] <- 0. # just in case
-    pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_cleo), ] # a
+    pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_cleo), ]
 
     ## colvec is vector of identifying colour for each signal
     if (length(signals) == 1L) {
@@ -248,6 +247,8 @@ regionplot.data <- function(analysis,
             ## FIXME in case one variant is in more than one credible
             ## set, it would be better to cbind like we do above with signal,
             ## but then cbind with the *marginal* pp's from aggregating over signals
+            pvals$pp_cleo[is.na(pvals$pp_cleo)] <- 0. # make zero to be safe with sorting/plotting
+            pvals$cs_cleo[is.na(pvals$cs_cleo)] <- FALSE # make FALSE to be safe with tables/plotting
         } else {
             # do nothing
         }
