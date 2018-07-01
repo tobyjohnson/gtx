@@ -28,9 +28,9 @@ regionplot <- function(analysis,
   ## Determine x-axis range from attr()ibutes of data
   ## was re-resolved from command line args
   xregion <- attr(pvals, 'region')
-  chrom <- xregion$chrom
-  pos_start = xregion$pos_start
-  pos_end = xregion$pos_end
+  #chrom <- xregion$chrom
+  #pos_start = xregion$pos_start
+  #pos_end = xregion$pos_end
   
   ## Determine entity from attr()ibutes of data
   xentity <- attr(pvals, 'entity')
@@ -52,13 +52,13 @@ regionplot <- function(analysis,
       # query this rs id
       qrs <- sqlWrapper(dbc,
                        sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
-                               gtxwhere(chrom = chrom, rs = rs)),
+                               gtxwhere(chrom = xregion$chrom, rs = rs)),
                         uniq = FALSE, zrok = TRUE)
       gp <- rbind(gp, merge(pvals, qrs, all.x = FALSE, all.y = TRUE)[ , c('pos', 'pval')])
   }
 
   if ('classic' %in% style) {
-    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
@@ -73,7 +73,7 @@ regionplot <- function(analysis,
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
   if ('ld' %in% style) {
-    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
@@ -102,7 +102,7 @@ regionplot <- function(analysis,
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
   if ('signal' %in% style) {
-    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
@@ -119,13 +119,13 @@ regionplot <- function(analysis,
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, alpha), rgb(.33, .33, .33, alpha)),
                                   bg = ifelse(cs_signal,
                                               ifelse(!is.na(impact),
-                                                     rgb(.33*pprel + .67, (1 - pprel)*.67, (1 - pprel)*.67, alpha),
-                                                     rgb((1 - pprel)*.67, (1 - pprel)*.67, .33*pprel + .67, alpha)),
+                                                     rgb((1 - pprel)*.67, (1 - pprel)*.67, .33*pprel + .67, alpha),
+                                                     rgb(.33*pprel + .67, (1 - pprel)*.67, (1 - pprel)*.67, alpha)),
                                               rgb(.67, .67, .67, .5))))
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
   if ('signals' %in% style) {
-    regionplot.new(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
