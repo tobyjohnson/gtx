@@ -9,10 +9,13 @@
 ## do_stop=FALSE, will return a text string, for use in applications that will handle the error themselves
 ##
 ## check_databases is optional as this can be expensive
+##
+## added verbose option otherwise more useful logging messages get swamped
 
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
                        do_stop = TRUE,
-                       check_databases) {
+                       check_databases,
+                       verbose = FALSE) {
 
   ## FIXME: make this work for other client/server db connections especially MySQL
   ## Noting several blocks below behave slightly differently depending on class(dbc)
@@ -38,7 +41,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## (i.e. check whether a later USE statement should be successful)
   if (!missing(check_databases)) {
       if ('Impala' %in% class(dbc)) {
-          gtxlog('Trying query: SHOW DATABASES;')
+          if (verbose) gtxlog('Trying query: SHOW DATABASES;')
           dbs <- dbGetQuery(dbc, 'SHOW DATABASES;')
           if (!is.data.frame(dbs)) {
               if (do_stop) {
@@ -71,7 +74,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   
   ## Update string describing current database connection to include db name or SQLite path
   if ('Impala' %in% class(dbc)) {
-      gtxlog('Trying query: SELECT current_database();')
+      if (verbose) gtxlog('Trying query: SELECT current_database();')
       currdb <- paste0(Sys.getenv('USER'), '@', Sys.getenv('HOSTNAME'), ' <Impala:', 
                        paste(dbGetQuery(dbc, 'SELECT current_database();')[ , 'current_database()'], collapse = ', '), '>')    
   } else if ('SQLiteConnection' %in% class(dbc)) {
@@ -84,7 +87,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## Always check tables since this is cheapest way we know to check
   ## db connection is working and pointing to the expected content
   if ('Impala' %in% class(dbc)) {
-      gtxlog('Trying query: SHOW TABLES;')
+      if (verbose) gtxlog('Trying query: SHOW TABLES;')
       tables <- dbGetQuery(dbc, 'SHOW TABLES;')
       if (!is.data.frame(tables)) {
           if (do_stop) {
