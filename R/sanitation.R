@@ -1,47 +1,127 @@
-# plan to move gtxdbcheck to separate file,
-## and make this file all non-gtx-specific SQL sanitation functions
+## gtxdbcheck(dbc), called immediately within every gtx function that uses a database connection
+##     should be the most lightweight check possible (minimize actual queries against dbc)
+##     should throw an error with stop() in the most common failure modes
+##       especially those that would otherwise throw unintelligible error messages
+##       e.g. dbc not initialized, server unresponsive/down/no authentication 
+##
+## supports several different uses:
+## do_stop=TRUE, default, will throw error, for use in interactive code/notebooks
+## do_stop=FALSE, will return a text string, for use in applications that will handle the error themselves
+##
+## check_databases is optional as this can be expensive
 
-gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL), verbose = FALSE) {
-  if (! 'Impala' %in% class(dbc)) stop('dbc does not appear to be an Impala connection (not of class Impala)')
-  dbs <- dbGetQuery(dbc, 'SHOW DATABASES;')
-  if (!is.data.frame(dbs)) stop('dbc does not appear to be an open database connection (SHOW DATABASES did not return a dataframe)')
-  tables <- dbGetQuery(dbc, 'SHOW TABLES;')
-  if (!is.data.frame(tables)) stop('dbc does not appear to be an open database connection (SHOW TABLES did not return a dataframe)')
-  ## could add other checks for existence and schema of the tables present
-  if (verbose) {
-    if ('analyses' %in% tables$name) {
-      res <- dbGetQuery(dbc, 'SELECT count(1) AS n FROM analyses')
-      if (is.data.frame(res)) {
-        message('TABLE analyses: ', prettyNum(res$n, big.mark = ',', scientific = FALSE), ' records')
+gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
+                       do_stop = TRUE,
+                       check_databases) {
+
+  ## FIXME: make this work for other client/server db connections especially MySQL
+  ## Noting several blocks below behave slightly differently depending on class(dbc)
+
+  ##
+  ## Check dbc is of a class we recognize
+  ## Construct a string describing current database connection  
+  if ('Impala' %in% class(dbc)) {
+      currdb <- paste0(Sys.getenv('USER'), '@', Sys.getenv('HOSTNAME'), ' <Impala>')
+  } else if ('SQLiteConnection' %in% class(dbc)) {
+      currdb <- '<SQLite>'
+  } else {
+      if (do_stop) {
+          stop('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')
       } else {
-        stop('SQL error:\n', as.character(res))
+          return(list(check = FALSE,
+                      status = paste0('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')))
       }
-    } else {
-      stop('dbc does not provide TABLE analyses')
-    }
-    # This query is NOT run against the cached table since we're trying to check the main dbc
-    res <- sqlWrapper(dbc, 
-                      'SELECT DISTINCT results_db FROM analyses',
-                      uniq = FALSE)
-    if (is.data.frame(res)) {
-      res1 <- sanitize(res$results_db, type = 'alphanum')
-      res1a <- res1 %in% dbs$name # identify whether user has access
-      message('TABLE analyses: gwas_results in databases: ', 
-              paste(res1, ifelse(res1a, '[OK]', '[no access]'), collapse = ', '))
-      for (results_db in res1[res1a]) { 
-        res2 <- sqlWrapper(dbc, sprintf('SELECT count(1) AS n FROM %s.gwas_results', results_db))
-        if (is.data.frame(res2)) {
-          message('TABLE ', results_db, '.gwas_results: ', prettyNum(res2$n, big.mark = ',', scientific = FALSE), ' records')
-        } else {
-          stop('SQL error:\n', as.character(res2))
-        }
-      }
-    } else {
-      stop('SQL error:\n', as.character(res))
-    }
   }
-  return(TRUE)
+      
+  ##
+  ## If check_databases requested and we know how, check we can access them
+  ## (i.e. check whether a later USE statement should be successful)
+  if (!missing(check_databases)) {
+      if ('Impala' %in% class(dbc)) {
+          gtxlog('Trying query: SHOW DATABASES;')
+          dbs <- dbGetQuery(dbc, 'SHOW DATABASES;')
+          if (!is.data.frame(dbs)) {
+              if (do_stop) {
+                  stop(currdb, ' does not appear to be an open database connection (SHOW DATABASES did not return a dataframe)')
+              } else {
+                  return(list(check = FALSE,
+                              status = paste(currdb, 'cannot list available databases')))
+              }
+          }
+          if (!all(check_databases %in% dbs$name)) {
+              if (do_stop) {
+                  stop(currdb, ' cannot access database(s) [ ', paste(setdiff(check_databases, dbs$name), collapse = ', '), ' ]')
+              } else {
+                  return(list(check = FALSE,
+                              status = paste(currdb, 'cannot access database(s) [ ', paste(setdiff(check_databases, dbs$name), collapse = ', '), ' ]')))
+              }
+          }
+      } else if ('SQLiteConnection' %in% class(dbc)) {
+          stop('check_databases not possible for SQLiteConnection')    
+      } else {
+          stop('gtxdbcheck internal error')
+      }
+      if (do_stop) {
+          return(TRUE)
+      } else {
+          return(list(check = TRUE,
+                      status = paste0(currdb, 'can access database(s) [ ', check_databases, ' ]')))
+      }
+  }
+  
+  ## Update string describing current database connection to include db name or SQLite path
+  if ('Impala' %in% class(dbc)) {
+      gtxlog('Trying query: SELECT current_database();')
+      currdb <- paste0(Sys.getenv('USER'), '@', Sys.getenv('HOSTNAME'), ' <Impala:', 
+                       paste(dbGetQuery(dbc, 'SELECT current_database();')[ , 'current_database()'], collapse = ', '), '>')    
+  } else if ('SQLiteConnection' %in% class(dbc)) {
+      currdb <- paste0('<SQLite:', dbc@dbname, '>')
+  } else {
+      stop('gtxdbcheck internal error')
+  }  
+    
+  ##
+  ## Always check tables since this is cheapest way we know to check
+  ## db connection is working and pointing to the expected content
+  if ('Impala' %in% class(dbc)) {
+      gtxlog('Trying query: SHOW TABLES;')
+      tables <- dbGetQuery(dbc, 'SHOW TABLES;')
+      if (!is.data.frame(tables)) {
+          if (do_stop) {
+              stop(currdb, ' does not appear to be an open database connection (SHOW TABLES did not return a dataframe)')
+          } else {
+              return(list(check = FALSE,
+                          status = paste(currdb, 'cannot list available database tables')))
+          }
+      }
+      tables <- tables$name
+  } else if ('SQLiteConnection' %in% class(dbc)) {
+      tables <- dbListTables(dbc)
+  }
+  check_tables_req <- c('analyses', 'gwas_results', 'genes') # FIXME make this list complete
+  if (!all(check_tables_req %in% tables)) {
+      if (do_stop) {
+          stop(currdb, ' cannot access table(s) [ ', paste(setdiff(check_tables_req, tables), collapse = ', '), ' ]')
+      } else {
+          return(list(check = FALSE,
+                 status = paste(currdb,'cannot access table(s) [ ', paste(setdiff(check_tables_req, tables), collapse = ', '), ' ]')))
+      }
+  }
+  ##
+  ## Checks completed okay, return
+  if (do_stop) {
+      return(TRUE)
+  } else {
+      return(list(check = TRUE,
+                  status = paste(currdb, 'OK')))
+  }
+
+  ## could add other checks for existence and schema of the tables present
+  ## could add options to attempt to fix common problems
+  ## e.g. Impala connections where SELECT * LIMIT 10 fails, can try INVALIDATE METADATA
 }
+
+
       
 ## Two uses for this function:
 ##  resolve = TRUE, return the results_db for a single analysis, throw informative
