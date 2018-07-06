@@ -24,7 +24,7 @@ gwas <- function(analysis,
     res <- sqlWrapper(dbc,
                       sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
                                FROM %s.gwas_results
-                               WHERE %s AND %s;', 
+                               WHERE %s AND %s ORDER BY chrom, pos;', 
                               gtxanalysisdb(analysis),
                               gtxwhat(analysis1 = analysis),
                               gtxfilter(pval_le = pval_thresh, maf_ge = maf_ge, rsq_ge = rsq_ge,
@@ -35,25 +35,25 @@ gwas <- function(analysis,
     t1 <- as.double(Sys.time())
     gtxlog('Significant results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
     
-    t0 <- as.double(Sys.time())
-    oo <- res[ , order(suppressWarnings(as.integer(chrom)), pos)]
-    res <- res[oo , ]
-    t1 <- as.double(Sys.time())
-    gtxlog('Ordered by chrom/pos in ', round(t1 - t0, 3), 's.')
-    
     ## Simple distance based pruning
     if (nrow(res) > 0) {
         t0 <- as.double(Sys.time())
-        ww <- res[ , prune.distance(chrom, pos, pval)]
-        res <- res[ww] # ??? test this
+        res_sigs <- prune.distance(res, sorted = TRUE)
+        ## sort by match(chrom, c(as.character(1:22), 'X'))
+        rescols <- c('pos', 'ref', 'alt', 'pval', 'rsq', 'freq', 'beta', 'se') # columns from original res to include
+        res <- data.table(cbind(res_sigs, res[res_sigs$row, rescols, with = FALSE]))
+        setnames(res, rescols, paste0(rescols, '_index'))
+        res[ , row := NULL]
         t1 <- as.double(Sys.time())
-        gtxlog('Distance based pruning reduced to ', nrow(res), ' rows in ', round(t1 - t0, 3), 's. [PLEASE OPTIMIZE ME!]')
-        ## important to prune before using the (currently) expensive gene.annotate() function
+        gtxlog("Pruned to ", nrow(res), " separate signals in ", round(t1 - t0, 3), "s.")
         if (gene_annotate) {
             t0 <- as.double(Sys.time())
-            res[ , gene_annotation := gene.annotate(chrom, pos)]
+            res[ , gene_annotation := gene.annotate(chrom, pos_index)]
             t1 <- as.double(Sys.time())
-            gtxlog('Gene annotation added in ', round(t1 - t0, 3), 's. [PLEASE OPTIMIZE ME!]')
+            gtxlog('Gene annotation added in ', round(t1 - t0, 3), 's.')
+            if (is.null(getOption('gtx.dbConnection_cache_genes', NULL)) && (t1 - t0) > 1.) {
+                gtxlog('Use gtxcache() to speed up gene annotation')
+            }
         }
         ## IN A FUTURE WORK we will introspect the existence of joint/conditional results
         ## and use if appropriate
@@ -221,7 +221,6 @@ gwas <- function(analysis,
         ## OR, do this if regionplot() called with no positional specifier
     }
 
-    return(res)
-    
+    return(as.data.frame(res)) # don't return as a data.table   
 }
 
