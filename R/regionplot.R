@@ -9,7 +9,7 @@ regionplot <- function(analysis,
                        priorsd = 1, priorc = 1e-5, cs_size = 0.95, 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot
                        highlight_style = 'circle', 
-                       maf_ge, rsq_ge, 
+                       maf_ge, rsq_ge, emac_ge, case_emac_ge, 
                        dbc = getOption("gtx.dbConnection", NULL)) {
   # check database connection
   gtxdbcheck(dbc)
@@ -22,7 +22,8 @@ regionplot <- function(analysis,
                            entity = entity,
                            style = style,
                            priorsd = priorsd, priorc = priorc, cs_size = cs_size, 
-                           maf_ge = maf_ge, rsq_ge = rsq_ge, 
+                           maf_ge = maf_ge, rsq_ge = rsq_ge,
+                           emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                            dbc = dbc)
 
   ## Determine x-axis range from attr()ibutes of data
@@ -40,7 +41,7 @@ regionplot <- function(analysis,
 
   main <- gtxanalysis_label(analysis = analysis, entity = xentity, nlabel = TRUE, dbc = dbc)
   ## in future we may need to pass maf_lt and rsq_lt as well  
-  fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
+  fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)
 
   ## Highlight index SNP(s) if pos or rs argument was used
   gp <- data.frame(NULL)
@@ -189,6 +190,7 @@ regionplot.data <- function(analysis,
                             style = 'signals',
                             priorsd = 1, priorc = 1e-5, cs_size = 0.95, 
                             maf_ge, rsq_ge,
+                            emac_ge, case_emac_ge, 
                             dbc = getOption("gtx.dbConnection", NULL)) {
     ## check database connection
     gtxdbcheck(dbc)
@@ -217,7 +219,7 @@ regionplot.data <- function(analysis,
                                 gtxwhat(analysis1 = analysis),
                                 if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
                                 gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)),
+                                gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
                         uniq = FALSE)
     t1 <- as.double(Sys.time())
     gtxlog('Query returned ', nrow(pvals), ' variants in query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
