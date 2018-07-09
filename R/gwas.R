@@ -171,7 +171,7 @@ gwas <- function(analysis,
         nump <- as.integer(sqlWrapper(getOption('gtx.dbConnection'),
                                       sprintf('SELECT count(1) AS nump
                                FROM %s.gwas_results
-                               WHERE %s AND pval > 1e-4 AND %s;',
+                               WHERE %s AND %s;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_gt = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
