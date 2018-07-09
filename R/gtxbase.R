@@ -174,7 +174,8 @@ gtxwhat <- function(analysis1,
 
 gtxfilter <- function(pval_le, pval_gt,
                       maf_ge, maf_lt,
-                      rsq_ge, rsq_lt, 
+                      rsq_ge, rsq_lt,
+                      emac_ge, case_emac_ge, 
                       analysis,
                       tablename,
                       dbc = getOption("gtx.dbConnection", NULL)) {
@@ -185,10 +186,12 @@ gtxfilter <- function(pval_le, pval_gt,
 
     ## query analysis metadata, using cache if it exists
     amd <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
-                      sprintf('SELECT results_db, has_freq, has_rsq
+                      sprintf('SELECT results_db, ncase, ncontrol, ncohort, has_freq, has_rsq
                                     FROM analyses
                                     WHERE %s;',
-                            gtxwhat(analysis1 = analysis)))
+                              gtxwhat(analysis1 = analysis)))
+    ## if ncohort is NA, replace with ncase+ncontrol, should not be needed with new schema definition
+    amd <- within(amd, ncohort <- ifelse(!is.na(ncohort), ncohort, ncase + ncontrol))
     
     if (!missing(tablename)) {
         tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
@@ -200,6 +203,7 @@ gtxfilter <- function(pval_le, pval_gt,
     ## can be set at multiple places in code, but we only want to print messages once
     warn_freq <- FALSE
     warn_rsq <- FALSE
+    warn_emac <- FALSE
 
     ## unlike similar functions, gtxwhat(), gtxwhere(), that add the tablename at the
     ## end, for this function the specific OR logic needed for maf_lt means we have to
@@ -255,10 +259,45 @@ gtxfilter <- function(pval_le, pval_gt,
                 warn_rsq <- TRUE
                 NULL
             }
+        },
+
+        if (missing(emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncohort)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                ## sanitizing emac_ge converts to string, so convert back to double for calculation, convert to string again
+                rfthresh <- sanitize1(as.double(sanitize1(emac_ge, type = 'double'))/(2*amd$ncohort), type = 'double')
+                sprintf('((%sfreq*%srsq)>=%s AND ((1.-%sfreq)*%srsq)>=%s)',
+                        tablename, tablename, rfthresh,
+                        tablename, tablename, rfthresh)
+            } else {
+                warn_emac <- TRUE
+                NULL
+            }
+        },
+        
+        if (missing(case_emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncase) && !is.na(amd$ncontrol)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                rfthresh <- sanitize1(as.double(sanitize1(case_emac_ge, type = 'double'))/(2*min(amd$ncase, amd$ncontrol)), type = 'double')
+                sprintf('((%sfreq*%srsq)>=%s AND ((1.-%sfreq)*%srsq)>=%s)',
+                        tablename, tablename, rfthresh,
+                        tablename, tablename, rfthresh)
+            } else {
+                warn_emac <- TRUE
+                NULL
+            }
         }
     )
     if (warn_freq) warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
     if (warn_rsq) warning('gtxfilter Rsq filtering skipped because has_rsq=False for analysis [ ', analysis, ' ]')
+    if (warn_emac) warning('gtxfilter EMAC filtering skipped because ', 
+                           paste(c(if (amd$has_freq == 0) 'has_freq=False' else NULL, 
+                                   if (amd$has_rsq == 0) 'has_rsq=False' else NULL, 
+                                   if (is.na(amd$ncohort)) 'ncohort is NA' else NULL, 
+                                   if (is.na(amd$ncase)) 'ncase is NA' else NULL, 
+                                   if (is.na(amd$ncontrol)) 'ncontrol is NA' else NULL),
+                                 collapse = ', '),
+                           ' for analysis [ ', analysis, ' ]')
 
     ## format, can simplify the inner paste0 since all list elements have length 1
     ws1f <- paste0("(", 
@@ -271,8 +310,10 @@ gtxfilter <- function(pval_le, pval_gt,
     return(ws1f)
 }
 
+## Should be combined into gtxfilter, to return SQL WHERE clause, and label, by one function call
 gtxfilter_label <- function(maf_ge, maf_lt,
-                            rsq_ge, rsq_lt, 
+                            rsq_ge, rsq_lt,
+                            emac_ge, case_emac_ge, 
                             analysis,
                             dbc = getOption("gtx.dbConnection", NULL)) {
     ## function to construct a nice label for plot
@@ -281,15 +322,17 @@ gtxfilter_label <- function(maf_ge, maf_lt,
     ## be making the same/similar query (potentially multiple times)
     ## added, using cache if it exists
     amd <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
-                      sprintf('SELECT has_freq, has_rsq
+                      sprintf('SELECT ncase, ncontrol, ncohort, has_freq, has_rsq
                                     FROM analyses
                                     WHERE %s;',
                             gtxwhat(analysis1 = analysis)))
-    
+    amd <- within(amd, ncohort <- ifelse(!is.na(ncohort), ncohort, ncase + ncontrol))
+
     ## set flags for whether to print warning messages
     ## can be set at multiple places in code, but we only want to print messages once
     warn_freq <- FALSE
     warn_rsq <- FALSE
+    warn_emac <- FALSE
 
     ws1 <- list(
         if (missing(maf_ge)) NULL
@@ -328,6 +371,26 @@ gtxfilter_label <- function(maf_ge, maf_lt,
                 sprintf('rsq<%s', sanitize1(rsq_lt, type = 'double'))
             } else {
                 warn_rsq <- TRUE
+                NULL
+            }
+        },
+
+        if (missing(emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncohort)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                sprintf('EMAC>=%s', sanitize1(emac_ge, type = 'double'))
+            } else {
+                warn_emac <- TRUE
+                NULL
+            }
+        },
+        
+        if (missing(case_emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncase) && !is.na(amd$ncontrol)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                sprintf('case EMAC >=%s', sanitize1(case_emac_ge, type = 'double'))
+            } else {
+                warn_emac <- TRUE
                 NULL
             }
         }

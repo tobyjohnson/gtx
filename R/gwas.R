@@ -5,7 +5,7 @@
 
 gwas <- function(analysis,
                  style = c('manhattan', 'qqplot'), 
-                 pval_thresh = 5e-08, maf_ge, rsq_ge,
+                 pval_thresh = 5e-08, maf_ge, rsq_ge, emac_ge, case_emac_ge, 
                  gene_annotate = TRUE,
                  plot_ymax = 30,
                  manhattan_thresh = 5e-08,
@@ -27,7 +27,9 @@ gwas <- function(analysis,
                                WHERE %s AND %s ORDER BY chrom, pos;', 
                               gtxanalysisdb(analysis),
                               gtxwhat(analysis1 = analysis),
-                              gtxfilter(pval_le = pval_thresh, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                              gtxfilter(pval_le = pval_thresh,
+                                        maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                        emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                         analysis = analysis,
                                         dbc = dbc)),
                       uniq = FALSE)
@@ -67,7 +69,9 @@ gwas <- function(analysis,
     main <- gtxanalysis_label(analysis = analysis, entity = NULL, nlabel = TRUE, dbc = dbc)
     ## Filtering description
     ## in future we may need to pass maf_lt and rsq_lt as well  
-    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
+    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge,
+                             emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
+                             analysis = analysis)
     
     if ('manhattan' %in% style || 'qqplot' %in% style) {
         ## Make single query for either case
@@ -78,7 +82,9 @@ gwas <- function(analysis,
                                WHERE %s AND %s;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_le = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                               gtxfilter(pval_le = 10^-plot_fastbox,
+                                         maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                         emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                          analysis = analysis,
                                          dbc = dbc)),
                             uniq = FALSE)
@@ -174,7 +180,9 @@ gwas <- function(analysis,
                                WHERE %s AND %s;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_gt = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                               gtxfilter(pval_gt = 10^-plot_fastbox,
+                                         maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                         emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                          analysis = analysis,
                                          dbc = dbc)),
                                uniq = TRUE)$nump) + nrow(pvals)
