@@ -1,3 +1,24 @@
+#' Phenome Wide Assocation Study
+#' 
+#' Look up and plot results for a Phenome Wide Association Study.
+#' 
+#' Look up association summary statistics for a single variant of interest, specified 
+#' either by chromosome and position, or by dbSNP rs identifier.  (FIXME need to add optional 
+#' ref/alt arguments to disambiguate when there are multiple variants at the same position,
+#' or multiple variants with the same rs.)
+#' 
+#' By default, summary statistics are returned for all analyses where the variant of interest 
+#' was tested.  If results are required for only a specific set of analyses, these can be 
+#' specified using a combination of arguments that are passed through to \code{gtxanalyses()}.
+#' 
+#' @param plot_ymax Y-axis value maximum 
+#' 
+#' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
+
+
+# Could inherit param documentation from gtxanalyses
+# Should merge phewas.qq into main phewas as an alternative plot style
+
 phewas <- function(chrom, pos, rs,
                    analysis, analysis_not, 
                    description_contains,
@@ -74,6 +95,23 @@ phewas <- function(chrom, pos, rs,
     return(invisible(p1orig))
 }
 
+#' @describeIn phewas Look up results without plotting
+#' 
+#' @param chrom Chromosome of the variant of interest
+#' @param pos Position of the variant of interest
+#' @param rs dbSNP rs identifier of the variant of interest
+#' @param analysis Identifiers of analyses to include
+#' @param analysis_not Identifiers of analyses to exclude
+#' @param description_contains Search term for analyses to include
+#' @param has_tag Tag value for analyses to include
+#' @param ncase_ge Threshold case sample size greater-or-equal for inclusion 
+#' @param ncohort_ge Threshold cohort sample size greater-or-equal for inclusion
+#' @param analysis_fields Fields from analysis metadata to return
+#' @param tag_is Tag flag to use for plot grouping
+#' @param dbc Database connection
+#'
+#' @return Data frame of summary statistics
+
 phewas.data <- function(chrom, pos, rs,
                         analysis, analysis_not, 
                         description_contains,
@@ -147,6 +185,8 @@ phewas.data <- function(chrom, pos, rs,
     res <- res[order(res$pval), ]
     return(res)
 }
+
+#' @describeIn phewas Draw simple QQ plot of PheWAS results
 
 phewas.qq <- function(chrom, pos, rs,
                       analysis, analysis_not, 
