@@ -186,6 +186,18 @@ phewas.data <- function(chrom, pos, rs,
                                sanitize1(v1$alt, type = "ACGT+")),
                        uniq = FALSE, zrok = TRUE)
         }))
+        if (!missing(nearby)) {
+            ## FIXME check nearby is an integer
+            res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
+                sqlWrapper(getOption('gtx.dbConnection'),
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s AND %s;',
+                                   sanitize(results_db, type = 'alphanum'),
+                                   gtxwhat(analysis = a1$analysis),
+                                   gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
+                           uniq = FALSE, zrok = TRUE)
+            }))
+            res <- merge(res, res_nearby, all.x = TRUE, all.y = FALSE)
+        }
     }
     ## Merge results of phewas query with metadata about analyses
     ## Note analyses missing either results or metadata are dropped
