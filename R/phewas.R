@@ -108,6 +108,7 @@ phewas <- function(chrom, pos, rs,
 #' @param ncohort_ge Threshold cohort sample size greater-or-equal for inclusion
 #' @param analysis_fields Fields from analysis metadata to return
 #' @param tag_is Tag flag to use for plot grouping
+#' @param nearby Additionally return minimum pvalue at position+-nearby
 #' @param dbc Database connection
 #'
 #' @return Data frame of summary statistics
@@ -123,6 +124,7 @@ phewas.data <- function(chrom, pos, rs,
                         analysis_fields = c('description', 'label', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
                         tag_is, with_tags = FALSE, # not clear why missing with_tags cannot be passed through gtxanalyses()
+                        nearby, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
 
@@ -160,6 +162,17 @@ phewas.data <- function(chrom, pos, rs,
                                sanitize1(v1$alt, type = "ACGT+")),
                        uniq = FALSE, zrok = TRUE)
         }))
+        if (!missing(nearby)) {
+            ## FIXME check nearby is an integer
+            res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
+                sqlWrapper(getOption('gtx.dbConnection'),
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s;',
+                                   sanitize(results_db, type = 'alphanum'),
+                                   gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
+                           uniq = FALSE, zrok = TRUE)
+            }))
+            res <- merge(res, res_nearby, all.x = TRUE, all.y = FALSE)
+        }
     } else {
         res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
             sqlWrapper(getOption('gtx.dbConnection'),
