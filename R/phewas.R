@@ -166,7 +166,7 @@ phewas.data <- function(chrom, pos, rs,
             ## FIXME check nearby is an integer
             res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
-                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s;',
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s GROUP BY analysis, entity;',
                                    sanitize(results_db, type = 'alphanum'),
                                    gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
                            uniq = FALSE, zrok = TRUE)
@@ -190,7 +190,7 @@ phewas.data <- function(chrom, pos, rs,
             ## FIXME check nearby is an integer
             res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
-                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s AND %s;',
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s AND %s GROUP BY analysis, entity;',
                                    sanitize(results_db, type = 'alphanum'),
                                    gtxwhat(analysis = a1$analysis),
                                    gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
