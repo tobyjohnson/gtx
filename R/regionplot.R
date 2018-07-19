@@ -1,15 +1,16 @@
 ## regionplot.new and associated functions
 ## assumes database connection is provided by getOption("gtx.dbConnection")
 
-regionplot <- function(analysis,
-                       chrom, pos_start, pos_end, pos, 
-                       hgncid, ensemblid, rs, surround = 500000,
+regionplot <- function(analysis, # what analysis (entity should be next)
+                       chrom, pos_start, pos_end, pos,  
+                       hgncid, ensemblid, rs, surround = 500000, # where
                        entity, 
+                       maf_ge, rsq_ge, emac_ge, case_emac_ge, # which variants to include
+                       priorsd = 1, priorc = 1e-5, cs_size = 0.95, # parameters for finemapping
+                       plot_ymax = 300, # plot output control starts here... # 300 is too high FIXME
                        style = 'signals',
-                       priorsd = 1, priorc = 1e-5, cs_size = 0.95, 
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot
                        highlight_style = 'circle', 
-                       maf_ge, rsq_ge, emac_ge, case_emac_ge, 
                        dbc = getOption("gtx.dbConnection", NULL)) {
   # check database connection
   gtxdbcheck(dbc)
@@ -37,7 +38,7 @@ regionplot <- function(analysis,
   xentity <- attr(pvals, 'entity')
 
   pvals <- within(pvals, impact[impact == ''] <- NA)
-  pmin <- min(pvals$pval)
+  pmin <- max(min(pvals$pval), 10^-plot_ymax)
 
   main <- gtxanalysis_label(analysis = analysis, entity = xentity, nlabel = TRUE, dbc = dbc)
   ## in future we may need to pass maf_lt and rsq_lt as well  
