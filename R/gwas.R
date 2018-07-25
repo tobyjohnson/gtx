@@ -8,6 +8,7 @@ gwas <- function(analysis,
                  pval_thresh = 5e-08, maf_ge, rsq_ge, emac_ge, case_emac_ge, 
                  gene_annotate = TRUE,
                  plot_ymax = 30,
+                 prune_dist = 500000L,
                  manhattan_thresh = 5e-08,
                  manhattan_col = c('#064F7C', '#6D97BD'),
                  manhattan_interspace = 50e6,
@@ -40,7 +41,7 @@ gwas <- function(analysis,
     ## Simple distance based pruning
     if (nrow(res) > 0) {
         t0 <- as.double(Sys.time())
-        res_sigs <- prune.distance(res, sorted = TRUE)
+        res_sigs <- prune.distance(res, surround = prune_dist, sorted = TRUE)
         ## sort by match(chrom, c(as.character(1:22), 'X'))
         rescols <- c('pos', 'ref', 'alt', 'pval', 'rsq', 'freq', 'beta', 'se') # columns from original res to include
         res <- data.table(cbind(res_sigs, res[res_sigs$row, rescols, with = FALSE]))
