@@ -40,8 +40,14 @@ gwas <- function(analysis,
     t1 <- as.double(Sys.time())
     gtxlog('Significant results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
     
-    ## Simple distance based pruning
-    if (nrow(res) > 0) {
+    if(nrow(res) == 0){
+        res <- data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
+                        pos_end    = NA, num_variants = NA, min_pval   = NA, 
+                        os_index   = NA, ref_index    = NA, al_index   = NA, 
+                        pval_index = NA, rsq_index    = NA, freq_index = NA, 
+                        beta       = NA, se_index     = NA)
+    } else if (nrow(res) > 0) { 
+        ## Simple distance based pruning
         t0 <- as.double(Sys.time())
         res_sigs <- prune.distance(res, surround = prune_dist, sorted = TRUE)
         ## sort by match(chrom, c(as.character(1:22), 'X'))
@@ -64,8 +70,8 @@ gwas <- function(analysis,
         ## and use if appropriate
         ## or support (via a Hail wrapper) on the fly LD-based pruning
         ## or a HUGE table of pairwise LD values (which could also be used for on-the-fly conditioning on 1 signal)
-        
     }
+    
 
     ## Plot description
     ## no handling of entity is required in title
