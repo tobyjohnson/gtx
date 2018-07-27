@@ -41,11 +41,11 @@ gwas <- function(analysis,
     gtxlog('Significant results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
     
     if(nrow(res) == 0){
-        res <- data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
+      res <- data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
                         pos_end    = NA, num_variants = NA, min_pval   = NA, 
-                        os_index   = NA, ref_index    = NA, al_index   = NA, 
+                        pos_index  = NA, ref_index    = NA, alt_index  = NA, 
                         pval_index = NA, rsq_index    = NA, freq_index = NA, 
-                        beta       = NA, se_index     = NA)
+                        beta_index = NA, se_index     = NA)
     } else if (nrow(res) > 0) { 
         ## Simple distance based pruning
         t0 <- as.double(Sys.time())
