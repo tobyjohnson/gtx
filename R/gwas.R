@@ -15,6 +15,7 @@ gwas <- function(analysis,
                  qqplot_col = '#064F7C',
                  qqplot_alpha = 0.01,
                  plot_fastbox = 2, 
+                 zrok = FALSE,
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
@@ -33,7 +34,8 @@ gwas <- function(analysis,
                                         emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                         analysis = analysis,
                                         dbc = dbc)),
-                      uniq = FALSE)
+                      uniq = FALSE,
+                      zrok = zrok)
     res <- data.table(res) # in future, sqlWrapper will return data.table objects always
     t1 <- as.double(Sys.time())
     gtxlog('Significant results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
