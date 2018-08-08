@@ -45,19 +45,19 @@ filtering and ploting. \code{\link{aba.query_locus}} takes ~ 7 min.
 }
 \examples{
 \\strong{Query aba colocs:}
-colocs <- aba.query_locus(hgncid = "HMGCR")
-colocs <- aba.query_locus(chrom = 1, pos_start = 1e7, pos_end = 2e7, sc = sc)
+\\code{colocs <- aba.query_locus(hgncid = "HMGCR")}
+\\code{colocs <- aba.query_locus(chrom = 1, pos_start = 1e7, pos_end = 2e7, sc = sc)}
 
 \\strong{To establish a spark connection:}
-sc <- spark_connect(master     = \\"yarn-client\\",
-                    spark_home = \\"/opt/cloudera/parcels/SPARK2/lib/spark2\\",
-                    version    = \\"2.1\\")
+\\code{sc <- spark_connect(master     = "yarn-client",
+                    spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
+                    version    = "2.1\\")}
 \\strong{Set global gtx.sc option:}               
-sc <- spark_connect(master     = \\"yarn-client\\",
-                    spark_home = \\"/opt/cloudera/parcels/SPARK2/lib/spark2\\",
-                    version    = \\"2.1\\")
+\\code{sc <- spark_connect(master     = "yarn-client\\",
+                    spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
+                    version    = "2.1\\")
      options(gtx.sc = sc)
-     colocs <- aba.query_locus(hgncid = "HMGCR")       
+     colocs <- aba.query_locus(hgncid = "HMGCR")}
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
