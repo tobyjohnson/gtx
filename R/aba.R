@@ -6,11 +6,11 @@
 #' and to pull all coloc data in the surrounding the queried 
 #' gene (+/- \code{surround} bp). Alternatively, can specifiy 
 #' the region coordinates using: \code{chrom}, \code{pos_start}, 
-#' & \code{pos_end}. The rate limiting step is the \code{aba.query_locus}, 
-#' after which \code{aba.filter} & \code{aba.plot} are very fast. 
-#' This means \code{aba.query_locus} results should be saved to an object,
+#' & \code{pos_end}. The rate limiting step is the \code{\link{aba.query_locus}}, 
+#' after which \code{\link{aba.filter}} & \code{\link{aba.plot}} are very fast. 
+#' This means \code{\link{aba.query_locus}} results should be saved to an object,
 #' but the following steps can be piped together to quickly iterate 
-#' filtering and ploting. \code{aba.query_locus()} takes ~ 7 min.
+#' filtering and ploting. \code{\link{aba.query_locus}} takes ~ 7 min.
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @param hgncid HGNC gene ID
@@ -25,19 +25,19 @@
 #' @return data.frame with all coloc results in the region
 #' @examples 
 #' \strong{Query aba colocs:}
-#' \code{colocs <- aba.query_locus(hgncid = "HMGCR")}
-#' \code{colocs <- aba.query_locus(chrom = 1, pos_start = 1e7, pos_end = 2e7, sc = sc)}
+#' colocs <- aba.query_locus(hgncid = "HMGCR")
+#' colocs <- aba.query_locus(chrom = 1, pos_start = 1e7, pos_end = 2e7, sc = sc)
 #' 
 #' \strong{To establish a spark connection:}
-#' \code{sc <- spark_connect(master     = \"yarn-client\",
+#' sc <- spark_connect(master     = \"yarn-client\",
 #'                     spark_home = \"/opt/cloudera/parcels/SPARK2/lib/spark2\",
-#'                     version    = \"2.1\")}
+#'                     version    = \"2.1\")
 #' \strong{Set global gtx.sc option:}               
-#' \code{sc <- spark_connect(master     = \"yarn-client\",
+#' sc <- spark_connect(master     = \"yarn-client\",
 #'                     spark_home = \"/opt/cloudera/parcels/SPARK2/lib/spark2\",
 #'                     version    = \"2.1\")
 #'      options(gtx.sc = sc)
-#'      colocs <- aba.query_locus(hgncid = "HMGCR")}       
+#'      colocs <- aba.query_locus(hgncid = "HMGCR")       
 #' @export
 #' @import dplyr
 #' @importFrom tidyr crossing
