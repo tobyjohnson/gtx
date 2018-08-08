@@ -10,7 +10,7 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
-    DBI,odbc,RSQLite,data.table,dplyr,tidyr
+    DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger
 Suggests:
     knitr,testthat
 VignetteBuilder: knitr
@@ -31,4 +31,4 @@ Description: Assorted tools for genetic and pharmacogenetic association
 	analysis tools.
 URL: https://cran.r-project.org/web/packages/gtx/index.html, 
 	https://github.com/tobyjohnson/gtx
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.0

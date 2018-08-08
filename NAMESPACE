@@ -1,4 +1,6 @@
-import(beeswarm, survival, meta, rmeta, data.table, dplyr)
+import(beeswarm, survival, meta, rmeta, data.table, dplyr, tidyr, stringr, sparklyr, purrr, futile.logger, glue, ggplot2)
+## aba.R
+export(aba.query_locus, aba.filter, aba.plot, aba.query_locus_wrapper, aba.query_traits, aba.info_table, aba.info_opt)
 ## abf.R
 export(abf.normal, abf.t, abf.Wakefield, coloc.fast)
 ## blat.R
