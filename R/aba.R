@@ -308,7 +308,7 @@ After establishing the spark connection (above), you can also set the gtx option
 #' @param .data \code{\link{aba.query_locus}} results object to filter
 #' @param fill_matrix [Default = TRUE] Fill in the matrix based filtering. \emph{required} for \code{\link{aba.plot}}
 #' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
-#' @param minpval1_lt [Default <= 5e-4] Min pval seen in the eQTL                
+#' @param minpval1_lt [Default <= 1e-5] Min pval seen in the eQTL                
 #' @param minpval2_lt [Default <= 5e-8] Min pval seen in the GWAS data           
 #' @param log10_min_pval_colocGWAS_over_TopHitGWAS_lt [Default < 0.5] Log10 ratio of coloc-gwas/top-hit-gwas pval. 
 #' This ensures that the coloc gwas and gwas top hits are 1/2 order of magnitude apart and therefore shared.
@@ -333,7 +333,7 @@ After establishing the spark connection (above), you can also set the gtx option
 #' @import futile.logger
 #' @import glue
 aba.filter <- function(.data, p12_ge = 0.80, 
-                       minpval1_le   = 5e-4, minpval2_le = 5e-8,
+                       minpval1_le   = 1e-5, minpval2_le = 5e-8,
                        log10_min_pval_colocGWAS_over_TopHitGWAS_lt = 0.5, 
                        gwas2gene_dist_lt = 1e6,
                        ncase_ge = 200, ncohort_ge = 200, 
