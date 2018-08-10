@@ -64,10 +64,14 @@ aba.query_locus <- function(hgncid, ensemblid, surround = 1e6,
   if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
     flog.info("aba.query_locus - no spark connection was passed to aba.query_locus. Will try to establish a connection.")
     # Try to establish a spark connection 
+    sc_config <- spark_config()
+    sc_config$spark.port.maxRetries <- 50
+    
     safe_spark_connect <- safely(spark_connect)
     safe_sc <- safe_spark_connect(master     = "yarn-client",
                                   spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1")
+                                  version    = "2.1",
+                                  config     = sc_config)
     # If there was no error, use the connection
     if(is.null(safe_sc$error)){ 
       sc <- safe_sc$result 
@@ -592,10 +596,14 @@ aba.query_locus_wrapper <- function(hgncid, ensemblid, surround = 1e6,
   if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
     flog.info("aba.wrapper - did not find Spark connection, trying to establish a connection now.")
     # Try to establish a spark connection 
+    sc_config <- spark_config()
+    sc_config$spark.port.maxRetries <- 50
+    
     safe_spark_connect <- safely(spark_connect)
     safe_sc <- safe_spark_connect(master     = "yarn-client",
                                   spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1")
+                                  version    = "2.1",
+                                  config     = sc_config)
     # If there was no error, use the connection
     if(is.null(safe_sc$error)){ 
       sc <- safe_sc$result
@@ -732,10 +740,14 @@ aba.query_traits <- function(analysis_ids,
   if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
     flog.info("aba.query_traits - no spark connection was passed to aba.query_locus. Will try to establish a connection.")
     # Try to establish a spark connection 
+    sc_config <- spark_config()
+    sc_config$spark.port.maxRetries <- 50
+    
     safe_spark_connect <- safely(spark_connect)
     safe_sc <- safe_spark_connect(master     = "yarn-client",
                                   spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1")
+                                  version    = "2.1",
+                                  config     = sc_config)
     # If there was no error, use the connection
     if(is.null(safe_sc$error)){ 
       sc <- safe_sc$result 
@@ -906,11 +918,12 @@ aba.query_traits <- function(analysis_ids,
   }
 } 
 
-#' \strong{aba.info_table() - description of the cols from \code{\link{aba.query_locus}}}
+#' \strong{aba.info_full_locus() - description of the cols from \code{\link{aba.query_locus}}}
 #' 
 #' Running this function will return a data frame with 
-#' descriptions for each column returned by \code{\link{aba.query_locus}}}. 
-#' These column names are consistent with other RDIP tables for joins. 
+#' descriptions for each column returned by \code{\link{aba.query_locus}}}
+#' and \code{\link{aba.query_traits}} in the "full" dataframe. 
+#' These column names are largely consistent with other RDIP tables for joins. 
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @return data.frame
@@ -918,7 +931,7 @@ aba.query_traits <- function(analysis_ids,
 #' \code{info <- aba.info_table()}
 #' @export
 #' @import dplyr
-aba.info_table <- function(){
+aba.info_full_locus <- function(){
   ret <- tibble(
     col_name = c("analysis1", 
                  "entity", 
@@ -946,7 +959,7 @@ aba.info_table <- function(){
                  "minpval1_sci", 
                  "minpval2_sci"),
      description = c("eQTL tissue name", 
-                     "transcript ensembld ID", 
+                     "gene ensembld ID", 
                      "coloc H0 - No association", 
                      "coloc H1 - One variant associated with phenotype 1 only", 
                      "coloc H2 - One variant associated with phenotype 2 only", 
@@ -974,6 +987,46 @@ aba.info_table <- function(){
   return(ret)
 }
 
+#' \strong{aba.info_flat() - description of the cols from \code{\link{aba.query_locus}}}
+#' 
+#' Running this function will return a data frame with 
+#' descriptions for each column returned by \code{\link{aba.query_locus}}}. 
+#' These column names are consistent with other RDIP tables for joins. 
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @return data.frame
+#' @examples
+#' \code{info <- aba.info_flat()}
+#' @export
+#' @import dplyr
+aba.info_flat <- function(){
+  ret <- tibble(
+    col_name = c("ensemblid", 
+                 "hgncid", 
+                 "gene_n_traits",
+                 "gene_n_tissue",
+                 "gene_n_top_hits",
+                 "locus_n_genes",
+                 "locus_n_tissue", 
+                 "loci_max_n_genes",
+                 "loci_min_n_genes",
+                 "loci_max_n_tissue",
+                 "loci_min_n_tissue"),
+    description = c("gene ensembl ID", 
+                    "gene hgnc id",
+                    "number of TRAITS colocalized with the gene",
+                    "number of TISSUES colocalized with the gene (across all traits)",
+                    "number of GWAS TOP HITS for the traits that coloc with the gene",
+                    "for the top hit in the coloc(s), how many GENES coloc'ed with that top hit signal",
+                    "for the top hit in the coloc(s), how many TISSUES had colocs with that top hit signal",
+                    "for the top hits with colocs with this gene, what was the MAX number of GENES per single top hit",
+                    "for the top hits with colocs with this gene, what was the MIN number of GENES per single top hit",
+                    "for the top hits with colocs with this gene, what was the MAX number of TISSUES per single top hit",
+                    "for the top hits with colocs with this gene, what was the MIN number of TISSUES per single top hit")
+  )
+  
+  return(ret)
+}
 
 #' \strong{aba.info_opt() - info about initiating and setting global opts for aba}
 #' 
