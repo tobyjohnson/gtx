@@ -60,34 +60,7 @@ aba.query_locus <- function(hgncid, ensemblid, surround = 1e6,
   }
   # Check we have a spark connection
   flog.info("aba.query_locus - validating Spark connection.")
-  abaQ_sc_created = FALSE
-  if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
-    flog.info("aba.query_locus - no spark connection was passed to aba.query_locus. Will try to establish a connection.")
-    # Try to establish a spark connection 
-    sc_config <- spark_config()
-    sc_config$spark.port.maxRetries <- 50
-    
-    safe_spark_connect <- safely(spark_connect)
-    safe_sc <- safe_spark_connect(master     = "yarn-client",
-                                  spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1",
-                                  config     = sc_config)
-    # If there was no error, use the connection
-    if(is.null(safe_sc$error)){ 
-      sc <- safe_sc$result 
-      # Record that we made a connection in aba.query_locus
-      abaQ_sc_created = TRUE
-      flog.info("aba.query_locus - Spark connection established.")
-    }
-    # Otherwise advise user to manually create and pass the spark connection
-    else if (!is.null(safe_sc$error)){
-      flog.fatal(glue('aba.query_locus - unable to make the spark connection. Try initiating the spark connection manually and passing the connection to through option sc. To build a spark connection run:\n
-\tsc <- spark_connect(master = {double_quote("yarn-client")}, \n\t\tspark_home = {double_quote("/opt/cloudera/parcels/SPARK2/lib/spark2")}, \n\t\tversion = {double_quote("2.1")})\n
-After establishing the spark connection (above), you can also set the gtx options to use this connection by default running:\n
-\t\toptions(gtx.sc = sc)'))
-      next;
-    }
-  }
+  sc <- validate_sc(sc = sc)
   
   # quote surround
   surround <- enquo(surround)
@@ -290,9 +263,6 @@ After establishing the spark connection (above), you can also set the gtx option
     flog.warn("aba.query_locus - no colocs found in this region.")
     next;
   }
-  
-  # If we created a spark connection inside aba.query_locus, disconnect it
-  if( isTRUE(abaQ_sc_created) ){ spark_disconnect(sc) }
   
   # Return colocs found in the region
   flog.info("aba.query_locus - COMPLETED")
@@ -590,36 +560,7 @@ aba.query_locus_wrapper <- function(hgncid, ensemblid, surround = 1e6,
     flog.error(glue("aba.query_locus - flog_level defined as: {flog_level}. Needs to be [INFO, WARN, or ERROR]."))
   }
   flog.threshold(flog_level)
-  flog.info("aba.wrapper - validating Spark connection")
-  # Check we have a spark connection
-  abaW_sc_created = FALSE
-  if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
-    flog.info("aba.wrapper - did not find Spark connection, trying to establish a connection now.")
-    # Try to establish a spark connection 
-    sc_config <- spark_config()
-    sc_config$spark.port.maxRetries <- 50
-    
-    safe_spark_connect <- safely(spark_connect)
-    safe_sc <- safe_spark_connect(master     = "yarn-client",
-                                  spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1",
-                                  config     = sc_config)
-    # If there was no error, use the connection
-    if(is.null(safe_sc$error)){ 
-      sc <- safe_sc$result
-      # Record that we made a connection in aba.query_locus
-      abaW_sc_created = TRUE
-      flog.info("aba.wrapper - Spark connection established.")
-    }
-    # Otherwise advise user to manually create and pass the spark connection
-    else if (!is.null(safe_sc$error)){
-      stop(glue('aba.query_locus - unable to make the spark connection. Try initiating the spark connection manually and passing the connection to through option sc. To build a spark connection run:\n
-\tsc <- spark_connect(master = {double_quote("yarn-client")}, \n\t\tspark_home = {double_quote("/opt/cloudera/parcels/SPARK2/lib/spark2")}, \n\t\tversion = {double_quote("2.1")})\n
-                After establishing the spark connection (above), you can also set the gtx options to use this connection by default running:\n
-                \t\toptions(gtx.sc = sc)'),
-           call. = FALSE)
-    }
-  }
+  sc <- validate_sc(sc = sc)
   
   flog.info("aba.wrapper - validating input & making query of colocs in region")
   surround <- enquo(surround)
@@ -680,9 +621,6 @@ aba.query_locus_wrapper <- function(hgncid, ensemblid, surround = 1e6,
     colocs %>% 
     aba.filter(...) %>% 
     aba.plot(title = wrap_title)
-
-  # If we created a spark connection inside aba.wrapper, disconnect it
-  if( isTRUE(abaW_sc_created) ){ spark_disconnect(sc) }
   
   flog.info("aba.wrapper - COMPLETED")
   return(fig)
@@ -737,33 +675,8 @@ aba.query_traits <- function(analysis_ids,
   # Check we have a spark connection
   flog.info("aba.query_traits - validating Spark connection.")
   abaQ_sc_created = FALSE
-  if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
-    flog.info("aba.query_traits - no spark connection was passed to aba.query_locus. Will try to establish a connection.")
-    # Try to establish a spark connection 
-    sc_config <- spark_config()
-    sc_config$spark.port.maxRetries <- 50
-    
-    safe_spark_connect <- safely(spark_connect)
-    safe_sc <- safe_spark_connect(master     = "yarn-client",
-                                  spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1",
-                                  config     = sc_config)
-    # If there was no error, use the connection
-    if(is.null(safe_sc$error)){ 
-      sc <- safe_sc$result 
-      # Record that we made a connection in aba.query_locus
-      abaQ_sc_created = TRUE
-      flog.info("aba.query_traits - Spark connection established.")
-    }
-    # Otherwise advise user to manually create and pass the spark connection
-    else if (!is.null(safe_sc$error)){
-      flog.fatal(glue('aba.query_traits - unable to make the spark connection. Try initiating the spark connection manually and passing the connection to through option sc. To build a spark connection run:\n
-                      \tsc <- spark_connect(master = {double_quote("yarn-client")}, \n\t\tspark_home = {double_quote("/opt/cloudera/parcels/SPARK2/lib/spark2")}, \n\t\tversion = {double_quote("2.1")})\n
-                      After establishing the spark connection (above), you can also set the gtx options to use this connection by default running:\n
-                      \t\toptions(gtx.sc = sc)'))
-      next;
-    }
-  }
+  sc <- validate_sc(sc = sc)
+  
   flog.info("aba.query_traits - establishing connection to database tables.")
   analyses_tbl <- tbl(sc, "ukbiobank.analyses")
   gwas_th_tbl  <- tbl(sc, "ukbiobank.gwas_results_top_hits")

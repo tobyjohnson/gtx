@@ -4,7 +4,7 @@
 \alias{aba.filter}
 \title{\strong{aba.filter() - Recommended filtering for aba results}}
 \usage{
-aba.filter(.data, p12_ge = 0.8, minpval1_le = 5e-04,
+aba.filter(.data, p12_ge = 0.8, minpval1_le = 1e-04,
   minpval2_le = 5e-08,
   log10_min_pval_colocGWAS_over_TopHitGWAS_lt = 0.5,
   gwas2gene_dist_lt = 1e+06, ncase_ge = 200, ncohort_ge = 200,
@@ -29,7 +29,7 @@ This ensures that the coloc gwas and gwas top hits are 1/2 order of magnitude ap
 
 \item{flog_level}{[Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]}
 
-\item{minpval1_lt}{[Default <= 5e-4] Min pval seen in the eQTL}
+\item{minpval1_lt}{[Default <= 1e-4] Min pval seen in the eQTL}
 
 \item{minpval2_lt}{[Default <= 5e-8] Min pval seen in the GWAS data}
 
