@@ -40,11 +40,10 @@ fucntion is \emph{not} ideal for deep dives into a locus.
 }
 \examples{
  
-\\strong{Basic use:}
-\\code{hmgcr_fig <- aba.wrapper(hgncid = "HMGCR")}
-\\strong{Advanced use:}
-map( wrapper)
-map( export)
+Basic use:
+hmgcr_fig <- aba.wrapper(hgncid = "HMGCR")
+
+Advanced use: TODO
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

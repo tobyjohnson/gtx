@@ -1,4 +1,4 @@
-import(beeswarm, survival, meta, rmeta, data.table, dplyr, tidyr, stringr, sparklyr, purrr, futile.logger, glue, ggplot2)
+import(beeswarm, survival, meta, rmeta, data.table, tidyr, stringr, purrr, futile.logger, glue, ggplot2, dplyr, sparklyr)
 ## aba.R
 export(aba.query_locus, aba.filter, aba.plot, aba.query_locus_wrapper, aba.query_traits, aba.info_full_locus, aba.info_flat, aba.info_opt)
 ## abf.R

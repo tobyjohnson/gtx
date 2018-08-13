@@ -2,7 +2,7 @@
 % Please edit documentation in R/aba.R
 \name{aba.filter}
 \alias{aba.filter}
-\title{\strong{aba.filter() - Recommended filtering for aba results}}
+\title{\strong{aba.filter() - Recommended filtering for aba results.}}
 \usage{
 aba.filter(.data, p12_ge = 0.8, minpval1_le = 1e-04,
   minpval2_le = 5e-08,
@@ -44,20 +44,22 @@ data.frame with input \code{\link{aba.query_locus}} reasonably filtered
 }
 \description{
 The aba results and region queries will return colocs
-that are not robust and therefore need further filtering.
-This function provdies recommended minimal filtering to 
+that are not robust and therefore need to be filtered.
+This function provdies recommended filtering to 
 improve the robustness of the aba results. In addition, 
 the results will fill in the matrix of positive colocs
-based on the filtering to enable complete plotting. The
-ability to fill in the matrix can be toggled.
+based on the filtering to enable complete plotting (\code{\link{aba.plot}}). The
+ability to fill in the matrix can be toggled. Many of the aba. functions
+use aba.filter and allow these options to be passed through to \code{\link{aba.filter}}
+through the use of the ... options.
 }
 \examples{
-\\strong{Basic use:}
-\\code{colocs_filtered <- aba.filter(colocs)}
-\\code{colocs_filtered <- aba.filter(colocs, p12 = 0.9, minpval1 = 5e-8)}
+Basic use:
+colocs_filtered <- aba.filter(colocs)
+colocs_filtered <- aba.filter(colocs, p12 = 0.9, minpval1 = 5e-8)
 
-\\strong{String together}
-\\code{colocs_filtered <- aba.query_locus(hgncid = "HMGCR") \%>\% aba.filter()}
+String together
+colocs_filtered <- aba.query_locus(hgncid = "HMGCR") \%>\% aba.filter()
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

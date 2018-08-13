@@ -2,7 +2,7 @@
 % Please edit documentation in R/aba.R
 \name{aba.query_locus}
 \alias{aba.query_locus}
-\title{Coloc all-by-all functions}
+\title{\strong{aba.query_locus() - Query a locus for coloc all-by-all results}}
 \usage{
 aba.query_locus(hgncid, ensemblid, surround = 1e+06, chrom, pos_start,
   pos_end, rsid, sc = getOption("gtx.sc", NULL),
@@ -31,31 +31,30 @@ aba.query_locus(hgncid, ensemblid, surround = 1e+06, chrom, pos_start,
 data.frame with all coloc results in the region
 }
 \description{
-\strong{aba.query_locus() - Query a locus for coloc all-by-all results}
 Query all colocalization data in a region. Typical use 
 is to query a gene ID (\code{ensemblid} or \code{hgncid}) 
 and to pull all coloc data in the surrounding the queried 
-gene (+/- \code{surround} bp). Alternatively, can specifiy 
+region (+/- \code{surround} bp). Alternatively, can specifiy 
 the region coordinates using: \code{chrom}, \code{pos_start}, 
-& \code{pos_end}. The rate limiting step is the \code{\link{aba.query_locus}}, 
+& \code{pos_end}. The rate limiting step is in all the \code{aba} functions is the \code{\link{aba.query_locus}}, 
 after which \code{\link{aba.filter}} & \code{\link{aba.plot}} are very fast. 
 This means \code{\link{aba.query_locus}} results should be saved to an object,
 but the following steps can be piped together to quickly iterate 
 filtering and ploting. \code{\link{aba.query_locus}} takes ~ 7 min.
 }
 \examples{
-\\strong{Query aba colocs:}
-\\code{colocs <- aba.query_locus(hgncid = "HMGCR")}
-\\code{colocs <- aba.query_locus(chrom = 1, pos_start = 2e3, pos_end = 4e5, sc = sc)}
+Query aba colocs:
+colocs <- aba.query_locus(hgncid = "HMGCR")
+colocs <- aba.query_locus(chrom = 1, pos_start = 2e3, pos_end = 4e5, sc = sc)
 
-\\strong{To establish a spark connection:}
-\\code{sc <- spark_connect(master     = "yarn-client",
+To establish a spark connection:
+sc <- spark_connect(master     = "yarn-client",
                           spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                          version    = "2.1")}
-\\strong{Set global gtx.sc option:}               
-\\code{sc <- spark_connect(master = "yarn-client", spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2", version = "2.1")
+                          version    = "2.1")
+Set global gtx.sc option:             
+sc <- spark_connect(master = "yarn-client", spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2", version = "2.1")
      options(gtx.sc = sc)
-     colocs <- aba.query_locus(hgncid = "HMGCR")}
+     colocs <- aba.query_locus(hgncid = "HMGCR")
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

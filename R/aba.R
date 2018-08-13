@@ -1,12 +1,11 @@
-#' Coloc all-by-all functions
-#' 
 #' \strong{aba.query_locus() - Query a locus for coloc all-by-all results}
+#' 
 #' Query all colocalization data in a region. Typical use 
 #' is to query a gene ID (\code{ensemblid} or \code{hgncid}) 
 #' and to pull all coloc data in the surrounding the queried 
-#' gene (+/- \code{surround} bp). Alternatively, can specifiy 
+#' region (+/- \code{surround} bp). Alternatively, can specifiy 
 #' the region coordinates using: \code{chrom}, \code{pos_start}, 
-#' & \code{pos_end}. The rate limiting step is the \code{\link{aba.query_locus}}, 
+#' & \code{pos_end}. The rate limiting step is in all the \code{aba} functions is the \code{\link{aba.query_locus}}, 
 #' after which \code{\link{aba.filter}} & \code{\link{aba.plot}} are very fast. 
 #' This means \code{\link{aba.query_locus}} results should be saved to an object,
 #' but the following steps can be piped together to quickly iterate 
@@ -24,18 +23,18 @@
 #' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
 #' @return data.frame with all coloc results in the region
 #' @examples 
-#' \strong{Query aba colocs:}
-#' \code{colocs <- aba.query_locus(hgncid = "HMGCR")}
-#' \code{colocs <- aba.query_locus(chrom = 1, pos_start = 2e3, pos_end = 4e5, sc = sc)}
+#' Query aba colocs:
+#' colocs <- aba.query_locus(hgncid = "HMGCR")
+#' colocs <- aba.query_locus(chrom = 1, pos_start = 2e3, pos_end = 4e5, sc = sc)
 #' 
-#' \strong{To establish a spark connection:}
-#' \code{sc <- spark_connect(master     = "yarn-client",
+#' To establish a spark connection:
+#' sc <- spark_connect(master     = "yarn-client",
 #'                           spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-#'                           version    = "2.1")}
-#' \strong{Set global gtx.sc option:}               
-#' \code{sc <- spark_connect(master = "yarn-client", spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2", version = "2.1")
+#'                           version    = "2.1")
+#' Set global gtx.sc option:             
+#' sc <- spark_connect(master = "yarn-client", spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2", version = "2.1")
 #'      options(gtx.sc = sc)
-#'      colocs <- aba.query_locus(hgncid = "HMGCR")}
+#'      colocs <- aba.query_locus(hgncid = "HMGCR")
 #' @export
 #' @import dplyr
 #' @importFrom tidyr crossing
@@ -269,15 +268,17 @@ aba.query_locus <- function(hgncid, ensemblid, surround = 1e6,
   return(coloc_region) 
 }
 
-#' \strong{aba.filter() - Recommended filtering for aba results}
+#' \strong{aba.filter() - Recommended filtering for aba results.}
 #' 
 #' The aba results and region queries will return colocs
-#' that are not robust and therefore need further filtering.
-#' This function provdies recommended minimal filtering to 
+#' that are not robust and therefore need to be filtered.
+#' This function provdies recommended filtering to 
 #' improve the robustness of the aba results. In addition, 
 #' the results will fill in the matrix of positive colocs
-#' based on the filtering to enable complete plotting. The
-#' ability to fill in the matrix can be toggled.
+#' based on the filtering to enable complete plotting (\code{\link{aba.plot}}). The
+#' ability to fill in the matrix can be toggled. Many of the aba. functions
+#' use aba.filter and allow these options to be passed through to \code{\link{aba.filter}}
+#' through the use of the ... options.
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @param .data \code{\link{aba.query_locus}} results object to filter
 #' @param fill_matrix [Default = TRUE] Fill in the matrix based filtering. \emph{required} for \code{\link{aba.plot}}
@@ -295,12 +296,12 @@ aba.query_locus <- function(hgncid, ensemblid, surround = 1e6,
 #' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
 #' @return data.frame with input \code{\link{aba.query_locus}} reasonably filtered
 #' @examples 
-#' \strong{Basic use:}
-#' \code{colocs_filtered <- aba.filter(colocs)}
-#' \code{colocs_filtered <- aba.filter(colocs, p12 = 0.9, minpval1 = 5e-8)}
+#' Basic use:
+#' colocs_filtered <- aba.filter(colocs)
+#' colocs_filtered <- aba.filter(colocs, p12 = 0.9, minpval1 = 5e-8)
 #' 
-#' \strong{String together}
-#' \code{colocs_filtered <- aba.query_locus(hgncid = "HMGCR") %>% aba.filter()}
+#' String together
+#' colocs_filtered <- aba.query_locus(hgncid = "HMGCR") %>% aba.filter()
 #' @export
 #' @import dplyr
 #' @importFrom tidyr crossing
@@ -404,25 +405,25 @@ aba.filter <- function(.data, p12_ge = 0.80,
 #' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
 #' @return ggplot2 object for viz and export.
 #' @examples 
-#' \strong{Basic use:}
-#' coloc_plot <- \code{\link{aba.plot}}(colocs_filtered)
-#' coloc_plot <- \code{\link{aba.plot}}(colocs_filtered, max_dot_size = 3, title = "Cool plot")
+#' Basic use:
+#' coloc_plot <-aba.plot(colocs_filtered)
+#' coloc_plot <- aba.plot(colocs_filtered, max_dot_size = 3, title = "Cool plot")
 #' 
-#' \strong{View the returned object:}
-#' \code{coloc_plot}
+#' View the returned object:
+#' coloc_plot
 #' 
-#' \strong{Save the object to PDF:}
-#' \code{ggsave(filename = "hgmcr_region_coloc.pdf", 
+#' Save the object to PDF:
+#' ggsave(filename = "coloc_aba.pdf", 
 #'        plot     = coloc_plot, 
 #'        width    = 11, 
 #'        height   = 8.5, 
-#'        dpi      = 300)}
+#'        dpi      = 300)
 #'        
-#' \strong{Advanced use: query data, remove death related traits, filter, and then plot}
-#' \code{coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) %>% 
+#' Advanced use: query data, remove death related traits, filter, and then plot
+#' coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) %>% 
 #'                 filter(!str_detect(description, "death")) %>% 
 #'                 aba.filter() %>% 
-#'                 aba.plot(title = "Best plot ever")}
+#'                 aba.plot(title = "Best plot ever")
 #' @export
 #' @import dplyr
 #' @import stringr
@@ -538,11 +539,10 @@ aba.plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL,
 #' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
 #' @return ggplot2 object for viz and export.
 #' @examples  
-#' \strong{Basic use:}
-#' \code{hmgcr_fig <- aba.wrapper(hgncid = "HMGCR")}
-#' \strong{Advanced use:}
-#' map( wrapper)
-#' map( export)
+#' Basic use:
+#' hmgcr_fig <- aba.wrapper(hgncid = "HMGCR")
+#' 
+#' Advanced use: TODO
 #' @export
 #' @import dplyr
 #' @import stringr
@@ -841,7 +841,7 @@ aba.query_traits <- function(analysis_ids,
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @return data.frame
 #' @examples
-#' \code{info <- aba.info_table()}
+#' aba.info_full_locus() %>% filter(col_name == "log10_min_pval_colocGWAS_over_TopHitGWAS")
 #' @export
 #' @import dplyr
 aba.info_full_locus <- function(){
@@ -909,7 +909,7 @@ aba.info_full_locus <- function(){
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @return data.frame
 #' @examples
-#' \code{info <- aba.info_flat()}
+#' aba.info_flat() %>% filter(col_name == "loci_max_n_genes")
 #' @export
 #' @import dplyr
 aba.info_flat <- function(){
@@ -950,7 +950,7 @@ aba.info_flat <- function(){
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @return data.frame
 #' @examples
-#' \code{info <- aba.info_opt()}
+#' aba.info_opt()
 #' @export
 #' @import dplyr
 aba.info_opt <- function(){

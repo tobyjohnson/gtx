@@ -27,25 +27,25 @@ is \emph{highly} recommended to save the plot to pdf
 for best visualization of the plot.
 }
 \examples{
-\\strong{Basic use:}
-coloc_plot <- \\code{\\link{aba.plot}}(colocs_filtered)
-coloc_plot <- \\code{\\link{aba.plot}}(colocs_filtered, max_dot_size = 3, title = "Cool plot")
+Basic use:
+coloc_plot <-aba.plot(colocs_filtered)
+coloc_plot <- aba.plot(colocs_filtered, max_dot_size = 3, title = "Cool plot")
 
-\\strong{View the returned object:}
-\\code{coloc_plot}
+View the returned object:
+coloc_plot
 
-\\strong{Save the object to PDF:}
-\\code{ggsave(filename = "hgmcr_region_coloc.pdf", 
+Save the object to PDF:
+ggsave(filename = "coloc_aba.pdf", 
        plot     = coloc_plot, 
        width    = 11, 
        height   = 8.5, 
-       dpi      = 300)}
+       dpi      = 300)
        
-\\strong{Advanced use: query data, remove death related traits, filter, and then plot}
-\\code{coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) \%>\% 
+Advanced use: query data, remove death related traits, filter, and then plot
+coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) \%>\% 
                 filter(!str_detect(description, "death")) \%>\% 
                 aba.filter() \%>\% 
-                aba.plot(title = "Best plot ever")}
+                aba.plot(title = "Best plot ever")
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

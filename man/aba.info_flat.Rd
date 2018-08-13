@@ -13,7 +13,7 @@ data.frame
 \strong{aba.info_flat() - description of the cols from \code{\link{aba.query_locus}}}
 }
 \examples{
-\\code{info <- aba.info_flat()}
+aba.info_flat() \%>\% filter(col_name == "loci_max_n_genes")
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

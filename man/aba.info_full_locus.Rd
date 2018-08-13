@@ -13,7 +13,7 @@ data.frame
 \strong{aba.info_full_locus() - description of the cols from \code{\link{aba.query_locus}}}
 }
 \examples{
-\\code{info <- aba.info_table()}
+aba.info_full_locus() \%>\% filter(col_name == "log10_min_pval_colocGWAS_over_TopHitGWAS")
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

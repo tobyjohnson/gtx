@@ -13,7 +13,7 @@ data.frame
 \strong{aba.info_opt() - info about initiating and setting global opts for aba}
 }
 \examples{
-\\code{info <- aba.info_opt()}
+aba.info_opt()
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
