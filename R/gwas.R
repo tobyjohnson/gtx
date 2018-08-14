@@ -115,7 +115,7 @@ gwas <- function(analysis,
                             uniq = FALSE)
         mmpos <- mmpos[order_chrom(mmpos$chrom), ]
         mmpos$offset <- c(0, cumsum(as.double(mmpos$maxpos - mmpos$minpos + manhattan_interspace)))[1:nrow(mmpos)] - mmpos$minpos + manhattan_interspace
-        mmpos$midpt <- 0.5*(mmpos$maxpos - mmpos$minpos) + mmpos$offset
+        mmpos$midpt <- 0.5*(mmpos$maxpos + mmpos$minpos) + mmpos$offset
         mmpos$col <- rep(manhattan_col, length.out = nrow(mmpos))       
         t1 <- as.double(Sys.time())
         gtxlog('Computed chromosome offsets in ', round(t1 - t0, 3), 's.')

@@ -12,6 +12,11 @@ coloc.fast <- function(beta1, se1, beta2, se2,
   abf1 <- norm1(c(0, abf1[w]), log = TRUE)
   abf2 <- norm1(c(0, abf2[w]), log = TRUE)
   res <- data.frame(hypothesis = paste0("H", 0:4),
+                    label = c("No association",
+                      "One variant associated with phenotype 1 only",
+                      "One variant associated with phenotype 2 only",
+                      "Two variants separately associated with phenotypes 1 and 2",
+                      "One variant associated with phenotypes 1 and 2"),
                     prior = norm1(c(1, priorc1*nv, priorc2*nv, priorc1*priorc2*nv*(nv - 1), priorc12*nv)),
                     bf = if (nv > 0) c(abf1[1]*abf2[1], 
                       sum(abf1[-1])*abf2[1]/nv, 
@@ -20,22 +25,14 @@ coloc.fast <- function(beta1, se1, beta2, se2,
                       sum(abf1[-1]*abf2[-1])/nv) else rep(NA, 5))
   res$bf <- res$bf/max(res$bf) # was: res$bf/res$bf[1] # caused division by zero for strongly colocalized signals
   res$posterior <- norm1(res$prior*res$bf)
+  ## compute model averaged effect size ratios
+  mw <- abf1[-1]*abf2[-1] # model weights
+  alpha12 <- sum(beta1[w]/beta2[w]*mw)/sum(mw)
+  alpha21 <- sum(beta2[w]/beta1[w]*mw)/sum(mw)
   if (is.finite(rounded)) {
     res$posterior = round(res$posterior, rounded)
   }
-  # Format as *wide*
-  res <- res %>% 
-    gather(key = stat_test, value = stat_value, -hypothesis) %>% # Changes cols to: hypothesis (e.g. H0) - stat_test (e.g. prior) - stat_value (e.g. 0.0)
-    unite(stat_test, stat_test:hypothesis, sep = "_") %>%        # Merges stat_test and hypothesis into 1 col named stat_test, e.g. stat_test = prior_H0, prior_H1, etc
-    spread(key = stat_test, value = stat_value)                  # spread all stat_test into cols, e.g. cols = prior_H0, posterior_H4
-  ## compute model averaged effect size ratios
-  mw <- abf1[-1]*abf2[-1] # model weights
-  res$alpha12 <- sum(beta1[w]/beta2[w]*mw)/sum(mw)
-  res$alpha21 <- sum(beta2[w]/beta1[w]*mw)/sum(mw)
-  
-  res$nvariants = length(w); 
-
-  return(res)
+  return(list(results = res, nvariants = length(w), alpha12 = alpha12, alpha21 = alpha21))
 }
 
 ## TO DO
@@ -178,22 +175,7 @@ coloc <- function(analysis1, analysis2,
 
   gtxlog('coloc query returned ', nrow(res), ' rows')
 
-  resc_tmp <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
-  resc <- list(results = resc_tmp %>% 
-                 select(-nvariants, -alpha12, -alpha21) %>% 
-                 gather(stat_test, stat_value) %>% 
-                 extract(col = stat_test, into = c("stat_test", "hypothesis"), regex = "([[:alpha:]]+)_(H[[:digit:]]{1})") %>% 
-                 spread(stat_test, stat_value) %>% 
-                 bind_cols(label = c("No association",
-                                     "One variant associated with phenotype 1 only",
-                                     "One variant associated with phenotype 2 only",
-                                     "Two variants separately associated with phenotypes 1 and 2",
-                                     "One variant associated with phenotypes 1 and 2")) %>%
-                 select(hypothesis, label, prior, bf, posterior),
-               nvariants = resc_tmp$nvariants, 
-               alpha12 = resc_tmp$alpha12, 
-               alpha21 = resc_tmp$alpha21)
-  rm(resc_tmp)
+  resc <- coloc.fast(res$beta1, res$se1, res$beta2, res$se2, ...)
 
   pdesc1 <- sqlWrapper(dbc,
                        sprintf('SELECT label FROM analyses WHERE analysis = \'%s\';',
@@ -290,7 +272,7 @@ multicoloc.data <- function(analysis1, analysis2,
   ## rather than directly selecting on WHERE entity IN ...
   
   gtxlog('Query region is chr', chrom, ':', pos_start, '-', pos_end, 
-         ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
+         ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)')
 
   eq <- sqlWrapper(dbc, 
                     sprintf('SELECT 
@@ -318,7 +300,7 @@ multicoloc.data <- function(analysis1, analysis2,
       pos_start <- ep$minpos
       pos_end <- ep$maxpos
       gtxlog('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
-             ' (', prettyNum(pos_end - pos_start, big.mark = ',', scientific = FALSE), ' bp)')
+             ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)')
   }
 
   ## We use a (INNER) JOIN and silently drop rows that don't match
@@ -371,8 +353,8 @@ multicoloc <- function(analysis1, analysis2,
                          chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround, hard_clip = hard_clip, 
-                         dbc = dbc) %>% data.table()
-  # ss <- data.table(ss) # could inline
+                         dbc = dbc)
+  ss <- data.table(ss) # could inline
   
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
@@ -382,22 +364,21 @@ multicoloc <- function(analysis1, analysis2,
   analyses <- unique(ss$analysis1)
 
   t0 <- as.double(Sys.time())
-  ret <- ss[ ,
-             coloc.fast(beta1, se1, beta2, se2, ...),
-             by = .(analysis1, entity1)] %>% 
-    dplyr::select(-matches("prior"), -matches("bf")) %>% 
-    inner_join(., 
-               res %>% select(entity, hgncid), 
-               by = c("entity1" = "entity")) %>% 
-    rename(tissue = analysis1) %>%
-    rename(ensembl_id = entity1) %>%
-    rename(hgnc_id = hgncid) %>% 
-    rename(H4 = posterior_H4) %>%
-    rename(H3 = posterior_H3) %>% 
-    rename(H2 = posterior_H2) %>% 
-    rename(H1 = posterior_H1) %>% 
-    rename(H0 = posterior_H0)
-  
+  resc1 <- ss[ ,
+              subset(coloc.fast(beta1, se1, beta2, se2, ...)$results, hypothesis == 'H4')$posterior,
+              by = .(analysis1, entity1)]
+  names(resc1)[3] <- 'Hxy'
+  resc <- reshape(resc1, direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
+  res <- cbind(res, resc[match(res$entity, resc$entity1), ])
+  #for (this_analysis in analyses) {
+  #    resc <- do.call(rbind,
+  #                    lapply(unique(res$entity), function(this_entity) {
+  #                        return(subset(coloc.fast(subset(ss, analysis1 == this_analysis & entity1 == this_entity))$results,
+  #                                      hypothesis == 'H4')$posterior)
+  #                    }))
+  #    colnames(resc) <- paste0('Hxy', '_', this_analysis)
+  #    res <- cbind(res, resc)
+  #}
   t1 <- as.double(Sys.time())
   gtxlog('Colocalization analyzed for ', sum(!is.na(res[ , paste0('Hxy', '.', analyses)])), ' pairs in ', round(t1 - t0, 3), 's')
 
@@ -409,16 +390,22 @@ multicoloc <- function(analysis1, analysis2,
       rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
       ## thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold could be relative instead of absolute
       ## thresh_entity <- thresh_entity*max(zmat, na.rm = TRUE) # threshold, ditto
-      ## FIXME, if nothing passes thresholds, should adapt gracefully
-      zmat <- zmat[apply(zmat, 1, function(x) return(any(x >= thresh_entity, na.rm = TRUE) && any(!is.na(x)))) ,
-                   order(apply(zmat, 2, function(x) if (any(x >= thresh_analysis, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA),
-                   drop = FALSE]
-      multicoloc.plot(zmat, dbc = dbc)
+      ## FIXME, if nothing passes thresholds, should adapt more gracefully
+      zmat.rsel <- apply(zmat, 1, function(x) return(any(x >= thresh_entity, na.rm = TRUE) && any(!is.na(x))))
+      if (all(!zmat.rsel)) message('No entities to plot, because no Hxy >= thresh_entity=', thresh_entity)    
+      zmat.cord <- order(apply(zmat, 2, function(x) if (any(x >= thresh_analysis, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA)
+      if (identical(length(zmat.cord), 0L)) message('No analyses to plot, because no Hxy >= thresh_analysis=', thresh_analysis)
+      zmat <- zmat[zmat.rsel, zmat.cord, drop = FALSE]
+      if (any(zmat.rsel) && length(zmat.cord) > 0L) {
+          multicoloc.plot(zmat, dbc = dbc)
+      } else {
+          message('Skipping plotting')
+      }
   } else {
       stop('unknown style [ ', style, ' ]')
   }
   
-  return(ret)
+  return(res)
 }
 
 ## Input, a matrix of z values with analysis as column names and entity as row names 
@@ -500,20 +487,18 @@ multicoloc.kbs <- function(analysis1, analysis2,
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
 
   ret <- ss[ ,
-              coloc.fast(beta1, se1, beta2, se2, ...),
+              coloc.fast(beta1, se1, beta2, se2, ...)$results,
               by = .(analysis1, entity1)] %>% 
-         dplyr::select(-matches("prior"), -matches("bf")) %>% 
-         inner_join(., 
-                    res %>% select(entity, hgncid), 
-                    by = c("entity1" = "entity")) %>% 
-         rename(tissue = analysis1) %>%
-         rename(ensembl_id = entity1) %>%
-         rename(hgnc_id = hgncid) %>% 
-         rename(H4 = posterior_H4) %>%
-         rename(H3 = posterior_H3) %>% 
-         rename(H2 = posterior_H2) %>% 
-         rename(H1 = posterior_H1) %>% 
-         rename(H0 = posterior_H0)
+         dplyr::select(-label, -prior, -bf) %>% 
+         left_join(., 
+                  res %>% 
+                    rename(entity1 = entity) %>% 
+                    select(entity1, hgncid), 
+                  by = "entity1") %>% 
+        dplyr::select(-posterior, -hypothesis, everything()) %>%
+        rename(tissue = analysis1) %>%
+        rename(ensembl_id = entity1) %>%
+        rename(hgnc_id = hgncid)
   
   return(ret)
 }
