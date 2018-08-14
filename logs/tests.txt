@@ -1,0 +1,59 @@
+
+R version 3.4.1 (2017-06-30) -- "Single Candle"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> devtools::test()
+✔ | OK F W S | Context
+⠏ |  0       | coloc⠋ |  1       | coloc✔ |  1       | coloc [8.5 s]
+⠏ |  0       | my-test⠋ |  1       | my-test✔ |  1       | my-test
+⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  3       | QTLs⠸ |  3 1     | QTLs✖ |  3 1     | QTLs [16.0 s]
+────────────────────────────────────────────────────────────────────────────────
+test-QTLs.R:24: failure: IPSDSN coloc SOX5
+res$nvariants is not strictly more than 0. Difference: 0
+────────────────────────────────────────────────────────────────────────────────
+⠏ |  0       | regionplot⠋ |  0 1     | regionplot✖ |  0 1     | regionplot [10.7 s]
+────────────────────────────────────────────────────────────────────────────────
+test-regionplot.R:4: error: basic regionplot works
+SQL [ SELECT chrom, pos FROM sites WHERE (chrom='12') AND (pos=32566577); ] returned 0 rows, expected >=1 rows
+1: expect_success(regionplot("gsk_ukb500k_imputed_interim_bolt_f_3571_0_0_f_BIN_Back_pain_for_3_months_vs_no_pain", 
+       chrom = "6", pos = 32566577, surround = 5000, ensemblid = "ENSG00000013573")) at /home/gmd78366/workspace/gtx/tests/testthat/test-regionplot.R:4
+2: capture_expectation(expr)
+3: tryCatch({
+       code
+       NULL
+   }, expectation = function(e) e)
+4: tryCatchList(expr, classes, parentenv, handlers)
+5: tryCatchOne(expr, names, parentenv, handlers[[1L]])
+6: doTryCatch(return(expr), name, parentenv, handler)
+7: regionplot("gsk_ukb500k_imputed_interim_bolt_f_3571_0_0_f_BIN_Back_pain_for_3_months_vs_no_pain", 
+       chrom = "6", pos = 32566577, surround = 5000, ensemblid = "ENSG00000013573")
+8: sqlWrapper(dbc, sprintf("SELECT chrom, pos FROM sites WHERE %s;", gtxwhere(chrom = chrom, 
+       pos = pos)), uniq = FALSE) at /home/gmd78366/workspace/gtx/R/regionplot.R:155
+9: stop("SQL [ ", sql, " ] returned 0 rows, expected ", if (uniq) "1 row" else ">=1 rows") at /home/gmd78366/workspace/gtx/R/sanitation.R:224
+────────────────────────────────────────────────────────────────────────────────
+⠏ |  0       | tables⠋ |  1       | tables⠙ |  2       | tables✔ |  2       | tables [24.9 s]
+
+══ Results ═════════════════════════════════════════════════════════════════════
+Duration: 62.0 s
+
+OK:       7
+Failed:   2
+Warnings: 0
+Skipped:  0
+> 
+> 
