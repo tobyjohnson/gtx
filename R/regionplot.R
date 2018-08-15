@@ -12,6 +12,11 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                        protein_coding_only = TRUE, # whether to only show protein coding genes in annotation below plot
                        highlight_style = 'circle', 
                        dbc = getOption("gtx.dbConnection", NULL)) {
+
+  if (isTRUE(getOption('gtx.debug'))) {
+	flog.threshold(DEBUG)
+  }
+
   # check database connection
   gtxdbcheck(dbc)
 
@@ -135,7 +140,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 
     signals <- unique(na.omit(pvals$signal))
     if (length(signals) == 0L) {
-        gtxlog('No CLEO results, using single signal results instead')
+        flog.debug('No CLEO results, using single signal results instead')
         ## no signals, so use single signal results as if they were the CLEO results
         pvals <- within(pvals, {
             cs_cleo <- cs_signal
@@ -211,7 +216,7 @@ regionplot.data <- function(analysis,
     
     ## always query marginal p-values
     ## seems more flexible to query CLEO results separately and merge within R code
-    gtxlog('Querying marginal p-values')
+    flog.debug('Querying marginal p-values')
     t0 <- as.double(Sys.time())
     pvals <- sqlWrapper(dbc,
                         sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact %s FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
@@ -223,10 +228,10 @@ regionplot.data <- function(analysis,
                                 gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
                         uniq = FALSE)
     t1 <- as.double(Sys.time())
-    gtxlog('Query returned ', nrow(pvals), ' variants in query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
+    flog.debug(paste0('Query returned ', nrow(pvals), ' variants in query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.'))
 
     if (any(c('signal', 'signals') %in% style)) {
-        gtxlog('Finemapping under single signal assumption')
+        flog.debug('Finemapping under single signal assumption')
         ## cs_only = FALSE since we still want to plot/return variants not in the credible set
         pvals <- fm_signal(pvals, priorsd = priorsd, priorc = priorc, cs_size = cs_size, cs_only = FALSE)
     }
@@ -264,18 +269,42 @@ regionplot.data <- function(analysis,
         # note if style='ld', sort order is by ld with index variant,
         # otherwise sort by pval (see else block)
 
+        # UB-133 Mark pvals with LD
+        region <- list(
+          chrom = pvals$chrom[1],
+          range = range(pvals$pos, na.rm=TRUE, finite=TRUE)
+        )
+
+        ld_check <- tbl(getOption("gtx.dbConnection"), 'ld') %>%
+          filter(chrom1==region$chrom & 
+                   pos1 >= region$range[1] & 
+                   pos1 <= region$range[2]) %>%
+          select(chrom1,pos1,ref1,alt1) %>%
+          rename(chrom=chrom1,pos=pos1,ref=ref1,alt=alt1) %>%
+          group_by(chrom,pos,ref,alt) %>%
+          summarize(has_ld = 1) %>%
+          collect() %>%
+          merge(pvals, all.x = FALSE, all.y = TRUE)
+        
+        missing.ld <- ld_check %>% filter(is.na(has_ld)) %>% nrow
+        if (missing.ld > 0) {
+          flog.warn(paste0(missing.ld,  ' snps did not have LD data and will not',
+                           ' be considered for index snp selection.'))
+        }
+        
+        # Determine Index Variant
         pval1 <- NULL # store chrom/pos/ref/alt of the index variant
         if (!missing(pos)) {
           ## funny syntax to avoid subset(pvals, pos %in% pos)
           pval1 <- pvals[pvals$pos %in% pos, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
           if (identical(nrow(pval1), 1L)) {
             pval1$r <- 1
-            gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
-                   ' (selected by pos argument)')
+            flog.debug(paste0('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
+                   ' (selected by pos argument)'))
           } else {
-            gtxlog('Skipping pos argument [ ', paste(pos, collapse = ', '), 
+            flog.debug(paste0('Skipping pos argument [ ', paste(pos, collapse = ', '), 
                    ' ] for pairwise LD index selection because matches ',
-                   nrow(pval1), ' variants')
+                   nrow(pval1), ' variants'))
             pval1 <- NULL
           }
         }
@@ -287,23 +316,30 @@ regionplot.data <- function(analysis,
                         uniq = FALSE, zrok = TRUE)
           # use merge as a way to subset on match by all of chrom/pos/ref/alt
           # note default merge is all.x = FALSE, all.y = FALSE
-          pval1 <- merge(pvals, qrs)[ , c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          pval1 <- ld_check %>% filter(has_ld == 1) %>%
+            merge(qrs) %>%
+            select(chrom, pos, ref, alt)
+          
           if (identical(nrow(pval1), 1L)) {
             pval1$r <- 1
-            gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
-                   ' (selected by rs argument)')
+            flog.debug(paste0('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
+                   ' (selected by rs argument)'))
           } else {
-            gtxlog('Skipping rs argument [ ', paste(rs, collapse = ', '), 
+            flog.debug(paste0('Skipping rs argument [ ', paste(rs, collapse = ', '), 
                    ' ] for pairwise LD index selection because matches ',
-                   nrow(pval1), ' variants')
+                   nrow(pval1), ' variants'))
             pval1 <- NULL
           }
         }
         if (is.null(pval1)) {
-          pval1 <- pvals[which.min(pvals$pval), c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
-          pval1$r <- 1
-          gtxlog('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt,
-                 ' (selected by smallest pval)')
+          pval1 <- ld_check %>% 
+            filter(has_ld == 1) %>% 
+            filter(rank(pval, ties.method='first')==1) %>% 
+            select(chrom,pos,ref,alt) %>%
+            mutate(r=1)
+          
+          flog.debug(paste0('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt,
+                 ' (selected by smallest pval)'))
         }
         stopifnot(identical(nrow(pval1), 1L))
         ld1 <- sqlWrapper(dbc, 
