@@ -31,20 +31,25 @@
 
 fm_signal <- function(data,
                       priorsd = 1, priorc = 1e-5, cs_size = 0.95, cs_only = FALSE) {
-    stopifnot(all(c('beta', 'se') %in% names(data)))
-    data$lnabf <- with(data, abf.Wakefield(beta, se, priorsd, log = TRUE))
-    ##abf <- norm1(c(0, data$lnabf), log = TRUE) # general decision not to return this intermediate quantity
-    pp <- norm1(c(0, data$lnabf + log(priorc)), log = TRUE)
-    ##abf[is.na(abf)] <- 0.
-    pp[is.na(pp)] <- 0. # should be option to leave as NA or set to zero
-    ##data$abf_signal <- abf[-1]
-    data$pp_signal <- pp[-1]
-    data$cs_signal <- credset(pp, cred = cs_size)[-1]
-    if (cs_only) data <- data[which(data$cs_signal), ]
-    attr(data, 'params_signal') <- list(priorsd = priorsd, priorc = priorc, cs_size = cs_size)
-    ##attr(data, 'nullabf_signal') <- abf[1]
-    attr(data, 'nullpp_signal') <- pp[1]
-    return(data)
+  stopifnot(all(c('beta', 'se') %in% names(data)))
+    
+  data$lnabf <- with(data, abf.Wakefield(beta, se, priorsd, log = TRUE))
+    
+  data <-
+    data %>% 
+    mutate(abf = exp(lnabf)) %>% 
+    mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
+    mutate(pp_signal = abf / sum_abf) %>% 
+    mutate(pp_cumsum = cumsum(pp_signal)) %>% 
+    mutate(cs_signal = case_when(pp_cumsum <= cs_size ~ TRUE,
+                                 pp_cumsum >  cs_size ~ FALSE)) %>% 
+    select(-sum_abf, -pp_cumsum, -abf)
+    
+  if (cs_only){ data <- data[which(data$cs_signal), ] }
+  attr(data, 'params_signal') <- list(priorsd = priorsd, priorc = priorc, cs_size = cs_size)
+  attr(data, 'nullpp_signal') <- pp[1]
+  
+  return(data)
 }
 
 ## internal function to query all conditional signals that (partly or

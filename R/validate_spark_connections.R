@@ -40,8 +40,6 @@ validate_sc <- function(sc         = getOption("gtx.sc", NULL),
     # If there was no error, use the connection
     if(is.null(safe_sc$error)){ 
       sc <- safe_sc$result 
-      # Record that we made a connection in aba.query_locus
-      abaQ_sc_created = TRUE
       flog.info("Spark connection established.")
     }
     # Otherwise advise user to manually create and pass the spark connection
