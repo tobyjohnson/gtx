@@ -316,7 +316,10 @@ regionplot.data <- function(analysis,
                         uniq = FALSE, zrok = TRUE)
           # use merge as a way to subset on match by all of chrom/pos/ref/alt
           # note default merge is all.x = FALSE, all.y = FALSE
-          pval1 <- merge(pvals, qrs)[ , c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          pval1 <- ld_check %>% filter(has_ld == 1) %>%
+            merge(qrs) %>%
+            select(chrom, pos, ref, alt)
+          
           if (identical(nrow(pval1), 1L)) {
             pval1$r <- 1
             flog.debug(paste0('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 

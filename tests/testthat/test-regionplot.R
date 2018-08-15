@@ -9,3 +9,7 @@ test_that("basic regionplot works", {
 test_that("UB-131 Handle no LD data when selecting index variant by smallest pval", {
   regionplot('GSK500kV2b_TA_copdMapLoose_noAsthma_primAndSec_a1', hgncid = 'IL5', case_emac_ge = 25, style = 'ld')
 })
+
+test_that("UB-135 Handle no LD data when selecting index variant by RSID", {
+  regionplot('GSK500kV3_Eosinophill_percentage', rs = 'rs575996679', case_emac_ge = 25, style = 'ld')
+})
