@@ -10,9 +10,9 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
-    DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger
+    DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger,tibble
 Suggests:
-    knitr,testthat
+    knitr,testthat,tidyr
 VignetteBuilder: knitr
 License: GPL (>= 3)
 Description: Assorted tools for genetic and pharmacogenetic association 
