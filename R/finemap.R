@@ -37,17 +37,17 @@ fm_signal <- function(data,
     
   data <-
     data %>% 
-    as_tibble(rownames = NULL) %>% 
-    rownames_to_column(var="original_order") %>% 
-    mutate(abf = exp(lnabf)) %>% 
-    mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
-    mutate(pp_signal = abf / sum_abf) %>% 
-    arrange(desc(pp_signal)) %>% 
-    mutate(pp_cumsum = cumsum(pp_signal)) %>% 
-    mutate(cs_signal = case_when(pp_cumsum <= cs_size ~ TRUE,
+    tibble::as_tibble(rownames = NULL) %>% 
+    tibble::rownames_to_column(var="original_order") %>% 
+    dplyr::mutate(abf = exp(lnabf)) %>% 
+    dplyr::mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
+    dplyr::mutate(pp_signal = abf / sum_abf) %>% 
+    dplyr::arrange(desc(pp_signal)) %>% 
+    dplyr::mutate(pp_cumsum = cumsum(pp_signal)) %>% 
+    dplyr::mutate(cs_signal = case_when(pp_cumsum <= cs_size ~ TRUE,
                                  pp_cumsum >  cs_size ~ FALSE)) %>% 
-    arrange(original_order) %>%
-    select(-sum_abf, -pp_cumsum, -abf, -original_order) 
+    dplyr::arrange(original_order) %>%
+    dplyr::select(-sum_abf, -pp_cumsum, -abf, -original_order) 
     
   if (cs_only){ data <- data[which(data$cs_signal), ] }
   attr(data, 'params_signal') <- list(priorsd = priorsd, priorc = priorc, cs_size = cs_size)
