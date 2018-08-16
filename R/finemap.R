@@ -44,8 +44,10 @@ fm_signal <- function(data,
     dplyr::mutate(pp_signal = abf / sum_abf) %>% 
     dplyr::arrange(desc(pp_signal)) %>% 
     dplyr::mutate(pp_cumsum = cumsum(pp_signal)) %>% 
-    dplyr::mutate(cs_signal = case_when(pp_cumsum <= cs_size ~ TRUE,
-                                 pp_cumsum >  cs_size ~ FALSE)) %>% 
+    dplyr::mutate(cs_signal = case_when(
+					pp_cumsum-pp_signal <= cs_size ~ TRUE,   # Note: subtracting pp_signal so that the value that makes the cumulative sum surpassing the threshold is also marked as F
+                                 	pp_cumsum-pp_signal >  cs_size ~ FALSE)
+    	) %>% 
     dplyr::arrange(original_order) %>%
     dplyr::select(-sum_abf, -pp_cumsum, -abf, -original_order) 
     
