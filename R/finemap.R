@@ -47,7 +47,7 @@ fm_signal <- function(data,
     mutate(cs_signal = case_when(pp_cumsum <= cs_size ~ TRUE,
                                  pp_cumsum >  cs_size ~ FALSE)) %>% 
     arrange(original_order) %>%
-    select(-sum_abf, -pp_cumsum, -abf) 
+    select(-sum_abf, -pp_cumsum, -abf, -original_order) 
     
   if (cs_only){ data <- data[which(data$cs_signal), ] }
   attr(data, 'params_signal') <- list(priorsd = priorsd, priorc = priorc, cs_size = cs_size)
