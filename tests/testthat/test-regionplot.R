@@ -13,3 +13,15 @@ test_that("UB-131 Handle no LD data when selecting index variant by smallest pva
 test_that("UB-135 Handle no LD data when selecting index variant by RSID", {
   regionplot('GSK500kV3_Eosinophill_percentage', rs = 'rs575996679', case_emac_ge = 25, style = 'ld')
 })
+
+test_that("UB-138 Confirm expected posterior probabilities & proper credible set annotation", {
+  input    <- read_csv(file = system.file("testdata", package = "gtx", "UB-138_input.csv.gz"))
+  
+  expected <- read_csv(file = system.file("testdata", package = "gtx", "UB-138_expected.csv.gz"))
+  
+  actual   <- fm_signal(input, priorsd = 1, priorc = 1e-5, cs_size = 0.95, cs_only = FALSE)
+  
+  expect_identical(dim(actual), dim(expected))
+  expect_equal(actual, expected) # 
+}
+)
