@@ -37,6 +37,7 @@ fm_signal <- function(data,
     
   data <-
     data %>% 
+    as_tibble(rownames = NULL) %>% 
     mutate(abf = exp(lnabf)) %>% 
     mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
     mutate(pp_signal = abf / sum_abf) %>% 
@@ -47,7 +48,6 @@ fm_signal <- function(data,
     
   if (cs_only){ data <- data[which(data$cs_signal), ] }
   attr(data, 'params_signal') <- list(priorsd = priorsd, priorc = priorc, cs_size = cs_size)
-  attr(data, 'nullpp_signal') <- pp[1]
   
   return(data)
 }
