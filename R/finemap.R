@@ -41,6 +41,7 @@ fm_signal <- function(data,
     mutate(abf = exp(lnabf)) %>% 
     mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
     mutate(pp_signal = abf / sum_abf) %>% 
+    arrange(desc(pp_signal)) %>% 
     mutate(pp_cumsum = cumsum(pp_signal)) %>% 
     mutate(cs_signal = case_when(pp_cumsum <= cs_size ~ TRUE,
                                  pp_cumsum >  cs_size ~ FALSE)) %>% 
