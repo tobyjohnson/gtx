@@ -79,9 +79,11 @@ phewas <- function(chrom, pos, rs,
     p1 <- p1[order(p1$pval, decreasing = TRUE), ] # reorder to make sure most significant points plotted over less significant ones
     plot.new()
     plot.window(range(p1$x), c(0, max(p1$y)))
+
+    max_y = max(p1$y)
     ## plot text then overplot with points
-    with(subset(p1, y > 6 & yo > strheight('M', cex = 0.5)), # should be user controllable
-         text(x, y, label, pos = 4, cex = 0.5))
+    with(subset(p1, y > min(6, max_y*.96) & yo > strheight('M', cex = 0.5)), # should be user controllable
+         text(x, y, as.character(label), pos = 4, cex = 0.5))
     points(p1$x, p1$y, pch = 19, col = p1$col, cex = 0.5)
     if (truncp) {
         ## would be nice to more cleanly overwrite y axis label
