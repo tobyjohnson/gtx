@@ -269,7 +269,7 @@ regionplot.data <- function(analysis,
         # note if style='ld', sort order is by ld with index variant,
         # otherwise sort by pval (see else block)
 
-        # UB-133 Mark pvals with LD
+        # UB-133 Create a dataframe that adds a column to pvals to indicate if variant has_ld data
         region <- list(
           chrom = pvals$chrom[1],
           range = range(pvals$pos, na.rm=TRUE, finite=TRUE)
@@ -295,8 +295,11 @@ regionplot.data <- function(analysis,
         # Determine Index Variant
         pval1 <- NULL # store chrom/pos/ref/alt of the index variant
         if (!missing(pos)) {
-          ## funny syntax to avoid subset(pvals, pos %in% pos)
-          pval1 <- pvals[pvals$pos %in% pos, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+          
+          pval1 <- ld_check %>%
+            filter(pos %in% !!pos & has_ld == 1) %>%
+            select(chrom, pos, ref, alt)
+          
           if (identical(nrow(pval1), 1L)) {
             pval1$r <- 1
             flog.debug(paste0('Querying pairwise LD with index chr', pval1$chrom, ':', pval1$pos, ':', pval1$ref, ':', pval1$alt, 
