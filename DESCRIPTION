@@ -2,7 +2,7 @@ Package: gtx
 Type: Package
 Title: Genetics ToolboX
 Version: 2.0.1
-Date: 2017-04-28
+Date: 2018-06-27
 Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.Johnson@gsk.com"), 
              person("Karsten", "Sieber", role = c("ctb"), email = "karsten.b.sieber@gsk.com"),
              person("Andrew", "Slater", role = c("ctb")),
@@ -10,15 +10,25 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
-    RODBC,data.table,dplyr,tidyr
+    DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger,tibble,readr
 Suggests:
-    knitr,RSQLite,
-    testthat
+    knitr,testthat,tidyr
 VignetteBuilder: knitr
 License: GPL (>= 3)
-Description: A fork of the gtx package, which has been streamlined to 
-	operate in an environment where genetic data and summary 
-	statistics are available via SQL queries against a database.
+Description: Assorted tools for genetic and pharmacogenetic association 
+	analyses.  The current focus is on tools that operate in an
+	environment where genetic data and summary statistics are
+	available via SQL queries against a database.
+	There are also functions for simplifying and standardising
+	pharmacogenetic analysis and reporting.  There are (legacy)
+	functions to support multi-SNP risk score analyses, multi-SNP
+	conditional regression analyses, and multi-phenotype analyses,
+	using summary statistics instead of using subject-specific
+	data.  There are (legacy) helper functions for reading and
+	manipulating subject-specific genotype data, which provide a
+	platform for calculating the summary statistics, or for using
+	R to conduct other analyses not supported by specific GWAS
+	analysis tools.
 URL: https://cran.r-project.org/web/packages/gtx/index.html, 
 	https://github.com/tobyjohnson/gtx
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.0

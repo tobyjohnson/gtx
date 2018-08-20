@@ -14,7 +14,7 @@ gene.annotate <- function(chrom, pos,
     if (identical(length(chrom), 0L)) return(NULL)
     
     ann <- sapply(1:length(chrom), function(idx) {
-        res <- sqlWrapper(dbc,
+        res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                           sprintf('SELECT hgncid, ensemblid FROM genes WHERE %s ORDER BY pos_start',
                                   ## FIXME filter on protein_coding_only
                                   gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx], pos_start_le = pos[idx])),
@@ -25,7 +25,7 @@ gene.annotate <- function(chrom, pos,
             return(paste0('[', paste(unique(gene.label(res$hgncid, res$ensemblid)), collapse = ';'), ']'))
         }
         ## Otherwise, query nearest genes to left and right (arbitrary tie breaking, FIXME to be perfect)
-        resl <- sqlWrapper(dbc,
+        resl <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc),
                            sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_end DESC LIMIT 1',
                                    ## FIXME filter on protein_coding_only
                                    gtxwhere(chrom = chrom[idx], pos_end_ge = pos[idx]-1000000, pos_end_le = pos[idx])),
@@ -43,7 +43,7 @@ gene.annotate <- function(chrom, pos,
                 stop('internal error in gene.annotate resl construction')
             }
         }
-        resr <- sqlWrapper(dbc,
+        resr <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                            sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start ASC LIMIT 1',
                                    ## FIXME filter on protein_coding_only
                                    gtxwhere(chrom = chrom[idx], pos_start_le = pos[idx]+1000000, pos_start_ge = pos[idx])),
@@ -218,16 +218,34 @@ XXgene.draw <- function(chr, leftpos, rightpos, genetable, nodraw = NULL,
   }
 }
 
-prune.distance <- function(chr, pos, pval, win.size = 500000) {
-  stopifnot(length(pos) == length(chr))
-  stopifnot(length(pval) == length(chr))
-  if (length(chr) == 0) return (NULL)
-  prune <- rep(NA, length(chr))
-  for (idx in order(pval)) {
-    prune[idx] <- all(c(Inf, abs(pos[idx] - pos[prune & chr == chr[idx]])) > win.size, na.rm = TRUE)
-    ## note that prune == TRUE implies pval <= pval[idx]
+prune.distance <- function(data, surround = 500000L, sorted = FALSE) {
+  if (nrow(data) == 0) return (NULL) # FIXME should return data table with zero rows
+  data <- data.table(data)
+  if (!sorted) {
+      oo <- data[ , order(chrom, pos)]
+      data <- data[oo, ]
   }
-  return(prune)
+  cs <- c(1, which(data$chrom[-1] != data$chrom[-nrow(data)]) + 1) # row numbers of chrom starts (first row within each chrom block)
+  dp <- c(NA, data$pos[-1] - data$pos[-nrow(data)]) # delta position
+  dp[cs] <- NA # set dp to NA for all chrom start row
+  ## if adjacent variants are greater than 2*surround bp apart,
+  ## then when the signals are extended by +-surround on both sides,
+  ## they will not overlap
+  ssl <- is.na(dp) | dp > 2*surround # signal start at this row, logical
+  ss <- which(ssl) # row indices where signals start
+  data[ , signal := cumsum(ssl)] # index of signals, integers over whole genome, internal use within this function only
+  signals <- data[ ,
+                  list(chrom = unique(chrom), pos_start = min(pos), pos_end = max(pos),
+                       num_variants = length(pos), min_pval = min(pval), row = which.min(pval)),
+                  by = signal]
+  if (sorted) {
+      signals[ , row := row + ss - 1]
+  } else {
+      signals[ , row := NULL] # do not return row indices if input unsorted
+      ## FIXME would be better to store original order and invert the permutation
+  }
+  data[ , signal := NULL]
+  return(signals)
 }
 
 prune.genes <- function(chr, pos, genetable, genes, win.size = 10000) {

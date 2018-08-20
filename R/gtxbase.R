@@ -174,7 +174,8 @@ gtxwhat <- function(analysis1,
 
 gtxfilter <- function(pval_le, pval_gt,
                       maf_ge, maf_lt,
-                      rsq_ge, rsq_lt, 
+                      rsq_ge, rsq_lt,
+                      emac_ge, case_emac_ge, 
                       analysis,
                       tablename,
                       dbc = getOption("gtx.dbConnection", NULL)) {
@@ -183,11 +184,14 @@ gtxfilter <- function(pval_le, pval_gt,
     ## queries TABLE analyses to determine results_db table name and
     ## to efficiently handle whether freq and rsq are NULL
 
-    ## query analysis metadata
-    amd <- sqlWrapper(dbc, sprintf('SELECT results_db, has_freq, has_rsq
+    ## query analysis metadata, using cache if it exists
+    amd <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
+                      sprintf('SELECT results_db, ncase, ncontrol, ncohort, has_freq, has_rsq
                                     FROM analyses
                                     WHERE %s;',
-                            gtxwhat(analysis1 = analysis)))
+                              gtxwhat(analysis1 = analysis)))
+    ## if ncohort is NA, replace with ncase+ncontrol, should not be needed with new schema definition
+    amd <- within(amd, ncohort <- ifelse(!is.na(ncohort), ncohort, ncase + ncontrol))
     
     if (!missing(tablename)) {
         tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
@@ -199,6 +203,7 @@ gtxfilter <- function(pval_le, pval_gt,
     ## can be set at multiple places in code, but we only want to print messages once
     warn_freq <- FALSE
     warn_rsq <- FALSE
+    warn_emac <- FALSE
 
     ## unlike similar functions, gtxwhat(), gtxwhere(), that add the tablename at the
     ## end, for this function the specific OR logic needed for maf_lt means we have to
@@ -254,10 +259,45 @@ gtxfilter <- function(pval_le, pval_gt,
                 warn_rsq <- TRUE
                 NULL
             }
+        },
+
+        if (missing(emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncohort)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                ## sanitizing emac_ge converts to string, so convert back to double for calculation, convert to string again
+                rfthresh <- sanitize1(as.double(sanitize1(emac_ge, type = 'double'))/(2*amd$ncohort), type = 'double')
+                sprintf('((%sfreq*%srsq)>=%s AND ((1.-%sfreq)*%srsq)>=%s)',
+                        tablename, tablename, rfthresh,
+                        tablename, tablename, rfthresh)
+            } else {
+                warn_emac <- TRUE
+                NULL
+            }
+        },
+        
+        if (missing(case_emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncase) && !is.na(amd$ncontrol)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                rfthresh <- sanitize1(as.double(sanitize1(case_emac_ge, type = 'double'))/(2*min(amd$ncase, amd$ncontrol)), type = 'double')
+                sprintf('((%sfreq*%srsq)>=%s AND ((1.-%sfreq)*%srsq)>=%s)',
+                        tablename, tablename, rfthresh,
+                        tablename, tablename, rfthresh)
+            } else {
+                warn_emac <- TRUE
+                NULL
+            }
         }
     )
     if (warn_freq) warning('gtxfilter MAF filtering skipped because has_freq=False for analysis [ ', analysis, ' ]')
     if (warn_rsq) warning('gtxfilter Rsq filtering skipped because has_rsq=False for analysis [ ', analysis, ' ]')
+    if (warn_emac) warning('gtxfilter EMAC filtering skipped because ', 
+                           paste(c(if (amd$has_freq == 0) 'has_freq=False' else NULL, 
+                                   if (amd$has_rsq == 0) 'has_rsq=False' else NULL, 
+                                   if (is.na(amd$ncohort)) 'ncohort is NA' else NULL, 
+                                   if (is.na(amd$ncase)) 'ncase is NA' else NULL, 
+                                   if (is.na(amd$ncontrol)) 'ncontrol is NA' else NULL),
+                                 collapse = ', '),
+                           ' for analysis [ ', analysis, ' ]')
 
     ## format, can simplify the inner paste0 since all list elements have length 1
     ws1f <- paste0("(", 
@@ -270,23 +310,29 @@ gtxfilter <- function(pval_le, pval_gt,
     return(ws1f)
 }
 
+## Should be combined into gtxfilter, to return SQL WHERE clause, and label, by one function call
 gtxfilter_label <- function(maf_ge, maf_lt,
-                            rsq_ge, rsq_lt, 
+                            rsq_ge, rsq_lt,
+                            emac_ge, case_emac_ge, 
                             analysis,
                             dbc = getOption("gtx.dbConnection", NULL)) {
     ## function to construct a nice label for plot
 
     ## query analysis metadata, note this is inefficient since gtxfilter() may
     ## be making the same/similar query (potentially multiple times)
-    amd <- sqlWrapper(dbc, sprintf('SELECT has_freq, has_rsq
+    ## added, using cache if it exists
+    amd <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
+                      sprintf('SELECT ncase, ncontrol, ncohort, has_freq, has_rsq
                                     FROM analyses
                                     WHERE %s;',
                             gtxwhat(analysis1 = analysis)))
-    
+    amd <- within(amd, ncohort <- ifelse(!is.na(ncohort), ncohort, ncase + ncontrol))
+
     ## set flags for whether to print warning messages
     ## can be set at multiple places in code, but we only want to print messages once
     warn_freq <- FALSE
     warn_rsq <- FALSE
+    warn_emac <- FALSE
 
     ws1 <- list(
         if (missing(maf_ge)) NULL
@@ -327,6 +373,26 @@ gtxfilter_label <- function(maf_ge, maf_lt,
                 warn_rsq <- TRUE
                 NULL
             }
+        },
+
+        if (missing(emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncohort)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                sprintf('EMAC>=%s', sanitize1(emac_ge, type = 'double'))
+            } else {
+                warn_emac <- TRUE
+                NULL
+            }
+        },
+        
+        if (missing(case_emac_ge)) NULL
+        else {
+            if (amd$has_freq == 1 && amd$has_rsq == 1 && !is.na(amd$ncase) && !is.na(amd$ncontrol)) { # type BOOLEAN in Hive/Impala is returned to R as 0/1
+                sprintf('case EMAC >=%s', sanitize1(case_emac_ge, type = 'double'))
+            } else {
+                warn_emac <- TRUE
+                NULL
+            }
         }
     )
 
@@ -347,7 +413,28 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 
 }
 
-
+## function to return pretty printing label for an analysis
+## analysis is the analysis id
+## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
+gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
+                              dbc = getOption("gtx.dbConnection", NULL)) {
+    ares <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
+                       sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
+                               gtxwhat(analysis1 = analysis)))
+    if (nlabel) {
+        if (!is.na(ares$ncase) && !is.na(ares$ncontrol)) {
+            alabel <- sprintf('%s, n=%i vs %i', ares$label, ares$ncase, ares$ncontrol)
+        } else if (!is.na(ares$ncohort)) {
+            alabel <- sprintf('%s, n=%i', ares$label, ares$ncohort)
+        } else {
+            alabel <- sprintf('%s, n=?', ares$label)
+        }
+    } else {
+        alabel <- ares$label
+    }
+    if (!is.null(entity)) alabel <- paste(entity$entity_label, alabel)
+    return(alabel)
+}
 
 gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
@@ -358,15 +445,16 @@ gtxanalyses <- function(analysis, analysis_not,
                         ## if extra filters are added, be sure to update definition of all_analyses below
                         analysis_fields = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
-                        tag_is,
-                        with_tags = FALSE,
+                        tag_is, with_tags = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
-    dbs <- sqlQuery(dbc, 'SHOW DATABASES;')
+    dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
 
     ## sanitize and check desired analysis_fields, create sanitized string for SQL
-    acols <- names(sqlWrapper(dbc, 'SELECT * FROM analyses LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
+    ## added, using cache if it exists
+    acols <- names(sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
+                              'SELECT * FROM analyses LIMIT 0', zrok = TRUE)) # columns present in TABLE analyses
     analysis_fields <- sanitize(union(c('analysis', 'entity_type', 'results_db'),
                               analysis_fields),
                         type = 'alphanum')
@@ -398,11 +486,15 @@ gtxanalyses <- function(analysis, analysis_not,
                      missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
                      missing(has_tag))
     if (all_analyses) {
+        ## This query cannot use cache unless JOIN with analyses_tags, and subquery, are supported
         res <- sqlWrapper(dbc,
                           sprintf('SELECT %s %s FROM analyses %s',
                                   analysis_fields,
-                                  if (with_tags) ', analyses_tags.tag' else '',
-                                  if (with_tags) sprintf('LEFT JOIN analyses_tags USING (analysis) WHERE %s', tag_is) else ''),
+                                  if (with_tags) ', t1.tag' else '',
+                                  if (with_tags) sprintf('LEFT JOIN (SELECT analysis, tag FROM analyses_tags WHERE %s) AS t1 USING (analysis)', tag_is) else ''),
+                                  ## This LEFT JOIN does not work as expected when tag_is is used
+                                  ## because, logically, the left join happens BEFORE the WHERE clause is applied
+                                  ## need the tag_is as a subquery because ... EXPLAIN
                           uniq = FALSE)
     } else {
         res <- sqlWrapper(dbc,
@@ -469,7 +561,9 @@ gtxregion <- function(chrom, pos_start, pos_end,
   } else {
     stop('gtxregion() failed due to inadequate arguments')
   }
-  return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end))
+
+  return(list(chrom = chrom, pos_start = pos_start, pos_end = pos_end,
+              label =   sprintf('chr%s:%s-%s', chrom, pos_start, pos_end)))
 }
 
 
