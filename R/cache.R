@@ -1,3 +1,14 @@
+#' Speed up search of genes and analyses
+#' 
+#' Create a in-memory SQLite db storing analyses metadata and genes coordinates, to speed up searches
+#'
+#' @param	cache_analysis	Cache the Analyses table
+#' @param	cache_genes	Cache Gene coordinates
+#' @param	disconnect	Disconnects the db. E.g. run gtxcache(disconnect=T) to free up memory
+#' @param	dbc_from	DB to be cached (e.g. gwases)
+#' @param 	dbc_to		If there is already a gtxcache database available, use this instead of creating a new one
+#' 
+#' @export
 gtxcache <- function(cache_analyses = TRUE, 
                      cache_genes = TRUE, 
                      disconnect = FALSE, 

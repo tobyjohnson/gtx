@@ -9,9 +9,6 @@ aba.info_full_locus()
 \value{
 data.frame
 }
-\description{
-\strong{aba.info_full_locus() - description of the cols from \code{\link{aba.query_locus}}}
-}
 \examples{
 aba.info_full_locus() \%>\% filter(col_name == "log10_min_pval_colocGWAS_over_TopHitGWAS")
 }

@@ -4,8 +4,8 @@
 \alias{aba.query_locus_wrapper}
 \title{\strong{aba.query_locus_wrapper() - single function to wrap around: [\code{\link{aba.query_locus}}, \code{\link{aba.filter}}, \code{\link{aba.plot}}]}}
 \usage{
-aba.query_locus_wrapper(hgncid, ensemblid, surround = 1e+06, chrom,
-  pos_start, pos_end, rsid, sc = getOption("gtx.sc", NULL),
+aba.query_locus_wrapper(hgncid, ensemblid, surround = 1e+06, chrom, pos_start,
+  pos_end, rsid, sc = getOption("gtx.sc", NULL),
   flog_level = getOption("gtx.flog_level", "WARN"), ...)
 }
 \arguments{

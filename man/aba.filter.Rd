@@ -4,8 +4,7 @@
 \alias{aba.filter}
 \title{\strong{aba.filter() - Recommended filtering for aba results.}}
 \usage{
-aba.filter(.data, p12_ge = 0.8, minpval1_le = 1e-04,
-  minpval2_le = 5e-08,
+aba.filter(.data, p12_ge = 0.8, minpval1_le = 1e-04, minpval2_le = 5e-08,
   log10_min_pval_colocGWAS_over_TopHitGWAS_lt = 0.5,
   gwas2gene_dist_lt = 1e+06, ncase_ge = 200, ncohort_ge = 200,
   protein_coding_only = TRUE, neale_only = FALSE, gsk_only = FALSE,
