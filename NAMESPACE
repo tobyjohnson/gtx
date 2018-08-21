@@ -7,6 +7,8 @@ export(abf.normal, abf.t, abf.Wakefield, coloc.fast)
 export(parse.snps, remap.q2t)
 ## blockassoc.R
 export(blockassoc, blockstats, blockstats.lm, blockstats.glm, blockstats.coxph, blockstats.clm, blockstats.negbin)
+## cache.R
+export(gtxcache)
 # do we need to declare S3 methods?
 ## clinical.R
 export(clinical.import, clinical.derive, derivation.add)

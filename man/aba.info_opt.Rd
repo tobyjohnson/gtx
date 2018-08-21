@@ -9,9 +9,6 @@ aba.info_opt()
 \value{
 data.frame
 }
-\description{
-\strong{aba.info_opt() - info about initiating and setting global opts for aba}
-}
 \examples{
 aba.info_opt()
 }

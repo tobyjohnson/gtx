@@ -9,9 +9,6 @@ aba.info_flat()
 \value{
 data.frame
 }
-\description{
-\strong{aba.info_flat() - description of the cols from \code{\link{aba.query_locus}}}
-}
 \examples{
 aba.info_flat() \%>\% filter(col_name == "loci_max_n_genes")
 }
