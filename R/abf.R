@@ -164,6 +164,23 @@ abf.t <- function(beta, se, priorscale, df = 1, gridrange = 3, griddensity = 20)
   }))
 }
 
+
+
+#' Normalise to sum to 1.
+#'
+#' Normalises a vector so that the elements sum to 1, in a relatively
+#' numerically stable way.
+
+#' @usage
+#' norm1(x, log = FALSE)
+#'
+#'
+#' @param x	Values to be normalised.
+#' @param log 	Whether values of \code{x} are logged and should be exponentiated when normalising.
+#' 
+#' @return
+#'  A vector of normalised values that sums to 1.
+#' @author  Toby Johnson \email{Toby.x.Johnson@gsk.com}
 norm1 <- function(x, log = FALSE) {
   if (all(is.na(x))) return(x)
   if (log) {
@@ -177,6 +194,16 @@ norm1 <- function(x, log = FALSE) {
   return(x / sum(x, na.rm = TRUE))
 }
 
+#' Determine whether a SNP is in the credible set
+#' 
+#' Given a vector of probabilities bf, calculates which ones are in the credible set,
+#' e.g. those for which the cumulative distribution is <.95
+#'
+#' @param bf 	Vector of probabilites/frequencies
+#' @param cred	threshold for credible set (e.g. .95)
+#'
+#' @return ps	Vector of which values are in the credible set
+#' @author	Unknown - Toby?
 credset <- function(bf, cred = 0.95) {
     if (sum(!is.na(bf)) == 0L) return(rep(NA, length(bf)))
     bf <- bf/max(bf, na.rm = TRUE)
