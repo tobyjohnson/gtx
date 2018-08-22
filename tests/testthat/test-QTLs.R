@@ -28,9 +28,23 @@ test_that("IPSDSN coloc MGAT3", {
 })
 
 
-test_that("find_qtl_bygene function works", {
-	ensembl_id <- "ENSG00000137033"
-	gene_eQTLs <- find_qtl_bygene(ensembl_id) 
+test_that("find_qtl_bygene function with Ensembl id", {
+	geneId <- "ENSG00000137033"
+	gene_eQTLs <- find_qtl_bygene(geneId) 
+	expect_gt(nrow(gene_eQTLs), 0)
+	expect_gt(length(unique(gene_eQTLs$analysis)), 0)
+
+})
+test_that("find_qtl_bygene function with Gene Symbol", {
+
+	geneId <- "IL33"
+	gene_eQTLs <- find_qtl_bygene(geneId) 
 	expect_gt(nrow(gene_eQTLs), 0)
 	expect_gt(length(unique(gene_eQTLs$analysis)), 0)
 })
+test_that("find_qtl_bygene function FAILS with wrong gene symbol", {
+	geneId <- "das asd as das das"
+	expect_error(find_qtl_bygene(geneId) )
+})
+
+
