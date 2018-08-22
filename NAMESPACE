@@ -16,6 +16,8 @@ export(clinical.import, clinical.derive, derivation.add)
 export(coloc.fast, coloc.data, coloc, multicoloc, multicoloc.data, multicoloc.kbs)
 ## demographics.R
 export(demographics, demographics.numeric, demographics.logical, demographics.factor, demographics.Surv, demographics.data.frame, prettypc)
+## find_qtl_bygene.R
+export(find_qtl_bygene)
 ## fitmix.R
 export(fitmix.simulate, fitmix.r2, fitmix.plot, fitmix)
 ## fixna.R

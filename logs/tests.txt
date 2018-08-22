@@ -19,14 +19,21 @@ Type 'q()' to quit R.
 
 > devtools::test()
 ✔ | OK F W S | Context
-⠏ |  0       | coloc⠋ |  0     1 | coloc✔ |  0     1 | coloc [0.2 s]
+⠏ |  0       | coloc⠋ |  0     1 | coloc✔ |  0     1 | coloc [0.1 s]
 ────────────────────────────────────────────────────────────────────────────────
 test-coloc.R:4: skip: coloc backpain
 Not working on gtx2_dev.  Test may need modification.
 ────────────────────────────────────────────────────────────────────────────────
 ⠏ |  0       | gwas✔ |  0       | gwas [4.9 s]
 ⠏ |  0       | my-test⠋ |  1       | my-test✔ |  1       | my-test
-⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  2     1 | QTLs⠸ |  2     2 | QTLs⠼ |  3     2 | QTLs⠴ |  4     2 | QTLs✔ |  4     2 | QTLs [14.5 s]
+⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  2     1 | QTLs⠸ |  2     2 | QTLs[1] "ENSG00000137033"
+⠼ |  3     2 | QTLs⠴ |  4     2 | QTLs[1] "SELECT ensemblid FROM genes WHERE hgncid = 'IL33' LIMIT 1"
+        ensemblid
+1 ENSG00000137033
+⠦ |  5     2 | QTLs⠧ |  6     2 | QTLs[1] "SELECT ensemblid FROM genes WHERE hgncid = 'das asd as das das' LIMIT 1"
+[1] ensemblid
+<0 rows> (or 0-length row.names)
+⠇ |  7     2 | QTLs✔ |  7     2 | QTLs [27.4 s]
 ────────────────────────────────────────────────────────────────────────────────
 test-QTLs.R:13: skip: IPSDSN coloc PTEN
 Not working on gtx2_dev.  Test may need modification.
@@ -34,7 +41,7 @@ Not working on gtx2_dev.  Test may need modification.
 test-QTLs.R:22: skip: IPSDSN coloc MGAT3
 Not working on gtx2_dev.  Test may need modification.
 ────────────────────────────────────────────────────────────────────────────────
-⠏ |  0       | regionplot⠋ |  0     1 | regionplot⠙ |  0   1 1 | regionplot⠹ |  1   1 1 | regionplot⠸ |  2   1 1 | regionplot✔ |  2   1 1 | regionplot [28.4 s]
+⠏ |  0       | regionplot⠋ |  0     1 | regionplot⠙ |  0   1 1 | regionplot⠹ |  1   1 1 | regionplot⠸ |  2   1 1 | regionplot✔ |  2   1 1 | regionplot [63.7 s]
 ────────────────────────────────────────────────────────────────────────────────
 test-regionplot.R:4: skip: basic regionplot works
 Not working on gtx2_dev.  Test may need modification.
@@ -52,11 +59,9 @@ Not working on gtx2_dev.  Test may need modification.
 ────────────────────────────────────────────────────────────────────────────────
 
 ══ Results ═════════════════════════════════════════════════════════════════════
-Duration: 48.6 s
+Duration: 96.7 s
 
-OK:       7
+OK:       10
 Failed:   0
 Warnings: 1
 Skipped:  6
-
-Woot!
