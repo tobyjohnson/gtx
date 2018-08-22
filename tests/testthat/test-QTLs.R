@@ -26,3 +26,11 @@ test_that("IPSDSN coloc MGAT3", {
 		     entity = 'MGAT3', style="none")
 	expect_gt(res$nvariants, 0) 
 })
+
+
+test_that("find_qtl_bygene function works", {
+	ensembl_id <- "ENSG00000137033"
+	gene_eQTLs <- find_qtl_bygene(ensembl_id) 
+	expect_gt(nrow(gene_eQTLs), 0)
+	expect_gt(length(unique(gene_eQTLs$analysis)), 0)
+})
