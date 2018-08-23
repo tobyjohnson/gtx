@@ -209,6 +209,8 @@ phewas.data <- function(chrom, pos, rs,
         results_db <- NULL
         has_access <- NULL
     })
+    
+    res <- res[!is.na(res$pval),]
     res <- res[order(res$pval), ]
     return(res)
 }
