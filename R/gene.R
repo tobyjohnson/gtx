@@ -1,9 +1,11 @@
+#' @export
 gene.label <- function(hgnc, ensg) {
     ## consider adding a db query option if hgnc is missing
     stopifnot(length(hgnc) == length(ensg))
     return(ifelse(!is.na(hgnc) & hgnc != '', hgnc, ensg)) # FIXME when ENSG ids change to integers, use gtxlabel()
 }
 
+#' @export
 gene.annotate <- function(chrom, pos,
                           protein_coding_only = TRUE, 
                           dbc = getOption("gtx.dbConnection", NULL)) {
@@ -66,6 +68,7 @@ gene.annotate <- function(chrom, pos,
     return(ann)
 }
 
+#' @export
 gene.nearest <- function(chr, pos, genetable) {
   stopifnot(length(chr) == length(pos))
   if (is.integer(chr)) chr <- as.character(chr)
@@ -87,6 +90,7 @@ gene.nearest <- function(chr, pos, genetable) {
   }))
 }
 
+#' @export
 gene.draw <- function (chr, leftpos, rightpos, genetable, nodraw = NULL, genesep = 10000, 
                        hlines.min = NULL, yhi = -1, ylo = -5, exony = 0.05, genecex = 1) {
   if (is.integer(chr)) chr <- as.character(chr)
@@ -218,6 +222,7 @@ XXgene.draw <- function(chr, leftpos, rightpos, genetable, nodraw = NULL,
   }
 }
 
+#' @export
 prune.distance <- function(data, surround = 500000L, sorted = FALSE) {
   if (nrow(data) == 0) return (NULL) # FIXME should return data table with zero rows
   data <- data.table(data)
@@ -248,6 +253,7 @@ prune.distance <- function(data, surround = 500000L, sorted = FALSE) {
   return(signals)
 }
 
+#' @export
 prune.genes <- function(chr, pos, genetable, genes, win.size = 10000) {
   stopifnot(length(chr) == length(pos))
   if (is.integer(chr)) chr <- paste("chr", chr, sep = "")

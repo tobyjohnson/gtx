@@ -1,5 +1,7 @@
+#' @export
 demographics <- function(object, by, style, digits) UseMethod("demographics")
 
+#' @export
 demographics.numeric <- function(object, by, style, digits) {
   if (missing(style) || is.null(style)) style <- "Mean (SD)" # getOption?
   if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
@@ -46,6 +48,7 @@ demographics.numeric <- function(object, by, style, digits) {
   return(dt)
 }
 
+#' @export
 demographics.factor <- function(object, by, style, digits) {
   if (missing(style) || is.null(style)) style <- "N (pc0%)" # getOption?
   if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
@@ -78,6 +81,7 @@ demographics.factor <- function(object, by, style, digits) {
   ## add nice pretty pcs
 }
 
+#' @export
 demographics.Surv <- function(object, by, style, digits) {
   if (missing(style) || is.null(style)) style <- "Median (95% CI)" # getOption?
   if (missing(digits) || is.null(digits)) digits <- getOption("demographics.digits", 2)
@@ -117,6 +121,7 @@ demographics.Surv <- function(object, by, style, digits) {
   return(dt)
 }
 
+#' @export
 demographics.logical <- function(object, by, style, digits) {
   ## style and digits not used
   ## tmt = truth and missingness table
@@ -134,6 +139,7 @@ demographics.logical <- function(object, by, style, digits) {
 }
 
 
+#' @export
 demographics.default <- function(object, by, style, digits) {
   ## cmt = class and missingness table
   cmt <- vapply(X = by, FUN = function(by1) {
@@ -180,6 +186,7 @@ demographicsCheckBy <- function(object, by) {
 }
 
 
+#' @export
 demographics.data.frame <- function(object, by, style, digits) {
   ## check by argument, modify if necessary
   if (missing(by)) by <- list("All subjects" = rep(TRUE, nrow(object))) # failsafe
@@ -261,6 +268,7 @@ demographics.data.frame <- function(object, by, style, digits) {
   return(dta)
 }
 
+#' @export
 prettypc <- function(x, digits = 0) {
   x <- as.integer(x)  
   pc <- 100*x/sum(x, na.rm = TRUE)

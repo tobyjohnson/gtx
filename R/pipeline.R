@@ -7,6 +7,7 @@
 
 ## FIXME add direct hook for "user-derived" endpoints
 
+#' @export
 gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
                     gtxpipe.groups = getOption("gtxpipe.groups", data.frame(group = 'ITT', deps = 'pop.PNITT', fun = 'pop.PNITT', stringsAsFactors = FALSE)),
                     ## ugly to have this in the prototype (and hence verbatim in the man page)

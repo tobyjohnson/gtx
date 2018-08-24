@@ -1,6 +1,7 @@
 ## Colocalisation analysis, implementing method of Giambartolomei et al. 2014
 ##
 ## changed API to pass in vectors instead of dataframe
+#' @export
 coloc.fast <- function(beta1, se1, beta2, se2, 
                        priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5, 
                        rounded = 6) {
@@ -109,6 +110,7 @@ coloc.compute <- function(data,
 ## Sanitation for required length 1
 ## Wrapper for SQL queries that must return data frame of 1 or >=1 rows
 
+#' @export
 coloc.data <- function(analysis1, analysis2,
                   chrom, pos_start, pos_end, pos, 
                   hgncid, ensemblid, rs, surround = 500000,
@@ -380,6 +382,7 @@ coloc <- function(analysis1, analysis2,
 ## analysis1 must have entities, analysis2 must not
 ## note that surround=0 is a sensible default because
 ## of the region expansion performed within this function
+#' @export
 multicoloc.data <- function(analysis1, analysis2,
                             chrom, pos_start, pos_end, pos, 
                             hgncid, ensemblid, rs, surround = 0,
@@ -494,6 +497,7 @@ multicoloc.data <- function(analysis1, analysis2,
   return(res)
 }
 
+#' @export
 multicoloc <- function(analysis1, analysis2,
                        chrom, pos_start, pos_end, pos, 
                        hgncid, ensemblid, rs, surround = 0,
@@ -563,6 +567,7 @@ multicoloc <- function(analysis1, analysis2,
 }
 
 ## Input, a matrix of z values with analysis as column names and entity as row names 
+#' @export
 multicoloc.plot <- function(zmat,
                             dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
@@ -618,6 +623,7 @@ multicoloc.plot <- function(zmat,
     return(invisible(NULL))
 }
 
+#' @export
 multicoloc.kbs <- function(analysis1, analysis2,
                        chrom, pos_start, pos_end, pos, 
                        hgncid, ensemblid, rs, surround = 0,

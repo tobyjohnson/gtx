@@ -1,7 +1,9 @@
 ## convenience function, convert +-Inf to NA
+#' @export
 finitise <- function(x) return(ifelse(is.finite(x), x, NA))
 
 ## convenience function, convert <[=]0 to NA
+#' @export
 positivise <- function(x, strict = FALSE) {
   if (strict) {
     return(ifelse(x > 0, x, NA))
@@ -11,17 +13,20 @@ positivise <- function(x, strict = FALSE) {
 }
 
 ## convenience function to replace NA with something else
+#' @export
 replaceNA <- function(x, replacement = NA) {
   x[is.na(x)] <- replacement
   return(x)
 }
 
 ## convenience function 
+#' @export
 twopq <- function(p) return(2*p*(1 - p))
 
 ## convenience function for computing -log10(p) when p is very small
 ## [such that -log10(pnorm(-abs(beta)/se)*2) fails because
 ## pnorm() returns zero to machine precision]
+#' @export
 mlog10p <- function(beta, se) {
   if (missing(se)) se <- rep(1, length(beta))
   stopifnot(identical(length(beta), length(se)))
@@ -32,6 +37,7 @@ mlog10p <- function(beta, se) {
 ##
 ## zise() performs normal quantile transformation
 ##
+#' @export
 zise <- function (x, only, by) {
   if (length(x) < 1) return(x)
   if (missing(only)) {
@@ -58,10 +64,12 @@ zise <- function (x, only, by) {
   return(zx)
 }
 
+#' @export
 zise.old <- function (x) {
   return(qnorm((rank(x, na.last = "keep") - 0.5) / sum(!is.na(x))))
 }
 
+#' @export
 ile <- function (x, levels.out) {
   x <- as.double(x)
   ## if no levels.out specified, use three levels named 1,2,3
@@ -78,6 +86,7 @@ ile <- function (x, levels.out) {
 ##
 ## usage: safe(min, x), etc.
 ##
+#' @export
 safe <- function(FUN, x, ...) {
   stopifnot(is.function(FUN))
   x <- as.vector(x)
@@ -86,6 +95,7 @@ safe <- function(FUN, x, ...) {
   return(FUN(x, ...))
 }
 
+#' @export
 valuesof <- function(x, sep = ",", na.convert = NA) {
   x <- as.vector(x)
   x[is.na(x)] <- na.convert
@@ -94,6 +104,7 @@ valuesof <- function(x, sep = ",", na.convert = NA) {
   paste(as.character(unique(x)), collapse = sep)
 }
 
+#' @export
 Surv2 <- function(tevent, tcensor) {
   stopifnot(identical(length(tevent), length(tcensor)))
   event <- !is.na(tevent) & tevent <= tcensor
@@ -102,6 +113,7 @@ Surv2 <- function(tevent, tcensor) {
               type = 'right'))
 }
 
+#' @export
 landmark <- function(s, tstart) {
   stopifnot(identical(class(s), "Surv"))
   if (identical(length(tstart), 1L)) {

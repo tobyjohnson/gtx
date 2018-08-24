@@ -1,6 +1,7 @@
 # import should detect .txt.gz extensions and handle automatically
 # import might be nice to autodetect SAS exported dates
 
+#' @export 
 clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
                             usubjid = getOption("gtx.usubjid", "USUBJID"),
                             verbose = TRUE, convert.YN = TRUE, convert.Date = TRUE, 
@@ -70,6 +71,7 @@ clinical.import <- function(d, pattern = "^[a-zA-Z][a-zA-Z1-9]*\\.txt",
 
 
 
+#' @export
 derivation.add <- function(derivations, targets, types, deps, data, fun, aept.list, verbose = TRUE) {
   ## If no existing derivations, create an empty data frame with required columns
   if (missing(derivations)) {
@@ -149,6 +151,7 @@ derive1 <- function(datalist, targets, types, deps, data, fun) {
   return(foo)
 }
 
+#' @export
 clinical.derive <- function(datalist, derivations, verbose = TRUE, only) {
   usubjid <- getOption("gtx.usubjid", "USUBJID")
   stopifnot(all(c("targets", "types", "deps", "data", "fun") %in% names(derivations)))

@@ -1,4 +1,5 @@
 ## for debugging, we have a function to print messages depending on a global option gtx.debug
+#' @export
 gtxlog <- function(...) {
     if (getOption('gtx.debug', FALSE)) return(message(...))
     return(invisible(NULL))
@@ -8,6 +9,7 @@ gtxlog <- function(...) {
 ## convenience function to construct WHERE
 ## part of SQL for genomic data tables
 ##
+#' @export
 gtxwhere <- function(chrom, 
                      pos, pos_ge, pos_le, 
                      pos_end_ge, pos_start_le, 
@@ -80,6 +82,7 @@ gtxwhere <- function(chrom,
 ## part of SQL for analyses table
 ## Note behaviour for most arguments here is OR/OR, different to gtxwhere()
 ##
+#' @export
 gtxwhat <- function(analysis1,
                     analysis,
                     analysis_not, 
@@ -172,6 +175,7 @@ gtxwhat <- function(analysis1,
     }
 }
 
+#' @export
 gtxfilter <- function(pval_le, pval_gt,
                       maf_ge, maf_lt,
                       rsq_ge, rsq_lt,
@@ -311,6 +315,7 @@ gtxfilter <- function(pval_le, pval_gt,
 }
 
 ## Should be combined into gtxfilter, to return SQL WHERE clause, and label, by one function call
+#' @export
 gtxfilter_label <- function(maf_ge, maf_lt,
                             rsq_ge, rsq_lt,
                             emac_ge, case_emac_ge, 
@@ -416,6 +421,7 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 ## function to return pretty printing label for an analysis
 ## analysis is the analysis id
 ## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
+#' @export
 gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
                               dbc = getOption("gtx.dbConnection", NULL)) {
     ares <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
@@ -436,6 +442,7 @@ gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
     return(alabel)
 }
 
+#' @export
 gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
                         description_contains,
@@ -517,6 +524,7 @@ gtxanalyses <- function(analysis, analysis_not,
     return(res)
 }
 
+#' @export
 gtxregion <- function(chrom, pos_start, pos_end, 
                       hgncid, ensemblid, pos, rs, surround = 500000, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
@@ -568,6 +576,7 @@ gtxregion <- function(chrom, pos_start, pos_end,
 
 
 ## infer the entity id according to the type required for the analysis
+#' @export
 gtxentity <- function(analysis, entity, hgncid, ensemblid, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
@@ -625,6 +634,7 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
 }
 
 # for certain types, sanitize and gtxlabel are (almost) inverses
+#' @export
 gtxlabel <- function(x, type) {
     if (identical(type, 'ensg') || identical(type, 'rs')) { ## could nest up other ENS[PGT] types...
         x <- na.omit(x) ## silently drop missing values

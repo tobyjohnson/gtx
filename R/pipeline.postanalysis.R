@@ -1,3 +1,4 @@
+#' @export
 postanalysis.pipeline<- function(configFile){
   #load config
   config <- read.table(configFile, sep ="=", as.is = T, strip.white = TRUE,stringsAsFactors = FALSE, quote = "", row.names = 1)
@@ -284,6 +285,7 @@ postanalysis.pipeline<- function(configFile){
   }
 }
 
+#' @export
 padata.permodelgroup <- function(retFile, varlist, flanking,  threshold.MAF, threshold.Rsq, GC = T){
   retFile <- tryCatch(as.character(retFile)[1], error = function(e) "") # sanitize
   if (!file.exists(retFile)) stop(retFile, '" does not exist')
@@ -349,6 +351,7 @@ padata.permodelgroup <- function(retFile, varlist, flanking,  threshold.MAF, thr
 }
 
 ##get phenotype name(s) and type from a formula call
+#' @export
 getCallDetail<- function(qcall) {
   #qcall: coxph(formula = Surv(Pheno.SRVMO, Pheno.SRVCFLCD) ~ demo.AGE + demo.SEX + PC1)
   #qcall: glm(formula = Pheno.altcc ~ pop.TRTGRP + PC1, family = "binomial")
@@ -371,6 +374,7 @@ getCallDetail<- function(qcall) {
 }
 
 ##subset association results by varlist and flanking size in bp
+#' @export
 getResults<- function(retFile, varlist, flanking, GC = T ){
   ## Reading results which were compiled across chunks during make call
   res1 <- read.table(gzfile(retFile), quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
@@ -405,6 +409,7 @@ getResults<- function(retFile, varlist, flanking, GC = T ){
 
 
 ##Obtain list of chunks (prefix) for a region 
+#' @export
 getchunks<- function(chr, pos.start, pos.end, chunkMb, chrBeginEndDir){
   if(toupper(chr) == "X") chr = 23
   chrbegin<- read.table(file.path(chrBeginEndDir, "chrbegin.data"), as.is = T)[1:2]
@@ -426,6 +431,7 @@ getchunks<- function(chr, pos.start, pos.end, chunkMb, chrBeginEndDir){
 
 #dose data for snp
 #LD in flanking region for snp
+#' @export
 getDoseandLD<- function(snp, flanking, ld.subj, genodir, chunkMb, chrBeginEndDir) {
   chr <- unlist(strsplit(snp, ":"))[1]
   pos <- as.numeric(as.character(unlist(strsplit(snp, ":"))[2]))
@@ -485,6 +491,7 @@ getDoseandLD<- function(snp, flanking, ld.subj, genodir, chunkMb, chrBeginEndDir
 
 
 #convert dosage to genotype, 0 for allele2/2, 2 for allele 1/1
+#' @export
 dose2geno <- function(dose, alleles=c("A", "T")) {
   genos <- c(paste(alleles[2], alleles[2], sep = ""),
              ifelse(alleles[1] > alleles[2], paste(alleles[2], alleles[1], sep = ""),paste(alleles[1], alleles[2], sep = "")),

@@ -1,3 +1,4 @@
+#' @export
 read.snpdata.mach <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isuffix = ".mlinfo", dsuffix = ".mldose") {
   if (substr(isuffix, nchar(isuffix) - 2, nchar(isuffix)) == ".gz") {
     mlinfo <- read.table(gzfile(paste(fileroot, isuffix, sep = "")), header = TRUE, colClasses = "character")
@@ -33,10 +34,12 @@ read.snpdata.mach <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isuffi
   return(snpdata)
 }
 
+#' @export
 read.snpdata.minimac <- function(fileroot, tol.af = 0.01, phenotypes = NULL, isuffix = ".info.gz", dsuffix = ".dose.gz") {
   return(read.snpdata.mach(fileroot, tol.af, phenotypes, isuffix, dsuffix))
 }
 
+#' @export
 read.snpdata.plink <- function(fileroot, tol.af = 0.01, phenotypes = NULL) {
     frq <- read.table(paste(fileroot, "frq", sep = "."), header = TRUE, colClasses = "character") # read as characters to prevent small .frq files with A1 or A2 all "T" alleles being coerced to logical
   stopifnot(all(c("SNP", "A1", "A2", "MAF") %in% names(frq)))
@@ -58,6 +61,7 @@ read.snpdata.plink <- function(fileroot, tol.af = 0.01, phenotypes = NULL) {
   return(snpdata)
 }
 
+#' @export
 read.snpdata.impute <- function(samplefile, genofile, phenotypes = NULL) {
   ## hack to work around 0 0 0 P ... line
   samples <- read.table(samplefile, skip = 2, header = FALSE, as.is = TRUE, 
@@ -96,8 +100,10 @@ read.snpdata.impute <- function(samplefile, genofile, phenotypes = NULL) {
   return(snpdata)
 }
 
+#' @export
 allelesAB <- function(A1, A2, sep = "/") return(ifelse(A1 < A2, paste(A1, A2, sep = sep), paste(A2, A1, sep = sep)))
 
+#' @export
 align.snpdata.coding <- function(params, snpdata, ploidy = 2, missing.snp = "fail") {
   stopifnot(is.data.frame(params))
   stopifnot(all(c("snp", "coded.allele", "noncoded.allele") %in% names(params)))

@@ -1,3 +1,4 @@
+#' @export
 pcaplot <- function(pcs, f) {
   ## Coerce arguments to correct types
   pcs <- as.matrix(pcs)

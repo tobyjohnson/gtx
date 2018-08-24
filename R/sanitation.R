@@ -12,6 +12,7 @@
 ##
 ## added verbose option otherwise more useful logging messages get swamped
 
+#' @export
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
                        do_stop = TRUE,
                        check_databases,
@@ -133,6 +134,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
 ##
 ## included in sanitation because it's primarily to make access
 ## control generate comprehensible error messages
+
+#' @export
 gtxanalysisdb <- function(analysis,
                           resolve = TRUE,
                           dbc = getOption("gtx.dbConnection", NULL)) {
@@ -164,6 +167,7 @@ gtxanalysisdb <- function(analysis,
 ##
 ## "alphanum" and friends are intended for matching symbols, e.g. db table names, gene names
 ## "text" is intended for matching free text
+#' @export
 sanitize <- function(x, values, type) {
     ## function to sanitize x for use in SQL queries
     ## FIXME for more general usage, the error message 'SQL input' may not always be appropriate
@@ -284,6 +288,7 @@ sanitize <- function(x, values, type) {
 ##
 ## wrapper to throw error if length>1
 ## 
+#' @export
 sanitize1 <- function(x, values, type) {
     x <- sanitize(x, values, type)
     if (identical(length(x), 1L)) return(x)
@@ -299,6 +304,7 @@ sanitize1 <- function(x, values, type) {
 ## [or at least] one row (if uniq is TRUE [or FALSE])
 ## -- allow zero rows is zrok=TRUE
 ##
+#' @export
 sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')

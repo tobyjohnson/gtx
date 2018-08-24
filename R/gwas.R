@@ -3,6 +3,7 @@
 ## pval_significance determines the threshold used to declare significance
 ## pval_plot determines the threshold for true plotting
 
+#' @export
 gwas <- function(analysis,
                  style = c('manhattan', 'qqplot'), 
                  pval_thresh = 5e-08, maf_ge, rsq_ge, emac_ge, case_emac_ge, 

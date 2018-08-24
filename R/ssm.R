@@ -1,5 +1,7 @@
+#' @export
 ssm.null <- function() return(NULL)
 
+#' @export
 ssm.QT <- function(x) {
   ## The following free variables are used:
   if (FALSE) { # stop R CMD check complaining about no visible binding...
@@ -18,8 +20,10 @@ ssm.QT <- function(x) {
                     ))
 }
   
+#' @export
 ssm.LM <- function(x, y) return(test.extract(lm(phenotype ~ genotypeA, data = y)))
 
+#' @export
 ssm.CC <- function() {
   ## The following free variables are used:
   if (FALSE) { # stop R CMD check complaining about no visible binding...
@@ -58,6 +62,7 @@ ssm.CC <- function() {
   return(x)
 }
 
+#' @export
 ssm.CCpopulation <- function(x) {
   ## The following free variables are used:
   if (FALSE) { # stop R CMD check complaining about no visible binding...
@@ -68,6 +73,7 @@ ssm.CCpopulation <- function(x) {
   return(x)
 }
 
+#' @export
 ssm.CCsample <- function(x) {
   ## The following free variables are used:
   if (FALSE) { # stop R CMD check complaining about no visible binding...
@@ -83,10 +89,12 @@ ssm.CCsample <- function(x) {
   return(x)
 }
 
+#' @export
 ssm.GLM <- function(x, y) {
   return(test.extract(glm(phenotype ~ genotypeA, weights = sample, data = y, family = binomial)))
 }
 
+#' @export
 ssm.Surv <- function(x) {
   ## The following free variables are used:
   if (FALSE) { # stop R CMD check complaining about no visible binding...
@@ -114,6 +122,7 @@ ssm.Surv <- function(x) {
                     ))
 }
 
+#' @export
 ssm.CoxPH <- function(x, y) {
   return(test.extract(coxph(phenotype ~ genotypeA, data = y)))
 }

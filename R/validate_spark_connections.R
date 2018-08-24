@@ -17,6 +17,7 @@
 #' @import sparklyr
 #' @import futile.logger
 #' @import glue
+#' @export
 validate_sc <- function(sc         = getOption("gtx.sc", NULL),
                         flog_level = getOption("gtx.flog_level", "WARN")){
   if(flog_level != "INFO" & flog_level != "WARN" & flog_level != "ERROR"){

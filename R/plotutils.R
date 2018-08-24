@@ -17,6 +17,7 @@ mtext.fit <- function(main, xlab, ylab) {
     return(invisible(NULL))
 }
 
+#' @export
 textgrid <- function(tmat,
                      x0 = 0, y0 = 0, x1 = x0 + 1, y1 = y0 + 1,
                      xalign = "l",
@@ -217,6 +218,7 @@ legendgrid <- function(x, y = NULL,
 
 # misc utility function for plotting
 
+#' @export
 prettye <- function(x) {
   x <- as.character(x)
   return(sapply(x, function(x1) {

@@ -1,3 +1,4 @@
+#' @export
 gls.approx.logistic <- function(snpdata, leftvar, rightvars = NULL, outvar = paste(leftvar, "star", sep = ""), weightvar = "weight") {
   stopifnot(is.data.frame(snpdata$data))
   stopifnot(leftvar %in% names(snpdata$data))

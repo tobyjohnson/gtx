@@ -1,3 +1,4 @@
+#' @export
 plantation <- function(ntext, beta, ci.lo, ci.hi, se, alpha = 0.05,
                        FUN = I, pvals = TRUE, meta = TRUE,
                        xzero = 0, xlim, xticks, xlab = "Effect",

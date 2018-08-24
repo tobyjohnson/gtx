@@ -1,3 +1,4 @@
+#' @export
 multipheno <- function(z, cor.use = NULL, cor.method = "spearman") {
   z <- as.matrix(z)
   if (is.null(cor.use)) {
@@ -15,6 +16,7 @@ multipheno <- function(z, cor.use = NULL, cor.method = "spearman") {
   return(list(rmatrix = rmat, OB = ob, OB.pval = pval.ob, T2 = t2, T2.pval = pval.t2))
 }
 
+#' @export
 multipheno.T2 <- function(z, cor.use = NULL, cor.method = "spearman") {
   z <- as.matrix(z)
   if (is.null(cor.use)) {
@@ -30,6 +32,7 @@ multipheno.T2 <- function(z, cor.use = NULL, cor.method = "spearman") {
   return(list(rmatrix = rmat, T2 = t2, pval = pval))
 }
 
+#' @export
 multipheno.OBrien <- function(z, cor.use = NULL, cor.method = "spearman") {
   z <- as.matrix(z)
   if (is.null(cor.use)) {

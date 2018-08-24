@@ -1,3 +1,4 @@
+#' @export
 is.moments2 <- function(object) {
   if (class(object) != "moments2") return (FALSE)
   if (!is.matrix(object)) return (FALSE)
@@ -6,6 +7,7 @@ is.moments2 <- function(object) {
   return (TRUE)
 }
 
+#' @export
 make.moments2 <- function(params, phenolist, snpdata, weightvar = NULL) {
   stopifnot(is.data.frame(params))
   stopifnot(all(c("snp", "coded.allele") %in% names(params)))
@@ -36,10 +38,12 @@ make.moments2 <- function(params, phenolist, snpdata, weightvar = NULL) {
   }
 }
 
+#' @export
 lm.moments2 <- function(xtx, leftvar, rightvars, n = NULL) {
   return(est.moments2(xtx, leftvar, rightvars, n, vscale = NULL))
 }
 
+#' @export
 est.moments2 <- function(xtwx, leftvar, rightvars, n = NULL, vscale = NULL) {
   ## estimating vscale from data assumes normal/identity model
   ## if using vscale!=1 check definition vis-a-vis standard GLM notation, maybe inverse?
