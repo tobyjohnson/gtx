@@ -30,3 +30,9 @@ test_that("UB-66", {
   flog.info('UB-66')
   regionplot(analysis = 'GSK500kV2b_HES_Bronchiectasis_a1', chrom = '6', pos = 32565465, maf_ge = 0.05, rsq_ge = 0.1, style = 'ld')
 })
+
+test_that("UB-107", {
+  flog.info('UB-107')
+  regionplot('GSK500kV2b_TA_copdMapLoose_primAndSec_a1', 
+             chrom = 10, pos_start = 8840700, pos_end = 9264716, style = 'classic') 
+})

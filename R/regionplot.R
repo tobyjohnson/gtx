@@ -390,7 +390,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   ## Set up plotting area
   plot.new()
   par(mar = c(4, 4, 4, 4) + 0.1, xaxs = 'i') # xaxs='i' stops R expanding x axis
-  plot.window(c(pos_start, pos_end), range(gl$yline))
+  plot.window(c(pos_start, pos_end), range(gl$yline, na.rm=TRUE))
   
   ## Draw axes, and axis labels
   abline(h = 0, col = "grey")
@@ -425,9 +425,11 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
 regionplot.genedraw <- function(gl) {
   arrows(gl$genelayout$pos_start, gl$genelayout$y, x1 = gl$genelayout$pos_end,
          length = 0, lwd = 2, col = "blue")
-  text(gl$genelayout$pos_mid, gl$genelayout$y - .25*strheight("M", cex = gl$cex),
-       gl$genelayout$label,
-       adj = c(.5, 1), font = 3, cex = gl$cex, col = "blue")
+  if (length(gl$genelayout$label) > 0) {
+    text(gl$genelayout$pos_mid, gl$genelayout$y - .25*strheight("M", cex = gl$cex),
+         gl$genelayout$label,
+         adj = c(.5, 1), font = 3, cex = gl$cex, col = "blue")
+  }
   return(invisible(NULL))
 }
 
@@ -465,15 +467,21 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
                     }
                   }
                 }
-                fy <- max(iline + 1)*2*strheight("M", units = "figure", cex = cex)/yplt # fraction of total figure region needed
-                if (fy > 0.6) {
-                  warning('Squashing gene annotation to fit within .6 of plot area')
-                  fy <- 0.6
+                fy <- 0
+                if (length(iline) > 0) {
+                  fy <- max(iline + 1)*2*strheight("M", units = "figure", cex = cex)/yplt # fraction of total figure region needed
+                  if (fy > 0.6) {
+                    warning('Squashing gene annotation to fit within .6 of plot area')
+                    fy <- 0.6
+                  }
                 }
                 yd1 = ymax/(0.9-fy) * 0.1
                 yd2 = ymax/(0.9-fy) * fy
                 yline <- c(-(yd1 + yd2), -yd1, 0, ymax)
-                y <- -(iline/max(iline + 1)*yd2 + yd1)
+                y <- numeric(0)
+                if (length(iline) > 0) {
+                  y <- -(iline/max(iline + 1)*yd2 + yd1)
+                }
                 list(cex = cex, yline = yline, genelayout = data.frame(label, pos_start, pos_end, pos_mid, iline, y))
               }))
 }
