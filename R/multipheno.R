@@ -1,4 +1,3 @@
-#' @export
 multipheno <- function(z, cor.use = NULL, cor.method = "spearman") {
   z <- as.matrix(z)
   if (is.null(cor.use)) {

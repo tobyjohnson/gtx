@@ -1,4 +1,3 @@
-#' @export
 gene.label <- function(hgnc, ensg) {
     ## consider adding a db query option if hgnc is missing
     stopifnot(length(hgnc) == length(ensg))

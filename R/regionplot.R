@@ -483,7 +483,6 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
               }))
 }
 
-#' @export
 regionplot.points <- function(pos, pval,
                               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1, 
                               suppressWarning = FALSE) {
@@ -500,7 +499,6 @@ regionplot.points <- function(pos, pval,
   return(TRUE)
 }
 
-#' @export
 regionplot.highlight <- function(pvals, highlight_style) {
     stopifnot(is.data.frame(pvals))
     if (all(c('pos', 'pval') %in% names(pvals))) {
@@ -520,7 +518,6 @@ regionplot.highlight <- function(pvals, highlight_style) {
     return(invisible(NULL))
 }
 
-#' @export
 regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5, 
                                      dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)

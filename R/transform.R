@@ -64,7 +64,6 @@ zise <- function (x, only, by) {
   return(zx)
 }
 
-#' @export
 zise.old <- function (x) {
   return(qnorm((rank(x, na.last = "keep") - 0.5) / sum(!is.na(x))))
 }

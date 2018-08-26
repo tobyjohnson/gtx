@@ -567,7 +567,6 @@ multicoloc <- function(analysis1, analysis2,
 }
 
 ## Input, a matrix of z values with analysis as column names and entity as row names 
-#' @export
 multicoloc.plot <- function(zmat,
                             dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)

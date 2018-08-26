@@ -220,7 +220,6 @@ mps.driver <- function(design, xFun, yFun, tFun,
 ##   return(list(power = sum(power*qw)/sum(qw), design.cover = sum(qw)))
 ## }
 
-#' @export
 mps.asymptotic <- function(design, alpha) {
   tmp <- do.call(rbind,
                  lapply(1:nrow(design), function(designIdx) { 

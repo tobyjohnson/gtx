@@ -491,7 +491,6 @@ getDoseandLD<- function(snp, flanking, ld.subj, genodir, chunkMb, chrBeginEndDir
 
 
 #convert dosage to genotype, 0 for allele2/2, 2 for allele 1/1
-#' @export
 dose2geno <- function(dose, alleles=c("A", "T")) {
   genos <- c(paste(alleles[2], alleles[2], sep = ""),
              ifelse(alleles[1] > alleles[2], paste(alleles[2], alleles[1], sep = ""),paste(alleles[1], alleles[2], sep = "")),

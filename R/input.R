@@ -103,7 +103,6 @@ read.snpdata.impute <- function(samplefile, genofile, phenotypes = NULL) {
 #' @export
 allelesAB <- function(A1, A2, sep = "/") return(ifelse(A1 < A2, paste(A1, A2, sep = sep), paste(A2, A1, sep = sep)))
 
-#' @export
 align.snpdata.coding <- function(params, snpdata, ploidy = 2, missing.snp = "fail") {
   stopifnot(is.data.frame(params))
   stopifnot(all(c("snp", "coded.allele", "noncoded.allele") %in% names(params)))

@@ -82,7 +82,6 @@ gtxwhere <- function(chrom,
 ## part of SQL for analyses table
 ## Note behaviour for most arguments here is OR/OR, different to gtxwhere()
 ##
-#' @export
 gtxwhat <- function(analysis1,
                     analysis,
                     analysis_not, 
@@ -175,7 +174,6 @@ gtxwhat <- function(analysis1,
     }
 }
 
-#' @export
 gtxfilter <- function(pval_le, pval_gt,
                       maf_ge, maf_lt,
                       rsq_ge, rsq_lt,
@@ -315,7 +313,6 @@ gtxfilter <- function(pval_le, pval_gt,
 }
 
 ## Should be combined into gtxfilter, to return SQL WHERE clause, and label, by one function call
-#' @export
 gtxfilter_label <- function(maf_ge, maf_lt,
                             rsq_ge, rsq_lt,
                             emac_ge, case_emac_ge, 
@@ -421,7 +418,6 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 ## function to return pretty printing label for an analysis
 ## analysis is the analysis id
 ## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
-#' @export
 gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
                               dbc = getOption("gtx.dbConnection", NULL)) {
     ares <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
@@ -634,7 +630,6 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
 }
 
 # for certain types, sanitize and gtxlabel are (almost) inverses
-#' @export
 gtxlabel <- function(x, type) {
     if (identical(type, 'ensg') || identical(type, 'rs')) { ## could nest up other ENS[PGT] types...
         x <- na.omit(x) ## silently drop missing values

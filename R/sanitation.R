@@ -12,7 +12,7 @@
 ##
 ## added verbose option otherwise more useful logging messages get swamped
 
-#' @export
+##' @export
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
                        do_stop = TRUE,
                        check_databases,
@@ -135,7 +135,6 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
 ## included in sanitation because it's primarily to make access
 ## control generate comprehensible error messages
 
-#' @export
 gtxanalysisdb <- function(analysis,
                           resolve = TRUE,
                           dbc = getOption("gtx.dbConnection", NULL)) {

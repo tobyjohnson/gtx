@@ -29,7 +29,7 @@
 ## FIXME make a small notebook documenting this
 ## Broader discussion with StatGen, change the default priors for coloc?
 
-#' @export
+##' @export
 fm_signal <- function(data,
                       priorsd = 1, priorc = 1e-5, cs_size = 0.95, cs_only = FALSE) {
   stopifnot(all(c('beta', 'se') %in% names(data)))
@@ -61,7 +61,6 @@ fm_signal <- function(data,
 ## internal function to query all conditional signals that (partly or
 ## fully) overlap a query region
 ## FIXME: currently, selection by entity is not supported
-#' @export
 fm_cleo.data <- function(analysis,
                          chrom, pos_start, pos_end, pos, 
                          hgncid, ensemblid, rs, surround = 500000,
@@ -113,7 +112,6 @@ fm_cleo.data <- function(analysis,
 ## internal function to calculate posterior probabilities and credible
 ## sets from data returned by fm_cleo.data()
 ## FIXME: currently, selection by entity is not supported
-#' @export
 fm_cleo <- function(analysis,
                     chrom, pos_start, pos_end, pos, 
                     hgncid, ensemblid, rs, surround = 500000,
@@ -175,7 +173,7 @@ fm_cleo <- function(analysis,
     }
 }
 
-#' @export
+##' @export
 cleo <- function(analysis,
                  chrom, pos_start, pos_end, pos, 
                  hgncid, ensemblid, rs, surround = 500000,

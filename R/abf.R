@@ -181,7 +181,6 @@ abf.t <- function(beta, se, priorscale, df = 1, gridrange = 3, griddensity = 20)
 #' @return
 #'  A vector of normalised values that sums to 1.
 #' @author  Toby Johnson \email{Toby.x.Johnson@gsk.com}
-#' @export
 norm1 <- function(x, log = FALSE) {
   if (all(is.na(x))) return(x)
   if (log) {

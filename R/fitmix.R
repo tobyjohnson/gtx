@@ -45,7 +45,6 @@ fitmix.plot <- function(x, p, mu, sigma) {
   return(invisible(NULL))
 }
   
-#' @export
 fitmix1 <- function(x, k, tol = 1e-6, maxit = 100,
                     p = NULL, mu = NULL, sigma = NULL,
                     p.binomial = FALSE, mu.additive = FALSE, sigma.common = FALSE) {
