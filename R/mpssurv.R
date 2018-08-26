@@ -1,3 +1,4 @@
+#' @export
 trial.params <- Vectorize(function(hazardRate = NA, surviveEnd = NA, timeTotal = NA, timeRecruit = NA) {
   ## check valid parameter values
   if (!is.na(hazardRate) && hazardRate <= 0) stop("hazardRate must be positive")

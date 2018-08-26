@@ -1,7 +1,9 @@
+#' @export
 kmplot <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
                    legend.location = "topright", legend.cex = 1,
                    legend.median = FALSE, digits = 1, atrisk = FALSE, ...) UseMethod("kmplot", object)
 
+#' @export
 kmplot.character <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
                              legend.location = "topright", legend.cex = 1,
                              legend.median = FALSE, digits = 1, atrisk = FALSE, ...) {
@@ -20,6 +22,7 @@ kmplot.character <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
                   legend.location, legend.cex, legend.median, digits, atrisk, ...)
 }  
 
+#' @export
 kmplot.Surv <- function(object, x, data, ylab, xlab, ylim, xlim, col, lty,
                         legend.location = "topright", legend.cex = 1, 
                         legend.median = FALSE, digits = 1, atrisk = FALSE, ...) {

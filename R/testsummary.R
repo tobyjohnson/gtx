@@ -1,6 +1,8 @@
 ## this is a hack and could be made more object oriented!
+#' @export
 coeff.extract <- function (object) UseMethod("coeff.extract", object)
 
+#' @export
 coeff.extract.default <- function (object) {
   ## works for lm, glm, coxph, clm
   tmp <- data.frame(beta = coef(object), se = sqrt(diag(vcov(object))))
@@ -8,20 +10,25 @@ coeff.extract.default <- function (object) {
   return(tmp)
 }
 
+#' @export
 n.extract <- function (object) UseMethod("n.extract", object)
 
+#' @export
 n.extract.default <- function (object) {
   ## works for coxph, clm
   return(n = tryCatch(object[["n"]], error = function(e) return(NA)))
 }
 
+#' @export
 n.extract.lm <- function (object) {
   ## works for lm, glm; coerces logicals to 0/1 for sum
   return(n = tryCatch(sum(!is.na(residuals(object))), error = function(e) return(NA)))
 }
 
+#' @export
 test.extract <- function(object, partial = NULL) UseMethod("test.extract", object)
 
+#' @export
 test.extract.htest <- function(object, partial = NULL) {
   ## object with class "htest" is returned by chisq.test() and fisher.test()
   stopifnot(is.null(partial))
@@ -43,6 +50,7 @@ test.extract.htest <- function(object, partial = NULL) {
   names(ts) <- c("pval", "effect", "df"); return(ts)
 }
 
+#' @export
 test.extract.survdiff <- function(object, partial = NULL) {
   stopifnot(is.null(partial))
   df = length(object$n) - 1  # there must be a better way...
@@ -50,6 +58,7 @@ test.extract.survdiff <- function(object, partial = NULL) {
   names(ts) <- c("pval", "effect", "df"); return(ts)
 }
 
+#' @export
 test.extract.lm <- function(object, partial = NULL) {
   objcoef <- coef(object)
   if (is.null(partial) && length(objcoef) == 2 && names(objcoef)[1] == "(Intercept)") partial <- names(objcoef)[2]
@@ -72,6 +81,7 @@ test.extract.lm <- function(object, partial = NULL) {
   names(ts) <- c("pval", "effect", "df"); return(ts)
 }                 
   
+#' @export
 test.extract.glm <- function(object, partial = NULL) {
   objcoef <- coef(object)
   if (is.null(partial) && length(objcoef) == 2 && names(objcoef)[1] == "(Intercept)") partial <- names(objcoef)[2]
@@ -95,6 +105,7 @@ test.extract.glm <- function(object, partial = NULL) {
   names(ts) <- c("pval", "effect", "df"); return(ts)
 }
 
+#' @export
 test.extract.coxph <- function(object, partial = NULL) {
   objcoef <- coef(object)
   if (is.null(partial) && length(objcoef) == 1) partial <- names(objcoef)[1]

@@ -1,5 +1,7 @@
+#' @export
 waterfall <- function(object, x, data, ylab, ylim, bylevel = FALSE, col, ...) UseMethod("waterfall", object)
 
+#' @export
 waterfall.character <- function(object, x, data, ylab, ylim, bylevel = FALSE, col, ...) {
   stopifnot(is.data.frame(data))
   stopifnot(object %in% names(data))
@@ -13,6 +15,7 @@ waterfall.character <- function(object, x, data, ylab, ylim, bylevel = FALSE, co
                   ylab, ylim, bylevel, col)
 }  
 
+#' @export
 waterfall.numeric <- function(object, x, data, ylab, ylim, bylevel = FALSE, col, ...) {
   stopifnot(identical(length(object), length(x)))
   ## assert that y and x are vectors

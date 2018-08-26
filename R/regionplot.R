@@ -1,6 +1,7 @@
 ## regionplot.new and associated functions
 ## assumes database connection is provided by getOption("gtx.dbConnection")
 
+#' @export
 regionplot <- function(analysis, # what analysis (entity should be next)
                        chrom, pos_start, pos_end, pos,  
                        hgncid, ensemblid, rs, surround = 500000, # where
@@ -189,6 +190,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
   return(invisible(NULL))
 }
 
+#' @export
 regionplot.data <- function(analysis,
                             chrom, pos_start, pos_end, pos, 
                             hgncid, ensemblid, rs, surround = 500000,
@@ -366,6 +368,7 @@ regionplot.data <- function(analysis,
     return(pvals)
 }
 
+#' @export
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
                            hgncid, ensemblid, rs, surround = 500000, 
                            pmin = 1e-10, main, fdesc, 
@@ -422,6 +425,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   return(invisible(NULL))
 }
 
+#' @export
 regionplot.genedraw <- function(gl) {
   arrows(gl$genelayout$pos_start, gl$genelayout$y, x1 = gl$genelayout$pos_end,
          length = 0, lwd = 2, col = "blue")
@@ -433,6 +437,7 @@ regionplot.genedraw <- function(gl) {
   return(invisible(NULL))
 }
 
+#' @export
 regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
 				   protein_coding_only = TRUE, 
                                    dbc = getOption("gtx.dbConnection", NULL)) {
@@ -553,6 +558,7 @@ regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5,
 
 
 #draw recomination rate 
+#' @export
 recomb.draw <- function(chr, from.bp, to.bp, ylo, yhi, recomb){
   if (is.integer(chr)) chr <- as.character(chr)
   if(chr == "23") chr <- "X"
@@ -584,6 +590,7 @@ recomb.draw <- function(chr, from.bp, to.bp, ylo, yhi, recomb){
 #plabel: label for p value column
 #col.r2: column name for r2 to index SNP. Background colored by LD to index SNP (white to red)
 ################################################################################
+#' @export
 regionplot.multiP <- function(gwas, chr, pos, flanking = 250, col.r2=NULL,
                               col.pvals = c("P1","P2"), plabel = NULL, gencode = gencode, recomb=recomb,
                               main = "", main.sub = NULL, miny = 8, crity = -log10(5e-08)) {

@@ -1,4 +1,5 @@
 ## for debugging, we have a function to print messages depending on a global option gtx.debug
+#' @export
 gtxlog <- function(...) {
     if (getOption('gtx.debug', FALSE)) return(message(...))
     return(invisible(NULL))
@@ -8,6 +9,7 @@ gtxlog <- function(...) {
 ## convenience function to construct WHERE
 ## part of SQL for genomic data tables
 ##
+#' @export
 gtxwhere <- function(chrom, 
                      pos, pos_ge, pos_le, 
                      pos_end_ge, pos_start_le, 
@@ -436,6 +438,7 @@ gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
     return(alabel)
 }
 
+#' @export
 gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
                         description_contains,
@@ -517,6 +520,7 @@ gtxanalyses <- function(analysis, analysis_not,
     return(res)
 }
 
+#' @export
 gtxregion <- function(chrom, pos_start, pos_end, 
                       hgncid, ensemblid, pos, rs, surround = 500000, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
@@ -568,6 +572,7 @@ gtxregion <- function(chrom, pos_start, pos_end,
 
 
 ## infer the entity id according to the type required for the analysis
+#' @export
 gtxentity <- function(analysis, entity, hgncid, ensemblid, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)

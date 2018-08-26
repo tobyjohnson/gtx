@@ -1,3 +1,4 @@
+#' @export
 grs.onesnp.apply <- function (params, object, coeff.extract.fun = coeff.extract) {
   env = parent.frame() # to eval update in
   stopifnot(is.data.frame(params))
@@ -23,6 +24,7 @@ grs.onesnp.apply <- function (params, object, coeff.extract.fun = coeff.extract)
   return(params)
 }
 
+#' @export
 grs.make.scores <- function (params, snpdata, appendage = ".score") {
   stopifnot(is.data.frame(params))
   stopifnot(all(c("snp", "coded.allele", "coef") %in% names(params)))
@@ -37,6 +39,7 @@ grs.make.scores <- function (params, snpdata, appendage = ".score") {
   return(snpdata)
 }
 
+#' @export
 grs.summary <- function(w, b, s, n) {
   stopifnot(length(b) == length(w))
   stopifnot(length(s) == length(w))
@@ -56,6 +59,7 @@ grs.summary <- function(w, b, s, n) {
               Qrs=Qrs, phet=phet))
 }
 
+#' @export
 grs.plot <- function(w, b, s, text = NULL, textpos = NULL, textcex = 0.5, alpha = 0.05) {
   f <- !is.na(w) & !is.na(b) & !is.na(s)
   ws <- sign(w)
@@ -79,6 +83,7 @@ grs.plot <- function(w, b, s, text = NULL, textpos = NULL, textcex = 0.5, alpha 
   points((w/ws)[f], (b/ws)[f])
 }
 
+#' @export
 grs.filter.Qrs <- function (w, b, s, p.thresh = 0.05) {
   stopifnot(length(b) == length(w))
   stopifnot(length(s) == length(w))
@@ -98,6 +103,7 @@ grs.filter.Qrs <- function (w, b, s, p.thresh = 0.05) {
 
 
 # hacky but works... check env of update calls inside grs.onesnp.apply is correct
+#' @export
 test.subsample <- function(params, object, scorename, snpdata, nsub, permute = NULL) {
   subdata <- snpdata$data[sample(1:nrow(snpdata$data), nsub), ]
   if (!is.null(permute)) for (pp in permute) subdata[[pp]] <- sample(subdata[[pp]]) # permute these columns

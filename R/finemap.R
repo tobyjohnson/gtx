@@ -29,6 +29,7 @@
 ## FIXME make a small notebook documenting this
 ## Broader discussion with StatGen, change the default priors for coloc?
 
+##' @export
 fm_signal <- function(data,
                       priorsd = 1, priorc = 1e-5, cs_size = 0.95, cs_only = FALSE) {
   stopifnot(all(c('beta', 'se') %in% names(data)))
@@ -172,6 +173,7 @@ fm_cleo <- function(analysis,
     }
 }
 
+##' @export
 cleo <- function(analysis,
                  chrom, pos_start, pos_end, pos, 
                  hgncid, ensemblid, rs, surround = 500000,

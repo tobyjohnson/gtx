@@ -1,5 +1,7 @@
+#' @export
 qtplot <- function(object, x, data, ylab, xlab, ylim, col, points.method = "beeswarm", boxplot.layer = "over", ...) UseMethod("qtplot", object)
 
+#' @export
 qtplot.character <- function(object, x, data, ylab, xlab, ylim, col, points.method = "beeswarm", boxplot.layer = "over", ...) {
   stopifnot(is.data.frame(data))
   stopifnot(object %in% names(data))
@@ -14,6 +16,7 @@ qtplot.character <- function(object, x, data, ylab, xlab, ylim, col, points.meth
                   ylab, xlab, ylim, col, points.method, boxplot.layer)
 }  
 
+#' @export
 qtplot.numeric <- function(object, x, data, ylab, xlab, ylim, col, points.method = "beeswarm", boxplot.layer = "over", ...) {
   stopifnot(identical(length(object), length(x)))
   ## assert that y and x are vectors

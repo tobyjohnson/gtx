@@ -1,10 +1,13 @@
+#' @export
 sanitise.whitespace <- function(tt) return(gsub(" $", "", gsub("^ ", "", gsub(" +", " ", tt))))
 
+#' @export
 tokenise.whitespace <- function(tt) {
   tmp <- unlist(strsplit(unname(tt), '\\s+'))
   return(tmp[tmp != ""])
 }
 
+#' @export
 text2factor <- function(t) return(as.factor(ifelse(t != "", t, NA)))
 
 ## GSK format, but not strinctly CDER/CDISC compliant

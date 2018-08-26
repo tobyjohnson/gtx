@@ -14,11 +14,9 @@
 #' @param plot_ymax Y-axis value maximum 
 #' 
 #' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
-
-
+#' @export
 # Could inherit param documentation from gtxanalyses
 # Should merge phewas.qq into main phewas as an alternative plot style
-
 phewas <- function(chrom, pos, rs,
                    analysis, analysis_not, 
                    description_contains,
@@ -114,7 +112,7 @@ phewas <- function(chrom, pos, rs,
 #' @param dbc Database connection
 #'
 #' @return Data frame of summary statistics
-
+#' @export
 phewas.data <- function(chrom, pos, rs,
                         analysis, analysis_not, 
                         description_contains,
@@ -217,6 +215,7 @@ phewas.data <- function(chrom, pos, rs,
 
 #' @describeIn phewas Draw simple QQ plot of PheWAS results
 
+#' @export 
 phewas.qq <- function(chrom, pos, rs,
                       analysis, analysis_not, 
                       description_contains,

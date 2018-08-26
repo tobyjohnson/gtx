@@ -1,5 +1,6 @@
 ## tools for Gaussian mixture models
 
+#' @export
 fitmix.simulate <- function(n, p, mu, sigma) {
   ## simulate n observations from length(p) component mixture with proportions p, means mu and variances sigma^2
   n <- as.integer(n)
@@ -11,6 +12,7 @@ fitmix.simulate <- function(n, p, mu, sigma) {
   return(x = mu[m] + rnorm(n)*sigma[m])
 }
 
+#' @export
 fitmix.r2 <- function(p, mu, sigma) {
   ## true r2 explained by components in normal mixture, with equal variances for all components
   stopifnot(length(p) == length(mu))
@@ -19,6 +21,7 @@ fitmix.r2 <- function(p, mu, sigma) {
   return(r2 = ve/(ve + sigma^2))
 }
 
+#' @export
 fitmix.plot <- function(x, p, mu, sigma) {
   ## make nice plot using kernel estimate for observations, plus contribution of mixture
   ## components to mixture density
@@ -106,6 +109,7 @@ fitmix1 <- function(x, k, tol = 1e-6, maxit = 100,
 }
 
 
+#' @export
 fitmix <- function(x, k, tol = 1e-6, maxit = 100, restarts = 20,
                    p.binomial = FALSE, mu.additive = FALSE, sigma.common = FALSE) {
   ## wrapper for fitmix1, calling once with default initial values

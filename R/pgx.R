@@ -1,3 +1,4 @@
+#' @export
 grade <- function(x, threshvals, strict = TRUE) {
   g <- ifelse(!is.na(x), 0, NA)
   threshvals <- sort(threshvals)
@@ -9,11 +10,13 @@ grade <- function(x, threshvals, strict = TRUE) {
   return(g)
 }
 
+#' @export
 binarise <- function(is0, is1) {
   stopifnot(identical(length(is0), length(is1)))
   return(ifelse(is0 & !is1, 0, ifelse(is1 & !is0, 1, NA)))
 }
 
+#' @export
 pgx.exposure <- function(d, exposure,
                          estart = "exstdtR", eend = "exendtR",
                          subjid = "USUBJID") {
@@ -42,6 +45,7 @@ pgx.exposure <- function(d, exposure,
   return(dv)
 }
 
+#' @export
 pgx.trtreat <- function(measure, exposure,
                         mtime, winlen,
                         estart = "exstdtR", eend = "exendtR",
@@ -72,6 +76,7 @@ pgx.trtreat <- function(measure, exposure,
                                             "Post-therapy"))))))
 }
                                           
+#' @export
 pgx.endpoints <- function(d, measure, exposure,
                 mtime, mvalue, threshval,
                 msign = c("greater", "less"), mstrict = c(TRUE, FALSE), 

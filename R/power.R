@@ -1,3 +1,4 @@
+#' @export
 chi2ncp <- Vectorize(function(alpha, beta, df = 1) {
   if (is.na(alpha) || alpha < 0 || alpha > 1 || is.na(beta) || beta < 0 || beta > 1 || alpha > beta || is.na(df) || df < 0) return(NA)
   cv <- qchisq(alpha, df = df, lower.tail = FALSE) # critical value for chisq statistic
@@ -8,12 +9,14 @@ chi2ncp <- Vectorize(function(alpha, beta, df = 1) {
                  c(0, ncpmax))$root) # line search
 })
 
+#' @export
 chi2power <- Vectorize(function(alpha, ncp, df = 1) {
   if (is.na(alpha) || alpha < 0 || alpha > 1 || is.na(ncp) || ncp < 0 || is.na(df) || df < 0) return (NA)
   cv <- qchisq(alpha, df = df, lower.tail = FALSE) # critical value for chisq statistic
   return(pchisq(cv, df = df, lower.tail = FALSE, ncp = ncp))
 })
 
+#' @export
 fupower <- function(p0, n0, n1, beta0, invlog = FALSE, alpha = 0.05,
                     plty = c("solid", "dashed", "dotdash"), elty = "dotted",
                     pcol = "red", ecol = "blue") {
