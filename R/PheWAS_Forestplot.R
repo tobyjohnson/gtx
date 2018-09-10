@@ -1,5 +1,7 @@
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~###
-
+#' Retrieve data for forest plots
+#'
+#' @export
 retrieve_data <- function(id) {
 
   rs_data <- phewas.data(rs=id)
@@ -26,6 +28,7 @@ retrieve_data <- function(id) {
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~###
 
+#' @export
 fplot_disease <- function(res, n = 20) {
 
   # Now paint a Forest Plot of the 'n' most statistically significant disease associations.
@@ -55,6 +58,7 @@ fplot_disease <- function(res, n = 20) {
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~###
 
+#' @export
 fplot_eqtl <- function(res, n = 20) {
 
   # Now paint a Forest Plot of the n most statistically significant eQTL associations.
@@ -89,7 +93,7 @@ fplot_eqtl <- function(res, n = 20) {
 
 
 ###~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~###
-
+#' @export
 fplot_search <- function(res, term = 'asthma') {
 
   # Now paint a Forest Plot of the 10 most statistically significant disease associations.
