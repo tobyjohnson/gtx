@@ -10,12 +10,16 @@
 ##
 ## check_databases is optional as this can be expensive
 ##
+## tables_required has a sensible default for the main dbc, but may need to be reduced for
+## checking a connection to a cache
+##                                       
 ## added verbose option otherwise more useful logging messages get swamped
 
 ##' @export
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
                        do_stop = TRUE,
                        check_databases,
+                       tables_required = c('analyses', 'gwas_results', 'genes'), 
                        verbose = FALSE) {
 
   ## FIXME: make this work for other client/server db connections especially MySQL
@@ -102,13 +106,13 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   } else if ('SQLiteConnection' %in% class(dbc)) {
       tables <- dbListTables(dbc)
   }
-  check_tables_req <- c('analyses', 'gwas_results', 'genes') # FIXME make this list complete
-  if (!all(check_tables_req %in% tables)) {
+
+  if (!is.null(tables_required) && !all(tables_required %in% tables)) {
       if (do_stop) {
-          stop(currdb, ' cannot access table(s) [ ', paste(setdiff(check_tables_req, tables), collapse = ', '), ' ]')
+          stop(currdb, ' cannot access table(s) [ ', paste(setdiff(tables_required, tables), collapse = ', '), ' ]')
       } else {
           return(list(check = FALSE,
-                 status = paste(currdb,'cannot access table(s) [ ', paste(setdiff(check_tables_req, tables), collapse = ', '), ' ]')))
+                 status = paste(currdb,'cannot access table(s) [ ', paste(setdiff(tables_required, tables), collapse = ', '), ' ]')))
       }
   }
   ##
@@ -156,7 +160,7 @@ gtxanalysisdb <- function(analysis,
     }
 
     ## Check the connection we will use for TABLE analyses (not necessarily dbc)
-    gtxdbcheck(getOption('gtx.dbConnection_cache_analyses', dbc))
+    gtxdbcheck(getOption('gtx.dbConnection_cache_analyses', dbc), tables_required = 'analyses')
 
     if (resolve) {
         ## Query results_db for this analysis
