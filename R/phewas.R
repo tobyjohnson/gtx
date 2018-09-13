@@ -144,6 +144,11 @@ phewas.data <- function(chrom, pos, rs,
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
 
+    ## Handle when results_db is NULL in database (returned as NA to R), since not using gtxanalysisdb()
+    ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
+    ## (FIXME it would be better if this did go through gtxanalysisdb() for future maintenance)
+    a1$results_db <- ifelse(is.na(a1$results_db) | a1$results_db == '', '', paste0(a1$results_db, '.'))
+    
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
                      missing(description_contains) && missing(has_tag) && 
                      missing(ncase_ge) && missing(ncohort_ge))
@@ -154,7 +159,7 @@ phewas.data <- function(chrom, pos, rs,
         res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
             sqlWrapper(getOption('gtx.dbConnection'),
                        ## note in schema 'feature' will be changed to 'entity' so returning as entity here
-                       sprintf('SELECT analysis, feature AS entity, beta, se, pval, rsq, freq FROM %s.gwas_results WHERE chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\';',
+                       sprintf('SELECT analysis, feature AS entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\';',
                                sanitize(results_db, type = 'alphanum'),
                                sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
                                sanitize1(v1$pos, type = "int"),
@@ -166,7 +171,7 @@ phewas.data <- function(chrom, pos, rs,
             ## FIXME check nearby is an integer
             res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
-                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s GROUP BY analysis, entity;',
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %sgwas_results WHERE %s GROUP BY analysis, entity;',
                                    sanitize(results_db, type = 'alphanum'),
                                    gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
                            uniq = FALSE, zrok = TRUE)
@@ -177,7 +182,7 @@ phewas.data <- function(chrom, pos, rs,
         res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
             sqlWrapper(getOption('gtx.dbConnection'),
                        ## note in schema 'feature' will be changed to 'entity' so returning as entity here
-                       sprintf('SELECT analysis, feature AS entity, beta, se, pval, rsq, freq FROM %s.gwas_results WHERE %s AND chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\';',
+                       sprintf('SELECT analysis, feature AS entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE %s AND chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\';',
                                sanitize(results_db, type = 'alphanum'),
                                gtxwhat(analysis = a1$analysis),
                                sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
@@ -190,7 +195,7 @@ phewas.data <- function(chrom, pos, rs,
             ## FIXME check nearby is an integer
             res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
-                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %s.gwas_results WHERE %s AND %s GROUP BY analysis, entity;',
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %sgwas_results WHERE %s AND %s GROUP BY analysis, entity;',
                                    sanitize(results_db, type = 'alphanum'),
                                    gtxwhat(analysis = a1$analysis),
                                    gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
