@@ -44,13 +44,13 @@ meta <- function(analysis1, analysis2,
                              FROM 
                                  (SELECT
                                       chrom, pos, ref, alt, beta, se, rsq, freq
-                                  FROM %s.gwas_results 
+                                  FROM %sgwas_results 
                                   WHERE %s %s %s
                                  ) AS t1 
                                  JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se, rsq, freq
-                                  FROM %s.gwas_results 
+                                  FROM %sgwas_results 
                                   WHERE %s %s %s
                                  ) AS t2
                                  USING (chrom, pos, ref, alt);',

@@ -139,14 +139,14 @@ coloc.data <- function(analysis1, analysis2,
                              FROM 
                                  (SELECT
                                       chrom, pos, ref, alt, beta, se, pval 
-                                  FROM %s.gwas_results 
+                                  FROM %sgwas_results 
                                   WHERE
                                       %s AND %s %s
                                  ) AS t1 
                                  FULL JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se, pval 
-                                  FROM %s.gwas_results 
+                                  FROM %sgwas_results 
                                   WHERE 
                                       %s AND %s %s
                                  ) AS t2
@@ -434,7 +434,7 @@ multicoloc.data <- function(analysis1, analysis2,
   eq <- sqlWrapper(dbc, 
                     sprintf('SELECT 
                                  DISTINCT feature
-                             FROM %s.gwas_results
+                             FROM %sgwas_results
                              WHERE
                                  %s AND %s ;',
                             db1, 
@@ -448,7 +448,7 @@ multicoloc.data <- function(analysis1, analysis2,
       ep <- sqlWrapper(dbc, 
                        sprintf('SELECT 
                                  min(pos) as minpos, max(pos) as maxpos
-                             FROM %s.gwas_results
+                             FROM %sgwas_results
                              WHERE
                                  %s AND %s ;',
                              db1, 
@@ -471,14 +471,14 @@ multicoloc.data <- function(analysis1, analysis2,
                              FROM 
                                  (SELECT
                                       chrom, pos, ref, alt, analysis, feature AS entity, beta, se
-                                  FROM %s.gwas_results 
+                                  FROM %sgwas_results 
                                   WHERE
                                       %s AND %s AND %s
                                  ) AS t1 
                              JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se
-                                  FROM %s.gwas_results 
+                                  FROM %sgwas_results 
                                   WHERE 
                                       %s AND %s 
                                  ) AS t2
