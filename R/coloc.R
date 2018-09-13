@@ -404,7 +404,7 @@ multicoloc.data <- function(analysis1, analysis2,
   pos_end = xregion$pos_end
 
   ## Currently only works if analysis1 all in the same db table
-  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum')
+  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum.')
   
 #  ## substitute generic entity for entity1 and entity2 if needed
 #  if (missing(entity1) && !missing(entity)) entity1 <- entity
