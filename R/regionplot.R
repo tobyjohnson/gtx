@@ -221,11 +221,11 @@ regionplot.data <- function(analysis,
     flog.debug('Querying marginal p-values')
     t0 <- as.double(Sys.time())
     pvals <- sqlWrapper(dbc,
-                        sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact %s FROM %s.gwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
+                        sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
                                 if (any(c('signal', 'signals') %in% style)) ', beta, se, rsq, freq' else '', 
                                 gtxanalysisdb(analysis), 
                                 gtxwhat(analysis1 = analysis),
-                                if (!is.null(xentity)) sprintf('feature=\'%s\'', xentity$entity) else '(True)',
+                                if (!is.null(xentity)) sprintf('entity=\'%s\'', xentity$entity) else '(True)',
                                 gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
                                 gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
                         uniq = FALSE)

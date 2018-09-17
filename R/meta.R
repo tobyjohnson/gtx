@@ -44,24 +44,24 @@ meta <- function(analysis1, analysis2,
                              FROM 
                                  (SELECT
                                       chrom, pos, ref, alt, beta, se, rsq, freq
-                                  FROM %s.gwas_results 
-                                  WHERE %s %s %s
+                                  FROM %sgwas_results 
+                                  WHERE %s %s %s AND pval IS NOT NULL
                                  ) AS t1 
                                  JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se, rsq, freq
-                                  FROM %s.gwas_results 
-                                  WHERE %s %s %s
+                                  FROM %sgwas_results 
+                                  WHERE %s %s %s AND pval IS NOT NULL
                                  ) AS t2
                                  USING (chrom, pos, ref, alt);',
                             gtxanalysisdb(analysis1), 
                             gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
                             xfilter1, 
-                            if (!is.null(xentity1)) sprintf(' AND feature=\'%s\'', xentity1$entity) else '', # FIXME will change to entity
+                            if (!is.null(xentity1)) sprintf(' AND entity=\'%s\'', xentity1$entity) else '', 
                             gtxanalysisdb(analysis2), 
                             gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis
                             xfilter2, 
-                            if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
+                            if (!is.null(xentity2)) sprintf(' AND entity=\'%s\'', xentity2$entity) else '' 
                             ),
                     uniq = FALSE) # expect >=1 rows
   res <- data.table(res)

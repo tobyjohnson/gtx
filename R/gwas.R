@@ -26,8 +26,8 @@ gwas <- function(analysis,
     t0 <- as.double(Sys.time())
     res <- sqlWrapper(dbc,
                       sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
-                               FROM %s.gwas_results
-                               WHERE %s AND %s ORDER BY chrom, pos;', 
+                               FROM %sgwas_results
+                               WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
                               gtxanalysisdb(analysis),
                               gtxwhat(analysis1 = analysis),
                               gtxfilter(pval_le = pval_thresh,
@@ -88,8 +88,8 @@ gwas <- function(analysis,
         t0 <- as.double(Sys.time())
         pvals <- sqlWrapper(dbc,
                             sprintf('SELECT chrom, pos, pval
-                               FROM %s.gwas_results
-                               WHERE %s AND %s;',
+                               FROM %sgwas_results
+                               WHERE %s AND %s AND pval IS NOT NULL;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_le = 10^-plot_fastbox,
@@ -115,7 +115,7 @@ gwas <- function(analysis,
         t0 <- as.double(Sys.time())
         mmpos <- sqlWrapper(dbc, 
                             sprintf('SELECT chrom, min(pos) AS minpos, max(pos) AS maxpos
-                               FROM %s.gwas_results
+                               FROM %sgwas_results
                                WHERE %s GROUP BY chrom;', 
                                gtxanalysisdb(analysis), 
                                gtxwhat(analysis1 = analysis)),
@@ -186,8 +186,8 @@ gwas <- function(analysis,
         t0 <- as.double(Sys.time())
         nump <- as.integer(sqlWrapper(getOption('gtx.dbConnection'),
                                       sprintf('SELECT count(1) AS nump
-                               FROM %s.gwas_results
-                               WHERE %s AND %s;',
+                               FROM %sgwas_results
+                               WHERE %s AND %s AND pval IS NOT NULL;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_gt = 10^-plot_fastbox,

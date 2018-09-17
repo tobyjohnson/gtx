@@ -138,27 +138,27 @@ coloc.data <- function(analysis1, analysis2,
                                  t2.beta AS beta2, t2.se AS se2 
                              FROM 
                                  (SELECT
-                                      chrom, pos, ref, alt, beta, se, pval 
-                                  FROM %s.gwas_results 
+                                      chrom, pos, ref, alt, beta, se
+                                  FROM %sgwas_results 
                                   WHERE
-                                      %s AND %s %s
+                                      %s AND %s %s AND pval IS NOT NULL
                                  ) AS t1 
                                  FULL JOIN 
                                  (SELECT 
-                                      chrom, pos, ref, alt, beta, se, pval 
-                                  FROM %s.gwas_results 
+                                      chrom, pos, ref, alt, beta, se
+                                  FROM %sgwas_results 
                                   WHERE 
-                                      %s AND %s %s
+                                      %s AND %s %s AND pval IS NOT NULL
                                  ) AS t2
                                  USING (chrom, pos, ref, alt);',
                             gtxanalysisdb(analysis1), 
                             gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
                             gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
-                            if (!is.null(xentity1)) sprintf(' AND feature=\'%s\'', xentity1$entity) else '', # FIXME will change to entity
+                            if (!is.null(xentity1)) sprintf(' AND entity=\'%s\'', xentity1$entity) else '', 
                             gtxanalysisdb(analysis2), 
                             gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis, different to arguments analysis1 and analysis2
                             gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
-                            if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
+                            if (!is.null(xentity2)) sprintf(' AND entity=\'%s\'', xentity2$entity) else '' 
                             ),
                     uniq = FALSE) # expect >=1 rows
 
@@ -170,11 +170,9 @@ coloc.data <- function(analysis1, analysis2,
 }
 
 
-#'
-#'
 #' Colocalization analysis.
 #'
-#' Colocalization analysis.
+#' Colocalization analysis using summary statistics from database.
 #'
 #' This high level function conducts a colocalization analysis, using
 #' summary statistics for association with two traits, across a region of
@@ -182,6 +180,13 @@ coloc.data <- function(analysis1, analysis2,
 #' the \code{analysis1} and \code{analysis2} arguments.  Where one or
 #' both contain summary statistics for multiple entities (e.g. from eQTL or
 #' pQTL analyses), the desired entities must be specified (see below).
+#'
+#' The \code{style} argument can be set to \code{'Z'} to plot Z
+#' statistics for the two analyses, and/or \code{'beta'} to plot beta (effect
+#' size) statistics for the two analyses.  \dQuote{One-sided} plots, where
+#' the ref/alt alleles are flipped so that beta is always positive for
+#' \code{analysis1}, are provided as styles \code{'Z1'} and \code{'beta1'}.
+#' The style \code{'none'} suppresses plotting altogether.
 #'
 #' Note that when using a \code{hgncid} or \code{ensemblid} gene
 #' identifier to specify the region from which to use summary statistics,
@@ -218,11 +223,6 @@ coloc.data <- function(analysis1, analysis2,
 #' arguments.  (This leads to sensible default behaviour, and facilitates
 #' the most common use case of centering the genomic region of interest
 #' on the entity being analysed in an eQTL or pQTL dataset.)
-#'
-#' The \code{style} argument can be set to \sQuote{Z} to plot Z
-#' statistics for the two analyses, \sQuote{beta} to plot beta (effect
-#' size) statistics for the two analyses, or \sQuote{none} to suppress
-#' plotting altogether.
 #'
 #' @param analysis1 The key value for the first GWAS analysis to analyze
 #' @param analysis2 The key value for the second GWAS analysis to analyze
@@ -404,7 +404,7 @@ multicoloc.data <- function(analysis1, analysis2,
   pos_end = xregion$pos_end
 
   ## Currently only works if analysis1 all in the same db table
-  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum')
+  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum.')
   
 #  ## substitute generic entity for entity1 and entity2 if needed
 #  if (missing(entity1) && !missing(entity)) entity1 <- entity
@@ -433,14 +433,14 @@ multicoloc.data <- function(analysis1, analysis2,
 
   eq <- sqlWrapper(dbc, 
                     sprintf('SELECT 
-                                 DISTINCT feature
-                             FROM %s.gwas_results
+                                 DISTINCT entity
+                             FROM %sgwas_results
                              WHERE
                                  %s AND %s ;',
                             db1, 
                             gtxwhat(analysis = analysis1), 
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)),
-                    uniq = FALSE)$feature
+                    uniq = FALSE)$entity
   ## FIXME this may return zero rows, should handle gracefully
   gtxlog('Query region includes association statistics for ', length(eq), ' entities')
 
@@ -448,7 +448,7 @@ multicoloc.data <- function(analysis1, analysis2,
       ep <- sqlWrapper(dbc, 
                        sprintf('SELECT 
                                  min(pos) as minpos, max(pos) as maxpos
-                             FROM %s.gwas_results
+                             FROM %sgwas_results
                              WHERE
                                  %s AND %s ;',
                              db1, 
@@ -470,17 +470,17 @@ multicoloc.data <- function(analysis1, analysis2,
                                  t2.beta AS beta2, t2.se AS se2 
                              FROM 
                                  (SELECT
-                                      chrom, pos, ref, alt, analysis, feature AS entity, beta, se
-                                  FROM %s.gwas_results 
+                                      chrom, pos, ref, alt, analysis, entity, beta, se
+                                  FROM %sgwas_results 
                                   WHERE
-                                      %s AND %s AND %s
+                                      %s AND %s AND %s AND pval IS NOT NULL
                                  ) AS t1 
                              JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se
-                                  FROM %s.gwas_results 
+                                  FROM %sgwas_results 
                                   WHERE 
-                                      %s AND %s 
+                                      %s AND %s AND pval IS NOT NULL
                                  ) AS t2
                              USING (chrom, pos, ref, alt);',
                             db1, 
