@@ -39,8 +39,10 @@ meta <- function(analysis1, analysis2,
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT 
                                  t1.chrom, t1.pos, t1.ref, t1.alt,
-                                 t1.beta AS beta1, t1.se AS se1,  
-                                 t2.beta AS beta2, t2.se AS se2 
+                                 t1.beta AS beta1, t1.se AS se1, 
+                                 t1.rsq AS rsq1, t1.freq AS freq1, 
+                                 t2.beta AS beta2, t2.se AS se2, 
+                                 t2.rsq AS rsq2, t2.freq AS freq2
                              FROM 
                                  (SELECT
                                       chrom, pos, ref, alt, beta, se, rsq, freq
