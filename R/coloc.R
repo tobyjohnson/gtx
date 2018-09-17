@@ -138,17 +138,17 @@ coloc.data <- function(analysis1, analysis2,
                                  t2.beta AS beta2, t2.se AS se2 
                              FROM 
                                  (SELECT
-                                      chrom, pos, ref, alt, beta, se, pval 
+                                      chrom, pos, ref, alt, beta, se
                                   FROM %sgwas_results 
                                   WHERE
-                                      %s AND %s %s
+                                      %s AND %s %s AND pval IS NOT NULL
                                  ) AS t1 
                                  FULL JOIN 
                                  (SELECT 
-                                      chrom, pos, ref, alt, beta, se, pval 
+                                      chrom, pos, ref, alt, beta, se
                                   FROM %sgwas_results 
                                   WHERE 
-                                      %s AND %s %s
+                                      %s AND %s %s AND pval IS NOT NULL
                                  ) AS t2
                                  USING (chrom, pos, ref, alt);',
                             gtxanalysisdb(analysis1), 
@@ -473,14 +473,14 @@ multicoloc.data <- function(analysis1, analysis2,
                                       chrom, pos, ref, alt, analysis, feature AS entity, beta, se
                                   FROM %sgwas_results 
                                   WHERE
-                                      %s AND %s AND %s
+                                      %s AND %s AND %s AND pval IS NOT NULL
                                  ) AS t1 
                              JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se
                                   FROM %sgwas_results 
                                   WHERE 
-                                      %s AND %s 
+                                      %s AND %s AND pval IS NOT NULL
                                  ) AS t2
                              USING (chrom, pos, ref, alt);',
                             db1, 
