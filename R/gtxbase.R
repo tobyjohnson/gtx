@@ -69,7 +69,7 @@ gtxwhere <- function(chrom,
         else sprintf("ensemblid='%s'", sanitize(ensemblid, type = "ENSG")),
 
         if (missing(entity)) NULL
-        else sprintf("feature='%s'", sanitize(entity, type = "alphanum")) # will be entity=INT FIXME
+        else sprintf("entity='%s'", sanitize(entity, type = "alphanum"))
     )
     ws2 <- paste0("(", 
                   unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 

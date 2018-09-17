@@ -57,11 +57,11 @@ meta <- function(analysis1, analysis2,
                             gtxanalysisdb(analysis1), 
                             gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
                             xfilter1, 
-                            if (!is.null(xentity1)) sprintf(' AND feature=\'%s\'', xentity1$entity) else '', # FIXME will change to entity
+                            if (!is.null(xentity1)) sprintf(' AND entity=\'%s\'', xentity1$entity) else '', 
                             gtxanalysisdb(analysis2), 
                             gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis
                             xfilter2, 
-                            if (!is.null(xentity2)) sprintf(' AND feature=\'%s\'', xentity2$entity) else ''  # FIXME will change to entity
+                            if (!is.null(xentity2)) sprintf(' AND entity=\'%s\'', xentity2$entity) else '' 
                             ),
                     uniq = FALSE) # expect >=1 rows
   res <- data.table(res)

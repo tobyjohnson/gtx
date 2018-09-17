@@ -159,8 +159,7 @@ phewas.data <- function(chrom, pos, rs,
         ## very long SQL string with thousands of 'OR analysis=' clauses
         res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
             sqlWrapper(getOption('gtx.dbConnection'),
-                       ## note in schema 'feature' will be changed to 'entity' so returning as entity here
-                       sprintf('SELECT analysis, feature AS entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
+                       sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
                                sanitize(results_db, type = 'alphanum.'),
                                sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
                                sanitize1(v1$pos, type = "int"),
@@ -182,8 +181,7 @@ phewas.data <- function(chrom, pos, rs,
     } else {
         res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
             sqlWrapper(getOption('gtx.dbConnection'),
-                       ## note in schema 'feature' will be changed to 'entity' so returning as entity here
-                       sprintf('SELECT analysis, feature AS entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE %s AND chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
+                       sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE %s AND chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
                                sanitize(results_db, type = 'alphanum.'),
                                gtxwhat(analysis = a1$analysis),
                                sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
