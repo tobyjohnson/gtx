@@ -45,13 +45,13 @@ meta <- function(analysis1, analysis2,
                                  (SELECT
                                       chrom, pos, ref, alt, beta, se, rsq, freq
                                   FROM %sgwas_results 
-                                  WHERE %s %s %s
+                                  WHERE %s %s %s AND pval IS NOT NULL
                                  ) AS t1 
                                  JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se, rsq, freq
                                   FROM %sgwas_results 
-                                  WHERE %s %s %s
+                                  WHERE %s %s %s AND pval IS NOT NULL
                                  ) AS t2
                                  USING (chrom, pos, ref, alt);',
                             gtxanalysisdb(analysis1), 
