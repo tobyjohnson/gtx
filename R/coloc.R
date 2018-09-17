@@ -170,11 +170,9 @@ coloc.data <- function(analysis1, analysis2,
 }
 
 
-#'
-#'
 #' Colocalization analysis.
 #'
-#' Colocalization analysis.
+#' Colocalization analysis using summary statistics from database.
 #'
 #' This high level function conducts a colocalization analysis, using
 #' summary statistics for association with two traits, across a region of
@@ -182,6 +180,13 @@ coloc.data <- function(analysis1, analysis2,
 #' the \code{analysis1} and \code{analysis2} arguments.  Where one or
 #' both contain summary statistics for multiple entities (e.g. from eQTL or
 #' pQTL analyses), the desired entities must be specified (see below).
+#'
+#' The \code{style} argument can be set to \code{'Z'} to plot Z
+#' statistics for the two analyses, and/or \code{'beta'} to plot beta (effect
+#' size) statistics for the two analyses.  \dQuote{One-sided} plots, where
+#' the ref/alt alleles are flipped so that beta is always positive for
+#' \code{analysis1}, are provided as styles \code{'Z1'} and \code{'beta1'}.
+#' The style \code{'none'} suppresses plotting altogether.
 #'
 #' Note that when using a \code{hgncid} or \code{ensemblid} gene
 #' identifier to specify the region from which to use summary statistics,
@@ -218,11 +223,6 @@ coloc.data <- function(analysis1, analysis2,
 #' arguments.  (This leads to sensible default behaviour, and facilitates
 #' the most common use case of centering the genomic region of interest
 #' on the entity being analysed in an eQTL or pQTL dataset.)
-#'
-#' The \code{style} argument can be set to \sQuote{Z} to plot Z
-#' statistics for the two analyses, \sQuote{beta} to plot beta (effect
-#' size) statistics for the two analyses, or \sQuote{none} to suppress
-#' plotting altogether.
 #'
 #' @param analysis1 The key value for the first GWAS analysis to analyze
 #' @param analysis2 The key value for the second GWAS analysis to analyze
