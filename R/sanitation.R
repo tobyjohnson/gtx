@@ -10,12 +10,16 @@
 ##
 ## check_databases is optional as this can be expensive
 ##
+## tables_required has a sensible default for the main dbc, but may need to be reduced for
+## checking a connection to a cache
+##                                       
 ## added verbose option otherwise more useful logging messages get swamped
 
 ##' @export
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
                        do_stop = TRUE,
                        check_databases,
+                       tables_required = c('analyses', 'gwas_results', 'genes'), 
                        verbose = FALSE) {
 
   ## FIXME: make this work for other client/server db connections especially MySQL
@@ -102,13 +106,13 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   } else if ('SQLiteConnection' %in% class(dbc)) {
       tables <- dbListTables(dbc)
   }
-  check_tables_req <- c('analyses', 'gwas_results', 'genes') # FIXME make this list complete
-  if (!all(check_tables_req %in% tables)) {
+
+  if (!is.null(tables_required) && !all(tables_required %in% tables)) {
       if (do_stop) {
-          stop(currdb, ' cannot access table(s) [ ', paste(setdiff(check_tables_req, tables), collapse = ', '), ' ]')
+          stop(currdb, ' cannot access table(s) [ ', paste(setdiff(tables_required, tables), collapse = ', '), ' ]')
       } else {
           return(list(check = FALSE,
-                 status = paste(currdb,'cannot access table(s) [ ', paste(setdiff(check_tables_req, tables), collapse = ', '), ' ]')))
+                 status = paste(currdb,'cannot access table(s) [ ', paste(setdiff(tables_required, tables), collapse = ', '), ' ]')))
       }
   }
   ##
@@ -138,24 +142,58 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
 gtxanalysisdb <- function(analysis,
                           resolve = TRUE,
                           dbc = getOption("gtx.dbConnection", NULL)) {
-    gtxdbcheck(dbc)
-    dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
+
+    ## Determine databases available
+    if ('Impala' %in% class(dbc)) {
+        ## Avoid frequently issuing SHOW DATABASES; commands
+        dbs <- getOption('gtx.dbConnection_SHOW_DATABASES', NULL)
+        if (is.null(dbs)) {
+            gtxdbcheck(dbc)
+            dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
+            options(gtx.dbConnection_SHOW_DATABASES = dbs)
+        }
+    } else if ('SQLiteConnection' %in% class(dbc)) {
+        ## When dbc is an SQLite handle, there is no concept of a database
+        dbs <- NULL
+    } else {
+        stop('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')
+    }
+
+    ## Check the connection we will use for TABLE analyses (not necessarily dbc)
+    gtxdbcheck(getOption('gtx.dbConnection_cache_analyses', dbc), tables_required = 'analyses')
+
     if (resolve) {
+        ## Query results_db for this analysis
         res <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
                           sprintf('SELECT results_db FROM analyses WHERE %s;',
-                                  gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE 
+                                  gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE
+        ## First, if null or empty string, return empty string (hence caller will use unqualified table name)
+        ## (note, database nulls are returned as R NAs; following is safe because length(res$results_db)==1)
+        if (is.null(res$results_db) || res$results_db == '') {
+            return('')
+        }
+        ## Next, if results_db is specified but dbs is NULL, throw error
+        ## (this could be undesirable if this function is called with a different dbc to what will be used
+        ##  to actually query the results)
+        if ('SQLiteConnection' %in% class(dbc)) {
+            stop('analysis [ ', analysis, ' ] has results_db [ ', res$results_db, ' ] but this connection does not support databases')
+        }
+        ## Otherwise, check whether database is accessible
         if (res$results_db %in% dbs$name) {
-            ## should not require sanitation because of %in% check, but sanitize anyway to be safe...
-            return(sanitize(res$results_db, type = 'alphanum'))
+            ## Return results_db with period appended
+            ## (should not require sanitation because of %in% check, but sanitize anyway to be safe...)
+            return(paste0(sanitize(res$results_db, type = 'alphanum'), '.'))
         } else {
-            stop('analysis [ ', analysis, ' ] no access to required database [ ', res$resultsdb, ' ]')
+            stop('analysis [ ', analysis, ' ] has results_db [ ', res$results_db, ' ] which is not a database this connectionhas access to')
         }
     } else {
+        ## Query results_db for all analyses requested
         res <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
                           sprintf('SELECT analysis, results_db FROM analyses WHERE %s;',
                                   gtxwhat(analysis = analysis)), # sanitation by gtxwhat
                           uniq = FALSE)
-        res$has_access <- res$results_db %in% dbs$name
+        ## If accessible databases known, add 'has_access' column
+        if (!is.null(dbs)) res$has_access <- res$results_db %in% dbs$name
         return(res)
     }
 }  

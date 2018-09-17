@@ -451,8 +451,24 @@ gtxanalyses <- function(analysis, analysis_not,
                         tag_is, with_tags = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
-    gtxdbcheck(dbc)
-    dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
+
+    ## Determine databases available
+    if ('Impala' %in% class(dbc)) {
+        ## Avoid frequently issuing SHOW DATABASES; commands
+        dbs <- getOption('gtx.dbConnection_SHOW_DATABASES', NULL)
+        if (is.null(dbs)) {
+            gtxdbcheck(dbc)
+            dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
+            options(gtx.dbConnection_SHOW_DATABASES = dbs)
+        }
+    } else if ('SQLiteConnection' %in% class(dbc)) {
+        ## When dbc is an SQLite handle, there is no concept of a database
+        dbs <- NULL
+    } else {
+        stop('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')
+    }
+
+    gtxdbcheck(dbc) # FIXME should check getOption('gtx.dbConnection_cache_analyses')
 
     ## sanitize and check desired analysis_fields, create sanitized string for SQL
     ## added, using cache if it exists
@@ -513,10 +529,15 @@ gtxanalyses <- function(analysis, analysis_not,
                                   tag_is),
                           uniq = FALSE)
     }
-    res$has_access <- res$results_db %in% dbs$name
-    if (has_access_only) {
-        res <- subset(res, has_access)
+
+    ## If accessible databases known, add 'has_access' column and filter if requested
+    if (!is.null(dbs)) {
+        res$has_access <- res$results_db %in% dbs$name
+        if (has_access_only) {
+            res <- subset(res, has_access)
+        }
     }
+    
     return(res)
 }
 

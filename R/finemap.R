@@ -75,7 +75,7 @@ fm_cleo.data <- function(analysis,
     gtxlog('Querying distinct signals from CLEO analyses')
     t0 <- as.double(Sys.time())
     ds <- sqlWrapper(dbc,
-                     sprintf('SELECT DISTINCT signal FROM %s.gwas_results_cond WHERE %s AND %s;', 
+                     sprintf('SELECT DISTINCT signal FROM %sgwas_results_cond WHERE %s AND %s;', 
                              gtxanalysisdb(analysis), 
                              gtxwhat(analysis1 = analysis),
                              gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end)),
@@ -86,7 +86,7 @@ fm_cleo.data <- function(analysis,
         gtxlog('Querying summary statistics from CLEO analyses')
         t0 <- as.double(Sys.time())
         ss <- sqlWrapper(dbc,
-                         sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %s.gwas_results_cond WHERE %s AND %s AND (%s);', 
+                         sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %sgwas_results_cond WHERE %s AND %s AND (%s);', 
                                  gtxanalysisdb(analysis), 
                                  gtxwhat(analysis1 = analysis),
                                  gtxwhere(chrom = xregion$chrom),
@@ -100,7 +100,7 @@ fm_cleo.data <- function(analysis,
     } else {
         ## FIXME db query with LIMIT 0 is an expensive way to generate a df with 0 rows
         ss <- sqlWrapper(dbc,
-                         sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %s.gwas_results_cond LIMIT 0;', 
+                         sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %sgwas_results_cond LIMIT 0;', 
                                  gtxanalysisdb(analysis)), 
                          uniq = FALSE, zrok = TRUE)
     }
