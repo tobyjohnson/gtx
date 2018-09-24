@@ -124,6 +124,7 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @import glue
 #' @import implyr
 #' @import readr
+#' @import whoami
 #' @import futile.logger
 ############################################
 impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
@@ -184,6 +185,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
 #' @import implyr
 #' @import dplyr
 #' @import futile.logger
+#' @import whoami
 #' @import purrr
 ############################################
 big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_string = TRUE){
