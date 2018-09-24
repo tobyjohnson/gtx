@@ -452,11 +452,6 @@ aba.plot <- function(.data, ...){
     flog.debug("aba.plot | process single input")
     ret = aba.int_coloc_plot(.data = input, ...) 
   }
-  # else if(input %>% distinct(input) %>% nrow == 1){ 
-  #   flog.debug("aba.plot | process single input")
-  #   ret = aba.int_coloc_plot(.data = input, ...) 
-  # }
-  # else loop over all inputs
   else {
     flog.debug("aba.plot | process multiple inputs")
     ret <- 
@@ -700,6 +695,16 @@ aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
     flog.error("aba.save | missing input column.")
     return()
   }
+  ############################################
+  flog.debug("aba.save | validate path")
+  safe_system <- safely(system)
+  
+  exec <- safe_system(glue("mkdir -p {path}"))
+  if (!is.null(exec$error)){
+    flog.error(glue("aba.save | unable to create/validate {path}"))
+    stop()
+  }
+  
   ############################################
   flog.debug("aba.save | saving figures . . .")
   walk2(glue("{path}/{input$input}_{suffix}.pdf"), input$figures, ggsave, ...)
