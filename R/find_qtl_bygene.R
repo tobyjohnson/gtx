@@ -32,7 +32,7 @@ find_qtl_bygene <- function(geneId, cutoff=2e-5,
                       ensemblid, 
                       "' AND analysis in ('", 
                       "", paste(qtl_analyses$analysis, collapse="', '"),
-                      "') AND pval<", cutoff)
+                      "') AND pval<", cutoff, " AND pval is NOT NULL")
 #    print(qtls_sql)
 
     qtls = dbGetQuery(dbc, qtls_sql)
