@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1534449661555.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "8277F956",
+    "lastKnownWriteTime" : 1534455647,
+    "last_content_update" : 1534455647765,
+    "path" : "~/R/gtx/tests/testthat/test-regionplot.R",
+    "project_path" : "tests/testthat/test-regionplot.R",
+    "properties" : {
+        "cursorPosition" : "18,2",
+        "scrollLine" : "3"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1534423560027.000,
+    "dirty" : true,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "53929828",
+    "lastKnownWriteTime" : 1534128171,
+    "last_content_update" : 1534426556459,
+    "path" : "~/R/gtx/R/aba.R",
+    "project_path" : "R/aba.R",
+    "properties" : {
+        "cursorPosition" : "675,27",
+        "scrollLine" : "656",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

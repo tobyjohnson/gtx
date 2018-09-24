@@ -1,0 +1,153 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(gtx)
+library(readxl)
+```
+
+```{r}
+# gwas <- regionplot.data("GSK500kV2b_M2W_asthma_a1", chr = '3', pos = 50176259, case_emac_ge = 25, style = 'signals')
+region3 <- read_xlsx(path = "~/tmp/Copy of test_region3_emac_pps_working.xlsx")
+region6 <- read_xlsx(path = "~/tmp/Copy of test_region6_emac_pps_notworking.xlsx")
+```
+
+```{r}
+region3 %>% head
+```
+
+```{r}
+region6 %>% head()
+```
+
+```{r}
+region6_in <- region6 %>% select(chrom:freq)
+```
+
+```{r}
+region6_in %>% head
+```
+
+```{r}
+priorsd = 1
+priorc = 1e-5
+cs_size = 0.95
+cs_only = FALSE
+```
+
+```{r}
+region6_in$lnabf <- with(region6_in, abf.Wakefield(beta, se, priorsd, log = TRUE))
+```
+
+```{r}
+region6    %>% head
+region6_in %>% head
+```
+
+```{r}
+pp <- gtx:::norm1(c(0, region6_in$lnabf + log(priorc)), log = TRUE)
+```
+
+```{r}
+region6_in$lnabf  %>% length
+pp %>% length
+```
+
+```{r}
+pp[is.na(pp)]
+```
+
+```{r}
+pp[is.na(pp)] <- 0
+```
+
+```{r}
+pp[-1] %>% head
+region6 %>% head
+```
+
+```{r}
+region6_in %>% head
+```
+
+```{r}
+# region6_in <- 
+test <- 
+  region6_in %>% 
+  mutate(abf = exp(lnabf)) %>% 
+  mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
+  mutate(pp_signal = abf / sum_abf) %>% 
+  mutate(pp_cumsum = cumsum(pp_signal)) %>% 
+  mutate(cs_signal = case_when(pp_cumsum <= 0.95 ~ TRUE,
+                               pp_cumsum >  0.95 ~ FALSE)) %>% 
+  select(-sum_abf, - pp_cumsum) 
+```
+
+```{r}
+test %>% filter(cs_signal == TRUE) %>% summarize(sum(pp_signal))
+```
+```{r}
+test
+```
+
+
+```{r}
+test2 <- 
+  region6_in %>% 
+  mutate(lnabf_adj = lnabf + log(1e-5)) %>% 
+  mutate(abf = exp(lnabf_adj)) %>% 
+  mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
+  mutate(pp_signal = abf / sum_abf) %>% 
+  mutate(pp_cumsum = cumsum(pp_signal)) %>% 
+  mutate(cs_signal = case_when(pp_cumsum <= 0.95 ~ TRUE,
+                               pp_cumsum >  0.95 ~ FALSE)) %>% 
+  select(-sum_abf, - pp_cumsum) %>% 
+  mutate(norm_fubar1 = gtx:::norm1(lnabf_adj, log = TRUE)) 
+```
+
+```{r}
+gtx:::norm1(c(0, test2$lnabf_adj), log = TRUE) -> bad_norm 
+```
+
+```{r}
+test2 %>% head
+bad_norm %>% head
+region6 %>% head 
+```
+
+```{r}
+bad_norm[is.na(bad_norm)]
+bad_norm %>% head 
+bad_norm %>% tail 
+```
+
+```{r}
+bad_norm[] %>% head 
+```
+
+
+
+
+```{r}
+region6
+```
+
+```{r}
+region6 
+```
+
+```{r}
+  data <-
+    data %>% 
+    mutate(abf = exp(lnabf)) %>% 
+    mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
+    mutate(pp_signal = abf / sum_abf) %>% 
+    mutate(pp_cumsum = cumsum(pp_signal)) %>% 
+    mutate(cs_signal = case_when(pp_cumsum <= cs_size ~ TRUE,
+                                 pp_cumsum >  cs_size ~ FALSE)) %>% 
+    select(-sum_abf, -pp_cumsum, -abf)
+```
+

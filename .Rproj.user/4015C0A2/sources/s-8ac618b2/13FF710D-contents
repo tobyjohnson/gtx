@@ -182,7 +182,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
 #' @param chrom_as_string Convert "chrom" col's to character instead of integers
 #' @import glue
 #' @import implyr
-#' @import dplyr
+#' @implyr dplyr
 #' @import futile.logger
 #' @import purrr
 ############################################

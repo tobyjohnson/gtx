@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1537799744441.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "3A7CBBC8",
+    "lastKnownWriteTime" : 1537799768,
+    "last_content_update" : 1537799768347,
+    "path" : "~/R/gtx/R/tidy_connections.R",
+    "project_path" : "R/tidy_connections.R",
+    "properties" : {
+        "cursorPosition" : "186,16",
+        "scrollLine" : "162",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

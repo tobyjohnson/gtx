@@ -1,0 +1,9 @@
+{
+    "path" : "~/R/gtx/inst/testdata",
+    "sortOrder" : [
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}

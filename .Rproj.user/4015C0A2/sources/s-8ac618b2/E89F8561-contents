@@ -1,4 +1,4 @@
-#' aba.query() - Query aba results for all positive results
+#' \strong{aba.query() - Query aba results for all positive results}
 #' 
 #' Query all colocalization data in a region or set of traits. Typical use 
 #' is to query a gene ID (\code{ensemblid} or \code{hgncid}) 
@@ -471,12 +471,13 @@ aba.plot <- function(.data, ...){
 
 #' \strong{aba.int_coloc_plot() - Plot aba results}
 #' 
-#' This function is for internal aba plotting use. 
+#' This function is for internal aba use. 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @param p12_ge [Default = 0.80] Values below this will be colored as non-significant, while above have color for direction. 
 #' @param max_dot_size [Default = 5] Adjust max size of dots.
 #' @param title Set the plot title. NULL will remove title. 
 #' @return ggplot2 object for viz and export.
+#' @examples 
 #' @import dplyr
 #' @import rsample
 aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL){
@@ -563,7 +564,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   return(fig)
 }
 
-#' aba.wrapper - single function to query and plot the aba colocs
+#' \strong{aba.wrapper() - single function to query and plot the aba colocs
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @param analysis_ids ukbiobank analysis id(s), single string or vector.
@@ -667,7 +668,7 @@ aba.wrapper <-
   return(colocs)
   }
 
-#' aba.save - save \code{aba.wrapper} figures
+#' \strong{aba.save() - save aba figures
 #' 
 #' This function will iterate over all inputs in an aba.wrapper results 
 #' and save each figures using the input to name the output figure. 
@@ -679,10 +680,10 @@ aba.wrapper <-
 #' @param ... Parameters to pass to ggsave. e.g. dpi = 300
 #' @examples 
 #' Query aba colocs:
-#' colocs <- aba.wrapper(hgncid = c("gene1", "gene2"))
+#' colocs <- aba.wrapper(hgncid = c("gene1", "gene2))
 #' 
-#' The wraper returns 2 figures, aba.save() will save both figures
-#' aba.save(colocs) 
+#' The wraper returns 2 figures, aba.save() will save both
+#' aba.save_figures(colocs) 
 #' @export
 #' @import purrr
 #' @import futile.logger

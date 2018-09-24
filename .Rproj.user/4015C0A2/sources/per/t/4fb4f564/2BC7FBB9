@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1518635774621.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1065348255",
+    "id" : "2BC7FBB9",
+    "lastKnownWriteTime" : 1518635610,
+    "last_content_update" : 1518635610,
+    "path" : "~/R/gtx/R/coloc.R",
+    "project_path" : "R/coloc.R",
+    "properties" : {
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
