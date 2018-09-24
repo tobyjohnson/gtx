@@ -4,10 +4,10 @@
 \alias{coloc}
 \title{Colocalization analysis.}
 \usage{
-coloc(analysis1, analysis2, chrom, pos_start, pos_end, pos, hgncid, ensemblid,
-  rs, surround = 5e+05, entity, entity1, entity2, style = "Z",
-  priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-04, priorc2 = 1e-04,
-  priorc12 = 1e-05, join_type = "inner",
+coloc(analysis1, analysis2, chrom, pos_start, pos_end, pos, hgncid,
+  ensemblid, rs, surround = 5e+05, entity, entity1, entity2,
+  style = "Z", priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-04,
+  priorc2 = 1e-04, priorc12 = 1e-05, join_type = "inner",
   dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
@@ -43,7 +43,7 @@ a data frame containing the result of the
  The plot is generated as a side effect.
 }
 \description{
-Colocalization analysis.
+Colocalization analysis using summary statistics from database.
 }
 \details{
 This high level function conducts a colocalization analysis, using
@@ -52,6 +52,13 @@ the genome.  The two sets of summary statistics are specified using
 the \code{analysis1} and \code{analysis2} arguments.  Where one or
 both contain summary statistics for multiple entities (e.g. from eQTL or
 pQTL analyses), the desired entities must be specified (see below).
+
+The \code{style} argument can be set to \code{'Z'} to plot Z
+statistics for the two analyses, and/or \code{'beta'} to plot beta (effect
+size) statistics for the two analyses.  \dQuote{One-sided} plots, where
+the ref/alt alleles are flipped so that beta is always positive for
+\code{analysis1}, are provided as styles \code{'Z1'} and \code{'beta1'}.
+The style \code{'none'} suppresses plotting altogether.
 
 Note that when using a \code{hgncid} or \code{ensemblid} gene
 identifier to specify the region from which to use summary statistics,
@@ -88,11 +95,6 @@ a suitable entity from the \code{hgncid} or \code{ensemblid}
 arguments.  (This leads to sensible default behaviour, and facilitates
 the most common use case of centering the genomic region of interest
 on the entity being analysed in an eQTL or pQTL dataset.)
-
-The \code{style} argument can be set to \sQuote{Z} to plot Z
-statistics for the two analyses, \sQuote{beta} to plot beta (effect
-size) statistics for the two analyses, or \sQuote{none} to suppress
-plotting altogether.
 }
 \author{
 Toby Johnson \email{Toby.x.Johnson@gsk.com}

@@ -8,14 +8,14 @@
 \usage{
 phewas(chrom, pos, rs, analysis, analysis_not, description_contains,
   phenotype_contains, has_tag, ncase_ge, ncohort_ge,
-  analysis_fields = c("description", "label", "unit", "ncase", "ncontrol",
-  "ncohort"), tag_is = "phewas_group", plot_ymax = 30,
+  analysis_fields = c("description", "label", "unit", "ncase",
+  "ncontrol", "ncohort"), tag_is = "phewas_group", plot_ymax = 30,
   dbc = getOption("gtx.dbConnection", NULL))
 
 phewas.data(chrom, pos, rs, analysis, analysis_not, description_contains,
   phenotype_contains, has_tag, ncase_ge, ncohort_ge,
-  analysis_fields = c("description", "label", "unit", "ncase", "ncontrol",
-  "ncohort"), tag_is, with_tags = FALSE, nearby,
+  analysis_fields = c("description", "label", "unit", "ncase",
+  "ncontrol", "ncohort"), tag_is, with_tags = FALSE, nearby,
   dbc = getOption("gtx.dbConnection", NULL))
 
 phewas.qq(chrom, pos, rs, analysis, analysis_not, description_contains,
