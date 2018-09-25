@@ -2,7 +2,7 @@
 % Please edit documentation in R/aba.R
 \name{aba.plot}
 \alias{aba.plot}
-\title{\strong{aba.plot() - Plot aba results}}
+\title{aba.plot() - Plot aba results}
 \usage{
 aba.plot(.data, ...)
 }

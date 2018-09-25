@@ -396,7 +396,7 @@ aba.fill <- function(.data, db = "gene_gwas", impala = getOption("gtx.impala", N
   
 }
 
-#' \strong{aba.plot() - Plot aba results}
+#' aba.plot() - Plot aba results
 #' 
 #' This function tries to create a bubble plot to 
 #' illustrate the coloc region. This function returns
