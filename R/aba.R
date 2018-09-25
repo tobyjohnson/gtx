@@ -410,8 +410,8 @@ aba.fill <- function(.data, db = "gene_gwas", impala = getOption("gtx.impala", N
 #' @return ggplot2 object for viz and export.
 #' @examples 
 #' Basic use:
-#' coloc_plot <- aba.plot(colocs_filtered)
-#' coloc_plot <- aba.plot(colocs_filtered, max_dot_size = 3, title = "Cool plot")
+#' coloc_plot <- aba.plot(colocs)
+#' coloc_plot <- aba.plot(colocs, max_dot_size = 3, title = "Cool plot")
 #' 
 #' View the returned object:
 #' coloc_plot
@@ -424,10 +424,9 @@ aba.fill <- function(.data, db = "gene_gwas", impala = getOption("gtx.impala", N
 #'        dpi      = 300)
 #'        
 #' Advanced use: query data, remove death related traits, filter, and then plot
-#' coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) %>% 
-#'                 filter(!str_detect(description, "death")) %>% 
-#'                 aba.filter() %>% 
-#'                 aba.plot(title = "Best plot ever")
+#' colocs <- aba.wrapper(hgncid = "HMGCR")
+#' colocs %>% filter(input == "HMGCR") %>% pluck("figures", 1) + ggtitle("Best plot ever")
+#' colocs %>% filter(input == "HMGCR") %>% pluck("data", 1) %>% filter(hgncid != "bad_gene") %>% aba.plot()
 #' @export
 #' @import dplyr
 #' @import stringr

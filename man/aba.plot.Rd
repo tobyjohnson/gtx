@@ -25,8 +25,8 @@ for best visualization of the plot.
 }
 \examples{
 Basic use:
-coloc_plot <- aba.plot(colocs_filtered)
-coloc_plot <- aba.plot(colocs_filtered, max_dot_size = 3, title = "Cool plot")
+coloc_plot <- aba.plot(colocs)
+coloc_plot <- aba.plot(colocs, max_dot_size = 3, title = "Cool plot")
 
 View the returned object:
 coloc_plot
@@ -39,10 +39,9 @@ ggsave(filename = "coloc_aba.pdf",
        dpi      = 300)
        
 Advanced use: query data, remove death related traits, filter, and then plot
-coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) \%>\% 
-                filter(!str_detect(description, "death")) \%>\% 
-                aba.filter() \%>\% 
-                aba.plot(title = "Best plot ever")
+colocs <- aba.wrapper(hgncid = "HMGCR")
+colocs \%>\% filter(input == "HMGCR") \%>\% pluck("figures", 1) + ggtitle("Best plot ever")
+colocs \%>\% filter(input == "HMGCR") \%>\% pluck("data", 1) \%>\% filter(hgncid != "bad_gene") \%>\% aba.plot()
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
