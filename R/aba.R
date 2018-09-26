@@ -15,7 +15,7 @@
 #' @param hgncid HGNC symbol. Single string or vector. 
 #' @param ensemblid Ensembl gene ID. Single string or vector.
 #' @param rsid SNP rsid. Single string or vector.
-#' @param surround [Default = 1e6] Distance to pull in neighboring genes. 
+#' @param surround [Default = 1e6] Distance to pull in TH + respective genes. 
 #' @param chrom chromosome - Used to define a specific region
 #' @param pos position that will have +/- \code{surround} for bounds to pull in colocs.
 #' @param pos_start start position - Used to define a specific region, overrides surround
@@ -225,7 +225,8 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       colocs_th_tbl,
       by = "chrom") %>% 
     # Make sure the TH are in the desired input window
-    filter((in_start < th_start) & (in_end > th_end))
+    filter((in_start < th_start) & (in_end > th_end)) 
+    
   
   ############################################
   flog.debug("aba.query | collect results")

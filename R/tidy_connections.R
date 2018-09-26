@@ -124,7 +124,6 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @import glue
 #' @import implyr
 #' @import readr
-#' @import whoami
 #' @import futile.logger
 ############################################
 impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
@@ -136,7 +135,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
   impala = validate_impala(impala = dest)
   
   # Determine user name for tables
-  user_name <- whoami::username()
+  user_name <- whoami()
   if(is.null(user_name)){ 
     flog.error("tidy_connections::impala_copy_to | Unable to determine user name.") 
     return()
@@ -185,7 +184,6 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
 #' @import implyr
 #' @import dplyr
 #' @import futile.logger
-#' @import whoami
 #' @import purrr
 ############################################
 big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_string = TRUE){
@@ -200,7 +198,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_strin
     }
   }
   # Determine user name for tables
-  user_name <- whoami::username()
+  user_name <- whoami()
   if(is.null(user_name)){ 
     flog.error("Unable to determine user name which is needed for copying data to RDIP.") 
     return()
@@ -326,4 +324,40 @@ close_int_conn <- function(conn){
   else {
     flog.debug("tidy_connections::close_int_conn | internal connection not detected.")
   }
+}
+
+#############################################
+#' whoami - Determine user name/id for working with CDH. 
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @export
+#' @example
+#' username <- whoami()
+#' @import futile.logger
+#' @import glue
+#' @import dplyr
+#' @import stringr
+whoami <- function(){
+  names <- tibble(env = c("USER", "HADOOP_USER_NAME"))
+  
+  names <- 
+    names %>% 
+    mutate(getenv = map_chr(env, ~Sys.getenv(., unset = NA)))
+  
+  flog.debug("whoami | Determined System environmental variables to be:")
+  flog.debug(glue("whoami | {names}"))
+  
+  ret <- 
+    names %>% 
+    filter(!str_detect(getenv, "cdsw") & !is.na(getenv)) %>% 
+    distinct(getenv) %>% 
+    pull(getenv)
+  
+  flog.debug(glue("whoami | Determined username to be: {ret}"))
+  
+  if(!str_detect(ret, "\\w+")){
+    flog.error("whoami | username appears empty. Email kbs14104@gsk.com to report the bug.")
+  }
+  
+  return(ret)
 }
