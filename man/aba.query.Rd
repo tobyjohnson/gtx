@@ -30,7 +30,7 @@ aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
 
 \item{p12_ge}{[Default >= 0.80] This is the "H4" posterior probability cutoff}
 
-\item{surround}{[Default = 1e6] Distance to pull in neighboring genes.}
+\item{surround}{[Default = 1e6] Distance to pull in TH + respective genes.}
 
 \item{gwas2gene_dist_lt}{[Default = 1e6] Max distance between coloc gene and gwas top hit.}
 
