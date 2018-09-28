@@ -174,6 +174,63 @@ gtxwhat <- function(analysis1,
     }
 }
 
+##
+## convenience function to construct WHERE
+## part of SQL for gwas_results_[joint|cond]
+##
+where_from <- function(analysis, analysisu,
+                       entity, entityu,
+                       signal,
+                       tablename) {
+
+    if (!missing(tablename)) {
+        tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
+    } else {
+        tablename <- ''
+    }
+
+    ##
+    ## analysis, entity, signal are OR within, AND between
+    ws1 <- list(
+        if (missing(analysis)) NULL
+        else {
+            if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
+                sprintf("analysis='%s'", sanitize(analysis, type = "alphanum"))
+            } else {
+                sprintf("analysis=%s", sanitize(analysis, type = "count")) # note no quotes
+            }
+        },
+
+        if (missing(analysisu)) NULL
+        else {
+            if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
+                sprintf("analysis='%s'", sanitize1(analysisu, type = "alphanum"))
+            } else {
+                sprintf("analysis=%s", sanitize1(analysisu, type = "count")) # note no quotes
+            }
+        },
+
+        if (missing(entity)) NULL
+        else {
+            sprintf("entity='%s'", sanitize(entity, type = "alphanum"))
+        },
+
+        if (missing(entityu)) NULL
+        else {
+            sprintf("entity='%s'", sanitize1(entityu, type = "alphanum"))
+        },
+
+        if (missing(signal)) NULL
+        else sprintf("signal=%s", sanitize(signal, type = "count"))
+    )
+    ## format
+    ws1f <- paste0("(",
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))),
+                  ")", collapse = " AND ")
+    return(ws1f)
+}
+
+
 gtxfilter <- function(pval_le, pval_gt,
                       maf_ge, maf_lt,
                       rsq_ge, rsq_lt,
