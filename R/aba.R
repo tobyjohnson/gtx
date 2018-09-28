@@ -1,397 +1,403 @@
-#' \strong{aba.query_locus() - Query a locus for coloc all-by-all results}
+#' aba.query() - Query aba results for all positive results
 #' 
-#' Query all colocalization data in a region. Typical use 
+#' Query all colocalization data in a region or set of traits. Typical use 
 #' is to query a gene ID (\code{ensemblid} or \code{hgncid}) 
-#' and to pull all coloc data in the surrounding the queried 
-#' region (+/- \code{surround} bp). Alternatively, can specifiy 
-#' the region coordinates using: \code{chrom}, \code{pos_start}, 
-#' & \code{pos_end}. The rate limiting step is in all the \code{aba} functions is the \code{\link{aba.query_locus}}, 
-#' after which \code{\link{aba.filter}} & \code{\link{aba.plot}} are very fast. 
-#' This means \code{\link{aba.query_locus}} results should be saved to an object,
-#' but the following steps can be piped together to quickly iterate 
-#' filtering and ploting. \code{\link{aba.query_locus}} takes ~ 7 min.
+#' and to pull all coloc data in the surrounding queried 
+#' region (+/- \code{surround} bp). A region can also be specified
+#' using: \code{chrom}, \code{pos_start}, & \code{pos_end}. Alternatively,
+#' a set of traits can be queried instead of the entire aba to help
+#' generate hypothesis before looking at specific loci. The 
+#' \code{\link{aba.query()}} will return only positive results based on
+#' filtering (using params below). 
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @param hgncid HGNC gene ID
-#' @param ensemblid Ensembl gene ID 
-#' @param surround [Default = 1e6] Define region as \code{surround} +/- gene TSS. 
-#' @param rsid SNP rsid
+#' @param analysis_ids ukbiobank analysis id(s), single string or vector.
+#' @param hgncid HGNC symbol. Single string or vector. 
+#' @param ensemblid Ensembl gene ID. Single string or vector.
+#' @param rsid SNP rsid. Single string or vector.
+#' @param surround [Default = 1e6] Distance to pull in TH + respective genes. 
 #' @param chrom chromosome - Used to define a specific region
+#' @param pos position that will have +/- \code{surround} for bounds to pull in colocs.
 #' @param pos_start start position - Used to define a specific region, overrides surround
 #' @param pos_end end position - Used to define a specific region, overrides surround
-#' @param sc [Default =  getOption("gtx.sc")]. Spark connection. 
-#' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
-#' @return data.frame with all coloc results in the region
-#' @examples 
-#' Query aba colocs:
-#' colocs <- aba.query_locus(hgncid = "HMGCR")
-#' colocs <- aba.query_locus(chrom = 1, pos_start = 2e3, pos_end = 4e5, sc = sc)
-#' 
-#' To establish a spark connection:
-#' sc <- spark_connect(master     = "yarn-client",
-#'                           spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-#'                           version    = "2.1")
-#' Set global gtx.sc option:             
-#' sc <- spark_connect(master = "yarn-client", spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2", version = "2.1")
-#'      options(gtx.sc = sc)
-#'      colocs <- aba.query_locus(hgncid = "HMGCR")
-#' @export
-#' @import dplyr
-#' @importFrom tidyr crossing
-#' @import stringr
-#' @import sparklyr
-#' @import purrr
-#' @import futile.logger
-#' @import glue 
-aba.query_locus <- function(hgncid, ensemblid, surround = 1e6, 
-                            chrom, pos_start, pos_end, rsid,
-                            sc         = getOption("gtx.sc", NULL),
-                            flog_level = getOption("gtx.flog_level", "WARN")){
-  if(flog_level != "INFO" & flog_level != "WARN" & flog_level != "ERROR"){
-    flog.error(glue("aba.query_locus - flog_level defined as: {flog_level}. Needs to be [INFO, WARN, or ERROR]."))
-  }
-  flog.threshold(flog_level)
-  flog.info("aba.query_locus - validating input.")
-  # Validate an input gene or region was defined
-  if(missing(hgncid) & missing(ensemblid) & missing(rsid) & (missing(chrom) & missing(pos_start) & missing(pos_end))){
-    flog.error("aba.query_locus - must specify either: hgncid, ensemblid, or [chrom, pos_start, & pos_end]. Skipping.")
-    next;
-  }
-  # Check we have a spark connection
-  flog.info("aba.query_locus - validating Spark connection.")
-  sc <- validate_sc(sc = sc)
-  
-  # quote surround
-  surround <- enquo(surround)
-  
-  # Define tables we need to use
-  flog.info("aba.query_locus - establishing connection to database tables.")
-  colocs_tbl   <- tbl(sc, "ukbiobank.coloc_results")
-  gwas_th_tbl  <- tbl(sc, "ukbiobank.gwas_results_top_hits")
-  genes_tbl    <- tbl(sc, "ukbiobank.genes")
-  analyses_tbl <- tbl(sc, "ukbiobank.analyses")
-  sites_tbl    <- tbl(sc, "ukbiobank.sites_ukb_500kv3")
-  
-  # Collect gene information to define region
-  flog.info("aba.query_locus - collecting information to define region to look for GWAS top hits.")
-  if(!missing(hgncid)){
-    hgncid <- enquo(hgncid)
-    # Verify the hgncid is reasonable
-    if(!str_detect(quo_name(hgncid), "\\w+")){
-      flog.error(glue("aba.query_locus - this hgncid ({tmp}) does not have characters ~ wrong.", 
-                      tmp = quo_name(hgncid)))
-      next;
-    }
-    # Query gene table with hgncid
-    gene_info <- 
-      genes_tbl %>% 
-      filter(hgncid == !! hgncid) %>% 
-      collect() 
-    
-    # Verify output
-    if(nrow(gene_info) == 0){ 
-      flog.warn(glue("aba.query_locus - could not find this hgncid ({tmp}) in the gene table.",  
-                     tmp = quo_name(hgncid)))
-      next;
-    }  
-    if(nrow(gene_info) >  1){ 
-      flog.warn(glue("aba.query_locus - found more than one gene for this hgncid ({tmp}) in gene table, unsure which to use.",  
-                     tmp = quo_name(hgncid)))
-      next;
-    }  
-  }
-  else if (!missing(ensemblid)){
-    # Verify the ensemblid is reasonable
-    ensemblid <- enquo(ensemblid)
-    if(!str_detect(quo_name(ensemblid), "ENSG\\d+")){
-      flog.error(glue("aba.query_locus - this ensemblid ({tmp}) doesn't look right.", 
-                      tmp = quo_name(ensemblid)))
-      next;
-    }
-    # Query gene table with ensemblid
-    gene_info <- 
-      genes_tbl %>% 
-      filter(ensemblid == !! ensemblid) %>% 
-      collect()
-    
-    # Verify output
-    if(nrow(gene_info) == 0){ 
-      flog.warn(glue("aba.query_locus - could not find this ensemblid ({tmp}) in the gene table.",
-                     tmp = quo_name(ensemblid)))
-      next;
-    }  
-    if(nrow(gene_info) >  1){ 
-      flog.warn(glue("aba.query_locus - found more than one ensemblid ({tmp}) in gene table, unsure which to use.",
-                     tmp = quo_name(ensemblid)))
-      next;
-    } 
-  }
-  else if(!missing(rsid)){
-    # Verify the rsid is reasonable
-    rsid <- enquo(rsid)
-    if(!str_detect(quo_name(rsid), "[rs]?\\d+")){
-      flog.error(glue("aba.query_locus - this rsid ({tmp}) doesn't look right.",
-                      tmp = quo_name(rsid)))
-      next;
-    }
-    # Remove "rs" from start of rsid
-    rsid_clean <- str_replace(quo_name(rsid), "^rs", "")
-    
-    # Query gene table with hgncid
-    gene_info <- 
-      sites_tbl %>% 
-      filter(rs == rsid_clean) %>% 
-      select(chrom, pos_start = "pos") %>% 
-      collect()
-    
-    # Verify output
-    if(nrow(gene_info) == 0){ 
-      flog.warn(glue("aba.query_locus - could not find this rsid ({tmp}) in the sties table.",
-                     tmp = quo_name(rsid)))
-      next;
-    }  
-    if(nrow(gene_info) >  1){ 
-      flog.warn(glue("aba.query_locus - found more than one rsid ({tmp}) in sites table, unsure which to use.",
-                     tmp = quo_name(rsid)))
-      next;
-    }  
-  }
-  else if(!missing(chrom) & !missing(pos_start) & !missing(pos_end)){
-    # Verify inputs, note: this may change in the future (e.g. M, alt chrom, etc)
-    if(!str_detect(chrom, "^[\\dXY]+$")){
-      flog.error(glue("aba.query_locus - this chrom ({chrom}) doesn't match 1-22, X, or Y."))
-      next;
-    }
-
-    # Set gene info
-    gene_info <- tibble(
-      chrom     = as.integer(chrom),
-      pos_start = as.integer(pos_start),
-      pos_end   = as.integer(pos_end))
-  }
-  else {
-    flog.error("aba.query_locus - unable to properly handle input.")
-    next;
-  }
-  
-  # Determine filter region depending on input
-  if(!missing(hgncid) | !missing(ensemblid) | !missing(rsid)){
-    gene_info <- 
-      gene_info %>% 
-      mutate(pos_start_filter = pos_start - !! surround) %>% 
-      mutate(pos_end_filter   = pos_start + !! surround)
-  }
-  else {
-    gene_info <- 
-      gene_info %>% 
-      mutate(pos_start_filter = pos_start) %>% 
-      mutate(pos_end_filter   = pos_end)
-  }
-
-  # Using calculated regions to find all GWAS top hits in the region
-  flog.info(glue("aba.query_locus - pulling all GWAS top hits in the region: {gene_info$chrom}:{gene_info$pos_start_filter}-{gene_info$pos_end_filter}."))
-  gwas_th <- 
-    filter(gwas_th_tbl,
-           chrom     == gene_info$chrom & 
-           pos_start >= gene_info$pos_start_filter & 
-           pos_end   <= gene_info$pos_end_filter &
-           !is.na(min_pval) &
-           !is.na(pval_index)) %>% 
-    collect()
-
-  # Verify GWAS top hits
-  if(nrow(gwas_th) == 0){
-    flog.warn(glue("aba.query_locus - no GWAS top hits found in this region: {gene_info$chrom}:{gene_info$pos_start_filter}-{gene_info$pos_end_filter}."))
-    next;
-  }
-  
-  # Summarize min and max GWAS top hits
-  gwas_th_sum <- 
-    gwas_th %>% 
-    distinct(chrom, pos_index) %>% 
-    summarize(min_pos = min(pos_index), 
-              max_pos = max(pos_index))
-  
-  # Pull in all genes that could overlap the GWAS top hits
-  flog.info(glue("aba.query_locus - expanding region based on genes with cis-windows that can overlap GWAS top hits."))
-  locus_genes <- 
-    genes_tbl %>% 
-    filter(chrom     == gene_info$chrom & 
-           pos_start >= gwas_th_sum$min_pos - !! surround &
-           pos_end   <= gwas_th_sum$max_pos + !! surround) %>% 
-    collect()
-  
-  # Verify locus genes
-  if(nrow(locus_genes) == 0){
-    flog.warn("aba.query_locus - no genes found to overlap the GWAS top hits in this region.\n")
-    next;
-  }
-  
-  # Pull coloc results for all locus genes + gwas top hits traits
-  flog.info("aba.query_locus - pulling all colocs (GWAS + gene pairs) in the region.")
-  dat2pull_tbl <-
-    sdf_copy_to(sc,
-                crossing(entity    = locus_genes$ensemblid,
-                         analysis2 = gwas_th$analysis))
-  
-  coloc_region <- 
-    left_join(dat2pull_tbl,
-              colocs_tbl,
-              by   = c("analysis2", "entity")) %>%
-    left_join(., 
-              genes_tbl %>% select(ensemblid, gene_start = pos_start, genetype, hgncid), 
-              by = c("entity" = "ensemblid")) %>% 
-    left_join(.,
-              analyses_tbl %>% select(analysis, description, ncase, ncontrol, ncohort),
-              by = c("analysis2" = "analysis")) %>% 
-    left_join(.,
-              gwas_th %>% select(analysis, gwas_chrom = chrom, gwas_th_pos = pos_index, gwas_th_pval = pval_index),
-              by   = c("analysis2" = "analysis"),
-              copy = TRUE) %>% 
-    left_join(.,
-              sites_tbl %>% select(gwas_th_pos = pos, gwas_chrom = chrom, rs),
-              by = c("gwas_chrom", "gwas_th_pos")) %>%
-    collect() %>% 
-    mutate(log10_min_pval_colocGWAS_over_TopHitGWAS = log10(gwas_th_pval / minpval2)) %>% 
-    mutate(rsid = paste0("rs", rs)) %>% 
-    mutate(minpval1_sci = formatC(minpval1, format = "e", digits = 2)) %>% 
-    mutate(minpval2_sci = formatC(minpval2, format = "e", digits = 2))
-  
-  # Validate we got data back
-  if(nrow(coloc_region) == 0){
-    flog.warn("aba.query_locus - no colocs found in this region.")
-    next;
-  }
-  
-  # Return colocs found in the region
-  flog.info("aba.query_locus - COMPLETED")
-  return(coloc_region) 
-}
-
-#' \strong{aba.filter() - Recommended filtering for aba results.}
-#' 
-#' The aba results and region queries will return colocs
-#' that are not robust and therefore need to be filtered.
-#' This function provdies recommended filtering to 
-#' improve the robustness of the aba results. In addition, 
-#' the results will fill in the matrix of positive colocs
-#' based on the filtering to enable complete plotting (\code{\link{aba.plot}}). The
-#' ability to fill in the matrix can be toggled. Many of the aba. functions
-#' use aba.filter and allow these options to be passed through to \code{\link{aba.filter}}
-#' through the use of the ... options.
-#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @param .data \code{\link{aba.query_locus}} results object to filter
-#' @param fill_matrix [Default = TRUE] Fill in the matrix based filtering. \emph{required} for \code{\link{aba.plot}}
 #' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
 #' @param minpval1_lt [Default <= 1e-4] Min pval seen in the eQTL                
 #' @param minpval2_lt [Default <= 5e-8] Min pval seen in the GWAS data           
-#' @param log10_min_pval_colocGWAS_over_TopHitGWAS_lt [Default < 0.5] Log10 ratio of coloc-gwas/top-hit-gwas pval. 
-#' This ensures that the coloc gwas and gwas top hits are 1/2 order of magnitude apart and therefore shared.
 #' @param gwas2gene_dist_lt [Default = 1e6] Max distance between coloc gene and gwas top hit. 
-#' @param ncase_lt [Default >= 200] Minimum ncases for traits                   
-#' @param ncohort_lt [Default >= 200] Minimum ncohort for traits
+#' @param ncase_ge [Default >= 200] Minimum ncases for traits.                   
+#' @param ncohort_ge [Default >= 200] Minimum ncohort for traits.
 #' @param protein_coding [Default = TRUE] Filter only for protein coding transcripts
 #' @param neale_only [Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.
 #' @param gsk_only [Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.
-#' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
-#' @return data.frame with input \code{\link{aba.query_locus}} reasonably filtered
+#' @param db [Defalt = "gene_gwas"] Database to pull data from. 
+#' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
+#' @return data.frame with all coloc results in the region
 #' @examples 
-#' Basic use:
-#' colocs_filtered <- aba.filter(colocs)
-#' colocs_filtered <- aba.filter(colocs, p12 = 0.9, minpval1 = 5e-8)
+#' Query aba colocs:
+#' colocs <- aba.query(hgncid = "HMGCR")
 #' 
-#' String together
-#' colocs_filtered <- aba.query_locus(hgncid = "HMGCR") %>% aba.filter()
+#' colocs <- aba.query(analysis_ids = "ukb_cool_analysis_id")
 #' @export
-#' @import dplyr
-#' @importFrom tidyr crossing
+#' @import tidyr
+#' @import stringr
 #' @import futile.logger
-#' @import glue
-aba.filter <- function(.data, p12_ge = 0.80, 
-                       minpval1_le   = 1e-4, minpval2_le = 5e-8,
-                       log10_min_pval_colocGWAS_over_TopHitGWAS_lt = 0.5, 
-                       gwas2gene_dist_lt = 1e6,
-                       ncase_ge = 200, ncohort_ge = 200, 
-                       protein_coding_only = TRUE, 
-                       neale_only  = FALSE, 
-                       gsk_only    = FALSE, 
-                       fill_matrix = TRUE, 
-                       flog_level  = getOption("gtx.flog_level", "WARN")){
-  if(flog_level != "INFO" & flog_level != "WARN" & flog_level != "ERROR"){
-    flog.error(glue("aba.query_locus - flog_level defined as: {flog_level}. Needs to be [INFO, WARN, or ERROR]."))
+#' @import glue 
+#' @import dplyr
+aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
+                      chrom, pos, pos_start, pos_end, p12_ge = 0.80, 
+                      minpval1_le   = 1e-4, minpval2_le = 5e-8,
+                      surround = 1e6, gwas2gene_dist_lt = 1e6,
+                      ncase_ge = 200, ncohort_ge = 200, 
+                      protein_coding_only = FALSE, 
+                      neale_only  = FALSE, 
+                      gsk_only    = FALSE,
+                      db     = "gene_gwas",
+                      impala = getOption("gtx.impala", NULL)){
+  ############################################
+  flog.debug("aba.query | validating input.")
+  if(missing(hgncid) & 
+     missing(ensemblid) & 
+     missing(rsid) & 
+     (missing(chrom) & ( (missing(pos_start) & missing(pos_end)) | missing(pos) ) ) & 
+     missing(analysis_ids)){
+    flog.error("aba.query | must specify either: analysis_ids, hgncid, ensemblid, or rsid. Skipping.")
+    return()
   }
-  flog.threshold(flog_level)
-  # Verify input
-  flog.info("aba.filter - validating input")
-  input <- .data
-  required_cols <- c("p12", "minpval1", "minpval2", "log10_min_pval_colocGWAS_over_TopHitGWAS", 
-                     "gwas_th_pos", "gene_start", "ncase", "ncohort", "genetype", "analysis2")
-  if(!all(required_cols %in% (names(input)))){
-    flog.error(paste0("aba.filter - input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
-    next;
+  ############################################
+  flog.debug("aba.query | validating impala connection.")
+  impala <- validate_impala(impala = impala)
+  
+  ############################################
+  flog.debug("aba.query | establishing connection to database tables.")
+  aba_tbl      <- tbl(impala, glue("{db}.coloc_results"))
+  gwas_th_tbl  <- tbl(impala, glue("{db}.gwas_results_top_hits"))
+  genes_tbl    <- tbl(impala, glue("{db}.genes"))
+  analyses_tbl <- tbl(impala, glue("{db}.analyses"))
+  sites_tbl    <- tbl(impala, glue("{db}.sites_ukb_500kv3"))
+  
+  ############################################
+  flog.debug("aba.query | set input")
+  if(!missing(analysis_ids)){
+    flog.debug("aba.query | processing analysis_ids input.")
+    input <- tibble(input = analysis_ids, analysis = analysis_ids)
   }
-  if(!is.numeric(p12_ge) | !is.numeric(gwas2gene_dist_lt) | 
-     !is.numeric(minpval1_le) | !is.numeric(minpval2_le) |
-     !is.numeric(log10_min_pval_colocGWAS_over_TopHitGWAS_lt) | 
-     !is.numeric(ncase_ge) | !is.numeric(ncohort_ge)){
-    flog.error("aba.filter - input parameter is not numeric.")
-    next;
+  else if(!missing(hgncid)){
+    flog.debug("aba.query | processing hgncid input.")
+    input <- tibble(input = hgncid, hgncid = hgncid)
+  }
+  else if(!missing(ensemblid)){
+    flog.debug("aba.query | processing ensemblid input.")
+    input <- tibble(input = ensemblid, ensemblid = ensemblid)
+  }
+  else if(!missing(rsid)){
+    flog.debug("aba.query | processing rsid input.")
+    input <- 
+      tibble(input = rsid) %>% 
+      mutate(rs = str_match(input, "\\d+") %>% as.numeric())
+  }
+  else if(!missing(chrom) & !missing(pos)){
+    flog.debug("aba.query | processing chrom & pos input.")
+    input <- 
+      tibble(chrom = chrom, in_start = pos - surround, in_end = pos + surround) %>% 
+      mutate(input = glue("chr{chrom}:{in_start}-{in_end}") %>% as.character()) # have to use as.character for copy_to()
+  }
+  else if(!missing(chrom) & !missing(pos_start) & !missing(pos_end)){
+    flog.debug("aba.query | processing chrom & pos input.")
+    input <- 
+      tibble(chrom = chrom, in_start = pos_start, in_end = pos_end) %>% 
+      mutate(input = glue("chr{chrom}:{in_start}-{in_end}") %>% as.character()) 
+  }
+  else {
+    flog.error("aba.query | unable to properly handle input.")
+    return()
   }
   
-  # Perform basic uniform input
-  flog.info("aba.filter - filtering data")
-  input_filtered <-
-    input %>% 
-    filter(p12      >= !! p12_ge & # filter H4 >= 0.80
-           minpval1 <= !! minpval1_le  & # min eQTL pval
-           minpval2 <= !! minpval2_le  & # min gwas pval
-           abs(log10_min_pval_colocGWAS_over_TopHitGWAS) < !! log10_min_pval_colocGWAS_over_TopHitGWAS_lt & # coloc min gwas pval must be 1/2 order of magnitude from gwas top hits
-           abs(gwas_th_pos - gene_start)  < !! gwas2gene_dist_lt & # & # make sure the gene and GWAS hit are < 1 MB apart
-           (ncase   >= !! ncase_ge | ncohort >= !! ncohort_ge))
+  ############################################
+  flog.debug("aba.query | copy input to RDIP")
+  input_tbl <- impala_copy_to(df = input, dest = impala)
   
-  # Filter for protein coding transcripts
-  if(isTRUE(protein_coding_only)){
-    input_filtered <- 
-      input_filtered %>% 
+  ############################################
+  flog.debug("aba.query | harmonizing input")
+  if(!missing(hgncid)){
+    flog.debug("aba.query | harmonizing hgncid input.")
+    input_tbl <- 
+      inner_join(
+        input_tbl,
+        genes_tbl %>% 
+          select(hgncid, ensemblid, chrom, in_pos = "pos_start"),
+        by = "hgncid") %>% 
+      mutate(in_start = in_pos - surround, in_end = in_pos + surround) %>% 
+      select(-in_pos, -hgncid)
+  }
+  else if(!missing(ensemblid)){
+    flog.debug("aba.query | harmonizing ensemblid input.")
+    input_tbl <- 
+      inner_join(
+        input_tbl,
+        genes_tbl %>% 
+          select(ensemblid, chrom, in_pos = "pos_start"),
+        by = "ensemblid") %>% 
+      mutate(in_start = in_pos - surround, in_end = in_pos + surround) %>% 
+      select(-in_pos)
+  }
+  else if(!missing(rsid)){
+    flog.debug("aba.query | harmonizing rsid input.")
+    input_tbl <- 
+      inner_join(
+        input_tbl,
+        sites_tbl,
+        by = "rs") %>% 
+      select(input, chrom, in_pos = "pos") %>% 
+      mutate(in_start = in_pos - surround, in_end = in_pos + surround) %>% 
+      select(-in_pos)
+  }
+  else if(!missing(analysis_ids)){
+    flog.debug("aba.query | harmonizing rsid input.")
+    input_tbl <- 
+      inner_join(
+        input_tbl,
+        gwas_th_tbl,
+        by = ("analysis")) %>% 
+      select(analysis, chrom, pos_index) %>% 
+      collect()
+    
+    input_tbl <- 
+      input_tbl %>% 
+      rename(in_pos = "pos_index") %>% 
+      mutate(in_start = in_pos - surround, in_end = in_pos + surround) %>% 
+      mutate(input = glue("{analysis}__chr{chrom}:{in_pos}") %>% as.character()) %>% 
+      select(input, chrom, in_start, in_end)
+    
+    input_tbl <- impala_copy_to(df = input_tbl, dest = impala)
+  }
+  
+  ############################################
+  flog.debug("aba.query | prelim filter colocs")
+  colocs_tbl <- 
+    aba_tbl %>% 
+    filter(p12      >= p12_ge & 
+           minpval1 <= minpval1_le &
+           minpval2 <= minpval2_le) %>% 
+    inner_join(.,
+               genes_tbl %>% 
+                 select(ensemblid, gene_start = pos_start, gene_end = pos_end, genetype, hgncid, chrom),
+               by = c("entity" = "ensemblid"))
+  
+  if(protein_coding_only == TRUE){  
+    colocs_tbl <- 
+      colocs_tbl %>%
       filter(genetype == "protein_coding")
   }
-
-  # Or filter for GSK data only
-  if(isTRUE(gsk_only)){
-    input_filtered <- 
-      input_filtered %>% 
-      filter(str_detect(analysis2, "GSK"))
+  
+  ############################################
+  flog.debug("aba.query | append GWAS top hits & gene info")
+  # Join GWAS top hits for each GWAS trait
+  colocs_th_tbl <- 
+    inner_join(
+      colocs_tbl,
+      gwas_th_tbl %>% 
+        select(-signal, -num_variants, -ref_index, 
+               -alt_index, -rsq_index, -min_pval, 
+               -freq_index, -beta_index, -se_index),
+      by = c("analysis2" = "analysis", "chrom")) %>% 
+    select(everything(), th_pos = pos_index, th_pval = pval_index, th_start = pos_start, th_end = pos_end) %>% 
+    # Make sure the TH are in cis-windows of the coloc genes
+    filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) %>%   
+    # Join GWAS trait info - e.g. description & ncase
+    inner_join(
+      .,
+      analyses_tbl %>% select(analysis, description, phenotype, ncase, ncohort),
+      by = c("analysis2" = "analysis")) %>% 
+    # Append RSID to each TH index
+    left_join(
+      .,
+      sites_tbl %>% select(rs_chrom = "chrom", rs_pos = "pos", rs),
+      by = c("chrom" = "rs_chrom", "th_pos" = "rs_pos")) %>% 
+  # we should then filter ncase
+  filter(ncase >= ncase_ge | ncohort >= ncohort_ge)
+  
+  ############################################
+  flog.debug("aba.query | filter colocs based on input")
+  # If we gave a gene/region input filter based on that
+  colocs_final_tbl <- 
+    inner_join(
+      input_tbl,
+      colocs_th_tbl,
+      by = "chrom") %>% 
+    # Make sure the TH are in the desired input window
+    filter((in_start < th_start) & (in_end > th_end)) 
+    
+  
+  ############################################
+  flog.debug("aba.query | collect results")
+  colocs_final <- 
+    colocs_final_tbl %>% 
+    collect() %>% 
+    mutate(rsid = paste0("rs", rs)) %>% 
+    group_by(rsid) %>% 
+    mutate(genes_per_locus = n_distinct(entity)) %>% 
+    ungroup()
+  
+  flog.debug("aba.query | verify collect results returned")
+  if(nrow(colocs_final) == 0){
+    flog.error("no results returned for the input.")
+    return()
   }
-  # Filter for Neale data only
-  else if(isTRUE(neale_only)){
-    input_filtered <- 
-      input_filtered %>% 
+  
+  if(isTRUE(neale_only)){
+    colocs_final <-
+      colocs_final %>% 
       filter(str_detect(analysis2, "neale"))
   }
-  
-  if(nrow(input_filtered) == 0){
-    flog.warn("After filtering, no results are remaining.")
-    next;
+  else if(isTRUE(gsk_only)){
+    colocs_final <-
+      colocs_final %>% 
+      filter(str_detect(analysis2, "GSK"))
   }
   
-  # Fill in the matrix based on the filtered results
-  flog.info("aba.filter - filling in matrix of filtered results")
-  if(isTRUE(fill_matrix)){
-    input_filtered <- 
-      crossing(entity    = input_filtered$entity,
-               analysis2 = input_filtered$analysis2,
-               analysis1 = input_filtered$analysis1) %>% 
-      inner_join(., 
-                 input,
-                 by = c("entity", "analysis2", "analysis1")) %>% 
-      collect()
+  ############################################
+  flog.debug("aba.query | clean up conn")
+  close_int_conn(impala)
+  
+  ############################################
+  flog.debug("aba.query | complete")
+  return(colocs_final)
+}
+
+#' \strong{aba.flatten() - Flatten full aba results}
+#' 
+#' The aba results and region queries will return colocs
+
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param .data \code{\link{aba.query}} results object to filter
+#' @return data.frame with input \code{\link{aba.query}} flattened to 1 gene / row. 
+#' @examples 
+#' Basic use:
+#' colocs  <- aba.query(hgncid = "foo")
+#' colocs_flat <- aba.flatten(colocs)
+#' @export
+#' @import tidyr
+#' @import purrr
+#' @import futile.logger
+#' @import glue
+#' @import dplyr
+aba.flatten <- function(.data){
+  input = .data
+  ############################################
+  flog.debug("aba.flatten | verify input")
+  mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
+  if(any(map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
+    flog.error("aba.flatten | missing input column.")
+    return()
   }
   
-  flog.info("aba.filter - COMPLETED")
+  ############################################
+  flog.debug("aba.flatten | flatten data")
+  input_filtered <-
+    input %>%
+    group_by(input, rsid) %>% 
+    mutate(locus_n_genes     = n_distinct(entity)) %>% 
+    mutate(locus_n_tissue    = n_distinct(analysis1)) %>% 
+    group_by(input, entity) %>%
+    mutate(gene_n_top_hits   = n_distinct(rsid)) %>%
+    mutate(gene_n_traits     = n_distinct(analysis2)) %>% 
+    mutate(gene_n_tissue     = n_distinct(analysis1)) %>% 
+    mutate(loci_min_n_genes  = min(locus_n_genes,  na.rm = TRUE) %>% as.integer()) %>% 
+    mutate(loci_max_n_genes  = max(locus_n_genes,  na.rm = TRUE) %>% as.integer()) %>% 
+    mutate(loci_min_n_tissue = min(locus_n_tissue, na.rm = TRUE) %>% as.integer()) %>%
+    mutate(loci_max_n_tissue = max(locus_n_tissue, na.rm = TRUE) %>% as.integer()) %>% 
+    ungroup() %>%
+    select(input, hgncid, entity,
+           gene_n_tissue, gene_n_top_hits, gene_n_traits,
+           loci_min_n_genes,  loci_max_n_genes, 
+           loci_min_n_tissue, loci_max_n_tissue) %>% 
+    distinct() %>% 
+    arrange(gene_n_tissue, gene_n_top_hits, loci_max_n_genes, loci_min_n_genes)
+  
+  flog.debug("aba.flatten | return data")
   return(input_filtered)
 }
 
-#' \strong{aba.plot() - Plot aba results}
+#' \strong{aba.fill() - Fill in missing data to complete matrix of aba.query() results}
+#' 
+#' The \code{\link{aba.query}} will return only positive hits. Use 
+#' this function to fill in the matrix of missing data based on positive hits.
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param .data 
+#' @param db [Default = "gene_gwas"]
+#' @return data.frame 
+#' @examples 
+#' Basic use:
+#' colocs_pos  <- aba.query(hgncid = "foo")
+#' colocs_full <- aba.fill(colocs_pos)
+#' @export
+#' @import tidyr
+#' @import purrr
+#' @import futile.logger
+#' @import glue
+#' @import dplyr
+aba.fill <- function(.data, db = "gene_gwas", impala = getOption("gtx.impala", NULL)){
+  input = .data
+  ############################################
+  flog.debug("aba.fill | verify input")
+  mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
+  if(any(map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
+    flog.error("aba.fill | missing input column.")
+    return()
+  }
+  ############################################
+  flog.debug("aba.fill | verify impala")
+  impala <- validate_impala(impala = impala)
+  ############################################
+  flog.debug("aba.fill | establishing connection to db.tables")
+  aba_tbl <- tbl(impala, glue("{db}.coloc_results"))
+  ############################################
+  flog.debug("aba.fill | expand matrix")
+  data2pull <- 
+    input %>% 
+    group_by(input) %>% 
+    expand(analysis2, analysis1, entity) %>% 
+    ungroup()
+  ############################################
+  flog.debug("aba.fill | copy input to RDIP for join")
+  data2pull_tbl <- impala_copy_to(df = data2pull, dest = impala)
+  ############################################
+  flog.debug("aba.fill | query expanded matrix from aba results")
+  expanded_dat <- 
+    inner_join(
+      aba_tbl,
+      data2pull_tbl,
+      by = c("analysis2", "analysis1", "entity")) %>% 
+    collect() %>% 
+    inner_join(
+      ., 
+      input %>% 
+        select(input, analysis2, rsid, th_start, th_end, th_pos, th_pval, 
+               description, phenotype, ncase, ncohort, in_start, in_end) %>% 
+        distinct(), 
+      by = c("input", "analysis2")) %>% 
+    # Make sure the TH are in the desired input window
+    filter((in_start < th_start) & (in_end > th_end)) %>% 
+    inner_join(
+      .,
+      input %>% 
+        select(input, entity, hgncid, chrom, gene_start, genetype) %>% 
+        distinct(), 
+      by = c("input", "entity")) %>% 
+    # Make sure the gene cis-windows are in the gwas TH window
+    filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) 
+  
+  ############################################
+  flog.debug("aba.fill | clean up conn")
+  close_int_conn(impala)
+  
+  ############################################
+  flog.debug("aba.fill | complete")
+  return(expanded_dat)
+  
+}
+
+#' aba.plot() - Plot aba results
 #' 
 #' This function tries to create a bubble plot to 
 #' illustrate the coloc region. This function returns
@@ -402,12 +408,11 @@ aba.filter <- function(.data, p12_ge = 0.80,
 #' @param p12_ge [Default = 0.80] Values below this will be colored as non-significant, while above have color for direction. 
 #' @param max_dot_size [Default = 5] Adjust max size of dots.
 #' @param title Set the plot title. NULL will remove title. 
-#' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
 #' @return ggplot2 object for viz and export.
 #' @examples 
 #' Basic use:
-#' coloc_plot <-aba.plot(colocs_filtered)
-#' coloc_plot <- aba.plot(colocs_filtered, max_dot_size = 3, title = "Cool plot")
+#' coloc_plot <- aba.plot(colocs)
+#' coloc_plot <- aba.plot(colocs, max_dot_size = 3, title = "Cool plot")
 #' 
 #' View the returned object:
 #' coloc_plot
@@ -415,44 +420,77 @@ aba.filter <- function(.data, p12_ge = 0.80,
 #' Save the object to PDF:
 #' ggsave(filename = "coloc_aba.pdf", 
 #'        plot     = coloc_plot, 
-#'        width    = 11, 
+#'        width    = 11,  
 #'        height   = 8.5, 
 #'        dpi      = 300)
 #'        
 #' Advanced use: query data, remove death related traits, filter, and then plot
-#' coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) %>% 
-#'                 filter(!str_detect(description, "death")) %>% 
-#'                 aba.filter() %>% 
-#'                 aba.plot(title = "Best plot ever")
+#' colocs <- aba.wrapper(hgncid = "HMGCR")
+#' colocs %>% filter(input == "HMGCR") %>% pluck("figures", 1) + ggtitle("Best plot ever")
+#' colocs %>% filter(input == "HMGCR") %>% pluck("data", 1) %>% filter(hgncid != "bad_gene") %>% aba.plot()
 #' @export
 #' @import dplyr
 #' @import stringr
 #' @import ggplot2
 #' @import futile.logger
 #' @import glue
-aba.plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL,
-                     flog_level = getOption("gtx.flog_level", "WARN")){
-  if(flog_level != "INFO" & flog_level != "WARN" & flog_level != "ERROR"){
-    flog.error(glue("aba.query_locus - flog_level defined as: {flog_level}. Needs to be [INFO, WARN, or ERROR]."))
-  }
-  flog.threshold(flog_level)
+aba.plot <- function(.data, ...){
+  ## Make it accept a vector, return data frame of input <-> figures or just 1 figure
+  ## Pull out plot function into internal fxn
+  ## add option to return data nested. 
   # Verify input
-  flog.info("aba.plot - validating input")
+  flog.debug("aba.plot | validating input")
   input <- .data
-  required_cols <- c("analysis1", "analysis2", "description", "hgncid", "p12", "alpha21")
+  required_cols <- c("analysis1", "analysis2", "description", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   if(!all(required_cols %in% (names(input)))){
-    flog.error(paste0("aba.plot - input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
+    flog.error(paste0("aba.plot | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
+    next;
+  }
+  
+  # If we only have 1 "input" process as singular
+  if(all((names(input) %in% "input")==FALSE)){
+    flog.debug("aba.plot | process single input")
+    ret = aba.int_coloc_plot(.data = input, ...) 
+  }
+  else {
+    flog.debug("aba.plot | process multiple inputs")
+    ret <- 
+      input %>% 
+      group_by(input) %>% 
+      nest() %>% 
+      mutate(figures = map(data, aba.int_coloc_plot, ...))
+  }
+  flog.debug("aba.plot | complete")
+  return(ret)
+}
+
+#' \strong{aba.int_coloc_plot() - Plot aba results}
+#' 
+#' This function is for internal aba plotting use. 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param p12_ge [Default = 0.80] Values below this will be colored as non-significant, while above have color for direction. 
+#' @param max_dot_size [Default = 5] Adjust max size of dots.
+#' @param title Set the plot title. NULL will remove title. 
+#' @return ggplot2 object for viz and export.
+#' @import dplyr
+#' @import rsample
+aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL){
+  flog.debug("aba.plot | validating input")
+  input <- .data
+  required_cols <- c("analysis1", "analysis2", "description", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
+  if(!all(required_cols %in% (names(input)))){
+    flog.error(paste0("aba.plot | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
     next;
   }
   if(!is.numeric(max_dot_size)){
-    flog.warn("aba.plot - max_dot_size parameter is not numeric.")
+    flog.warn("aba.plot | max_dot_size parameter is not numeric.")
   }
   if(!is.null(title) & !is.character(title)){
-    flog.warn("aba.plot - title is neither NULL or character string.")
+    flog.warn("aba.plot | title is neither NULL or character string.")
   }
   
   # Clean data (e.g. tissue & description), add simple direction of effect
-  flog.info("aba.plot - cleaing data for plotting")
+  flog.debug("aba.plot | cleaing data for plotting")
   fig_dat <- 
     input %>% 
     # clean tissue names
@@ -474,16 +512,16 @@ aba.plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL,
                                  p12 >= !! p12_ge & alpha21 <  0        ~ "Decreased", 
                                  p12 >= !! p12_ge & alpha21 == 0        ~ "None",
                                  p12 <  !! p12_ge & is.numeric(alpha21) ~ "Not Sig.")) %>% 
-    mutate(rs_pos = paste0(rsid, "\n", "chr", gwas_chrom, ":", gwas_th_pos ))
+    mutate(rs_pos = glue("{rsid}\n{chrom}:{th_pos}") %>% as.character())
   
-  flog.info("aba.plot - ordering results by chromosome - position coordinates")
+  flog.debug("aba.plot | ordering results by chromosome - position coordinates")
   # Order genes (cols) and rows (rs ids) by position
   fig_dat <- within(fig_dat, {
     hgncid <- reorder(hgncid, gene_start)
-    rs_pos <- reorder(rs_pos, gwas_th_pos) 
+    rs_pos <- reorder(rs_pos, th_pos) 
   })
   
-  flog.info("aba.plot - plotting data")
+  flog.debug("aba.plot | plotting data")
   fig <-
     fig_dat %>% 
     ggplot(aes(x = analysis1, y = description_wrap)) + 
@@ -516,453 +554,159 @@ aba.plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL,
     fig <- fig + ggtitle(title)
   }
   
-  flog.info("aba.plot - COMPLETED")
+  flog.debug("aba.plot | return plot")
   return(fig)
 }
 
-#' \strong{aba.query_locus_wrapper() - single function to wrap around: [\code{\link{aba.query_locus}}, \code{\link{aba.filter}}, \code{\link{aba.plot}}]}
+#' aba.wrapper - single function to query and plot the aba colocs
 #' 
-#' This function is a simple wrapper around \code{\link{aba.query_locus}}, 
-#' \code{\link{aba.filter}}, & \code{\link{aba.plot}}. This function 
-#' is ideal for high throughput generation of many plots. This 
-#' fucntion is \emph{not} ideal for deep dives into a locus.
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @param hgncid HGNC gene ID
-#' @param ensemblid Ensembl gene ID 
-#' @param rsid SNP rsid
-#' @param surround [Default = 1e6] Define region as \code{surround} +/- input gene TSS. 
+#' @param analysis_ids ukbiobank analysis id(s), single string or vector.
+#' @param hgncid HGNC symbol. Single string or vector. 
+#' @param ensemblid Ensembl gene ID. Single string or vector.
+#' @param rsid SNP rsid. Single string or vector.
+#' @param surround [Default = 1e6] Distance from input gene/rsid to GWAS top hits. 
 #' @param chrom chromosome - Used to define a specific region
 #' @param pos_start start position - Used to define a specific region, overrides surround
 #' @param pos_end end position - Used to define a specific region, overrides surround
-#' @param sc Spark connection
-#' @param ... Pass filtering options to \code{\link{aba.filter}}
-#' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
-#' @return ggplot2 object for viz and export.
-#' @examples  
-#' Basic use:
-#' hmgcr_fig <- aba.wrapper(hgncid = "HMGCR")
-#' 
-#' Advanced use: TODO
+#' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
+#' @param minpval1_lt [Default <= 1e-4] Min pval seen in the eQTL                
+#' @param minpval2_lt [Default <= 5e-8] Min pval seen in the GWAS data           
+#' @param gwas2gene_dist_lt [Default = 1e6] Max distance between coloc gene and gwas top hit. 
+#' @param ncase_ge [Default >= 200] Minimum ncases for traits.                   
+#' @param ncohort_ge [Default >= 200] Minimum ncohort for traits.
+#' @param protein_coding [Default = TRUE] Filter only for protein coding transcripts
+#' @param neale_only [Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.
+#' @param gsk_only [Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.
+#' @return data.frame with the inputs used, all the data for each input, and default plots
+#' @examples 
+#' Query aba colocs:
+#' colocs <- aba.wrapper(hgncid = "HMGCR")
 #' @export
-#' @import dplyr
+#' @import tidyr
 #' @import stringr
-#' @import sparklyr
-#' @import ggplot2
-#' @import glue
-#' @import purrr
 #' @import futile.logger
-aba.query_locus_wrapper <- function(hgncid, ensemblid, surround = 1e6, 
-                        chrom, pos_start, pos_end, rsid,
-                        sc = getOption("gtx.sc", NULL), 
-                        flog_level = getOption("gtx.flog_level", "WARN"), 
-                        ...){
-  if(flog_level != "INFO" & flog_level != "WARN" & flog_level != "ERROR"){
-    flog.error(glue("aba.query_locus - flog_level defined as: {flog_level}. Needs to be [INFO, WARN, or ERROR]."))
+#' @import glue 
+#' @import dplyr
+aba.wrapper <- 
+  function(analysis_ids, hgncid, ensemblid, rsid,
+           chrom, pos, pos_start, pos_end, 
+           impala = getOption("gtx.impala", NULL), ...){
+  ############################################
+  flog.debug("aba.wrapper | validating input.")
+  if(missing(hgncid) & 
+     missing(ensemblid) & 
+     missing(rsid) & 
+     (missing(chrom) & missing(pos_start) & missing(pos_end)) & 
+     missing(analysis_ids)){
+    flog.error("aba.wrapper | must specify either: analysis_ids, hgncid, ensemblid, or rsid. Skipping.")
+    return()
   }
-  flog.threshold(flog_level)
-  sc <- validate_sc(sc = sc)
+  ############################################
+  flog.debug("aba.wrapper | validating impala connection.")
+  close_conn_later <- case_when(is.null(impala) ~ TRUE, !is.null(impala) ~ FALSE)
+  conn <- validate_impala(impala = impala)
+  attr(conn, "internal_conn") <- FALSE
   
-  flog.info("aba.wrapper - validating input & making query of colocs in region")
-  surround <- enquo(surround)
-  # Determine which input to use and make query
-  if(!missing(hgncid)){
-    hgncid <- enquo(hgncid)
-    # Verify the hgncid is reasonable
-    if(!str_detect(quo_name(hgncid), "\\w+")){
-      flog.warn(glue("aba.wrapper - this hgncid ({tmp}) doesn't look right.",  
-                     tmp = quo_name(hgncid)))
-    }
-    # Query region using hgncid
-    colocs <- aba.query_locus(hgncid = !! hgncid, surround = !! surround, sc = sc)
-    wrap_title <- glue("Colocalizations around {tmp} (+/- {tmp2})", 
-                       tmp  = quo_name(hgncid),
-                       tmp2 = quo_name(surround))
+  ############################################
+  flog.debug("aba.wrapper | aba.query")
+  if(!missing(analysis_ids)){
+    flog.debug("aba.wrapper | processing analysis_ids input.")
+    colocs <- aba.query(analysis_ids = analysis_ids, impala = conn, ...)
+  }
+  else if(!missing(hgncid)){
+    flog.debug("aba.wrapper | processing hgncid input.")
+    colocs <- aba.query(hgncid = hgncid, impala = conn, ...)
   }
   else if(!missing(ensemblid)){
-    ensemblid <- enquo(ensemblid)
-    # Verify the ensemblid is reasonable
-    if(!str_detect(quo_name(ensemblid), "ENSG\\d+")){
-      flog.warn("aba.wrapper - this ensemblid doesn't look right.")
-      next;
-    }
-    # Query region using ensemblid
-    colocs <- aba.query_locus(ensemblid = !! ensemblid, surround = !! surround, sc = sc)
-    wrap_title <- glue("Colocalizations around {tmp} (+/- {tmp2})", 
-                       tmp  = quo_name(ensemblid), 
-                       tmp2 = quo_name(surround))
+    flog.debug("aba.wrapper | processing ensemblid input.")
+    colocs <- aba.query(ensemblid = ensemblid, impala = conn, ...)
   }
   else if(!missing(rsid)){
-    rsid <- enquo(rsid)
-    # Verify the rsid is reasonable
-    if(!str_detect(quo_name(rsid), "[rs]?\\d+")){
-      flog.warn(glue("aba.wrapper - this rsid ({tmp}) doesn't look right.", 
-                     tmp = quo_name(rsid)))
-    }
-    # Query region using rsid
-    colocs <- aba.query_locus(rsid = !! rsid, surround = !! surround, sc = sc)
-    wrap_title <- glue("Colocalizations around {tmp} (+/- {tmp2})", 
-                       tmp  = quo_name(rsid), 
-                       tmp2 = quo_name(surround))
+    flog.debug("aba.wrapper | processing rsid input.")
+    colocs <- aba.query(rsid = rsid, impala = conn, ...)
   }
-  else if(!missing(chrom) & !missing(pos_start) & !missing(pos_end)){
-    # Verify inputs, note: this may change in the future (e.g. M, alt chrom, etc)
-    if(!str_detect(chrom, "^[\\dXY]+$")){
-      flog.warn("aba.wrapper - this chrom doesn't match 1-22, X, or Y.")
-      next;
-    }
-    # Query region using hgncid
-    colocs    <- aba.query_locus(chrom     =  chrom, 
-                                 pos_start =  pos_start, pos_end = pos_end, 
-                                 surround  =  surround,  sc = sc)
-    wrap_title <- glue("Colocalizations between {chrom}:{pos_start}-{pos_end}")
+  else if(!missing(chrom) & !missing(pos)){
+    flog.debug("aba.wrapper | processing chrom & pos input.")
+    colocs <- aba.query(chrom     = chrom, 
+                        pos       = pos,
+                        impala    = conn, ...)
   }
-  # Run all the aba functions
-  fig <- 
-    colocs %>% 
-    aba.filter(...) %>% 
-    aba.plot(title = wrap_title)
+  else if(!missing(chrom) & (!missing(pos_start) | !missing(pos_end))){
+    flog.debug("aba.wrapper | processing chrom & pos input.")
+    colocs <- aba.query(chrom     = chrom, 
+                        pos_start = pos_start, 
+                        pos_end   = pos_end, 
+                        impala    = conn, ...)
+  }
+  else {
+    flog.error("aba.wrapper | unable to properly handle input.")
+    return()
+  }
+  ############################################
+  flog.debug("aba.wrapper | aba.fill")
+  colocs <- aba.fill(colocs, impala = conn)
   
-  flog.info("aba.wrapper - COMPLETED")
-  return(fig)
-}
+  ############################################
+  flog.debug("aba.wrapper | aba.plots")
+  colocs <- aba.plot(colocs)
+  
+  ############################################
+  flog.debug("aba.wrapper | clean up conn")
+  if(close_conn_later == TRUE){
+    implyr::dbDisconnect(conn)
+  }
+  
+  ############################################
+  flog.debug("aba.wrapper | complete")
+  return(colocs)
+  }
 
-#' \strong{aba.query_traits() - Query gwas traits for coloc all-by-all results}
-#' Query a list of GWAS traits for eQTL coloc results.
+#' aba.save - save \code{aba.wrapper} figures
+#' 
+#' This function will iterate over all inputs in an aba.wrapper results 
+#' and save each figures using the input to name the output figure. 
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @param analysis_ids ukbiobank analysis id(s), single string or vector. 
-#' @param flatten_data [Default = TRUE] Condense coloc data into single gene per row. 
-#' @param surround [Default = 1e6] Distance from GWAS top hit to TSS. 
-#' @param protein_coding_only [Default = TRUE] Filtering to only return protein coding transcripts. 
-#' @param progressive_validation [Default = FALSE] TRUE = iteratively check data is obtained from the multiple queries. This dramatically slows down analysis, but is useful for trouble shooting.
-#' @param aba_filter [Default = TRUE] Apply \code{\link{aba.filter}} to help validate colocs.
-#' @param ... Options to pass to \code{\link{aba.filter}}
-#' @param sc [Default =  getOption("gtx.sc")]. Spark connection. 
-#' @param flog_level [Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]
-#' @return a list with 2 data.frames. "flat" = flatten_data compact, 1 gene / row. "full" = full coloc results (after filtering)
+#' @param .data Results from aba.wrapper or aba.plot
+#' @param path [Default = \code{getwd}] Specify the path to save the figures
+#' @param suffix [Default = "aba-colocs"] File name = .data$input_$suffix.pdf
+#' @param ... Parameters to pass to ggsave. e.g. dpi = 300
 #' @examples 
-#' traits <- c("aid1", "aid2", "aid3")
-#' traits_colocs <- aba.query_traits(analysis_ids = traits)
-#' traits_colocs$flat %>% filter(hgncid == "Gene1")
-#' traits_colocs$full %>% filter(hgncid == "Gene1")
+#' Query aba colocs:
+#' colocs <- aba.wrapper(hgncid = c("gene1", "gene2"))
+#' 
+#' The wraper returns 2 figures, aba.save() will save both figures
+#' aba.save(colocs) 
 #' @export
-#' @import dplyr
-#' @importFrom tidyr crossing
-#' @import stringr
-#' @import sparklyr
 #' @import purrr
 #' @import futile.logger
 #' @import glue 
-aba.query_traits <- function(analysis_ids,
-                             aba_filter = TRUE,
-                             flatten_data = TRUE,
-                             surround = 1e6,
-                             protein_coding_only = TRUE,
-                             progressive_validation = FALSE,
-                             sc         = getOption("gtx.sc", NULL),
-                             flog_level = getOption("gtx.flog_level", "WARN"),
-                             ...){
-  if(flog_level != "INFO" & flog_level != "WARN" & flog_level != "ERROR"){
-    flog.error(glue("aba.query_traits - flog_level defined as: {flog_level}. Needs to be [INFO, WARN, or ERROR]."))
-  }
-  flog.threshold(flog_level)
-  flog.info("aba.query_traits - validating input.")
-  # Validate an input gene or region was defined
-  if(missing(analysis_ids)){
-    flog.error("aba.query_traits - must specify either: analysis_ids")
-    next;
-  }
-  # Check we have a spark connection
-  flog.info("aba.query_traits - validating Spark connection.")
-  abaQ_sc_created = FALSE
-  sc <- validate_sc(sc = sc)
-  
-  flog.info("aba.query_traits - establishing connection to database tables.")
-  analyses_tbl <- tbl(sc, "ukbiobank.analyses")
-  gwas_th_tbl  <- tbl(sc, "ukbiobank.gwas_results_top_hits")
-  genes_tbl    <- tbl(sc, "ukbiobank.genes")
-  colocs_tbl   <- tbl(sc, "ukbiobank.coloc_results")
-  sites_tbl    <- tbl(sc, "ukbiobank.sites_ukb_500kv3")
-  
-  # Make a tmp table with our input traits
-  traits     <- crossing(analysis_ids)
-  traits_tbl <- sdf_copy_to(sc, traits, overwrite = TRUE)
-  
-  # Make sure we can find these analysis ids
-  flog.info("aba.query_traits - pulling GWAS info about analysis ids.")
-  traits_tbl <- 
-    inner_join(
-      traits_tbl,
-      analyses_tbl %>% select(analysis, description, ncase, ncohort),
-      by = c("analysis_ids" = "analysis"))
-  
-  # Validate we got GWAS top hits back
-  if(isTRUE(progressive_validation)){
-    if(traits_tbl %>% collect() %>% nrow() == 0){
-      flog.warn("aba.query_traits - no GWAS analysis ids found to match input.")
-      next;
-    }
-  }
-  
-  # Identify GWAS top hits in the input traits
-  flog.info("aba.query_traits - pulling GWAS top hits.")
-  traits_th_tbl <- 
-    inner_join(
-      traits_tbl,
-      gwas_th_tbl,
-      by = c("analysis_ids" = "analysis")) %>% 
-    select(analysis2 = analysis_ids, description, ncase, ncohort, gwas_th_chrom = chrom, gwas_num_var = num_variants,
-           gwas_th_pos = pos_index, gwas_th_pval = pval_index) %>% 
-    left_join(.,
-              sites_tbl %>% select(pos, chrom, rs),
-              by = c("gwas_th_pos" = "pos", "gwas_th_chrom" = "chrom"))
-
-  # Validate we got GWAS top hits back
-  if(isTRUE(progressive_validation)){
-    if(traits_th_tbl %>% collect() %>% nrow() == 0){
-      flog.warn("aba.query_traits - no GWAS top hits found.")
-      next;
-    }
-  }
-  
-  # Find all the genes that overlap each GWAS top hit
-  flog.info("aba.query_traits - pulling genes that overlap GWAS top hits")
-  traits_th_genes_tbl <- 
-    left_join(
-      traits_th_tbl,
-      genes_tbl,
-      by = c("gwas_th_chrom" = "chrom")) %>% 
-    # Make sure the GWAS top hit is +/- {surround} from gene TSS (cis-window for GTEx)
-    filter(gwas_th_pos >= pos_start - surround & 
-           gwas_th_pos <= pos_start + surround)
-  
-  if(isTRUE(protein_coding_only)){
-    flog.info("aba.query_traits - selecting only protein coding transcripts")
-    traits_th_genes_tbl <- 
-      traits_th_genes_tbl %>% 
-      filter(genetype == "protein_coding")
-  }
-  
-  # Validate we got genes overlapping GWAS top hits
-  if(isTRUE(progressive_validation)){
-    if(traits_th_genes_tbl %>% collect() %>% nrow() == 0){
-      flog.error("aba.query_traits - did not find any genes that overlap the GWAS top hits.")
-      next;
-    }
-  }
-  
-  # Pull coloc data 
-  flog.info("aba.query_traits - pulling colocs for input GWAS & overlapping genes.")
-  traits_colocs <-
-    left_join(traits_th_genes_tbl,
-              colocs_tbl,
-              by = c("analysis2", "ensemblid" = "entity")) %>% 
-    collect() %>% 
-    mutate(log10_min_pval_colocGWAS_over_TopHitGWAS = log10(gwas_th_pval / minpval2)) %>% 
-    mutate(rsid = paste0("rs", rs)) %>% 
-    rename(gene_start = "pos_start", gene_end = "pos_end")
-  
-  # Validate we got genes overlapping GWAS top hits
-  if(traits_colocs %>% nrow() == 0){
-    flog.warn("aba.query_traits - did not find any colocs for these traits.")
-    next;
-  }
-  
-  # Filter for significant results
-  if(isTRUE(aba_filter)){
-    flog.info("aba.query_traits - performing aba.filter() on the coloc data.")
-    traits_colocs <-
-      traits_colocs %>% 
-      aba.filter(fill_matrix = FALSE, ...)
-  }
-
-  # Validate we got results back after filtering
-  if(traits_colocs %>% nrow() == 0){
-    flog.warn("aba.query_traits - after aba.filter no colocs remain.")
-    next;
-  }
-  
-  # Filter for significant results
-  if(isTRUE(flatten_data)){
-    flog.info("aba.query_traits - flattening data")
-    flat_dat <-
-      traits_colocs %>% 
-      group_by(rsid) %>% 
-      mutate(locus_n_genes   = n_distinct(ensemblid)) %>% 
-      mutate(locus_n_tissue  = n_distinct(analysis1)) %>% 
-      group_by(ensemblid) %>%
-      mutate(gene_n_top_hits = n_distinct(rsid)) %>%
-      mutate(gene_n_traits   = n_distinct(analysis2)) %>% 
-      mutate(gene_n_tissue   = n_distinct(analysis1)) %>% 
-      mutate(loci_max_n_genes  = case_when(gene_n_top_hits >  1 ~ max(locus_n_genes) %>% as.integer(), 
-                                           gene_n_top_hits <= 1 ~ NA_integer_)) %>% 
-      mutate(loci_min_n_genes  = case_when(gene_n_top_hits >  1 ~ min(locus_n_genes %>% as.integer()), 
-                                           gene_n_top_hits <= 1 ~ NA_integer_)) %>% 
-      mutate(loci_max_n_tissue = case_when(gene_n_top_hits >  1 ~ max(locus_n_tissue %>% as.integer()), 
-                                           gene_n_top_hits <= 1 ~ NA_integer_)) %>% 
-      mutate(loci_min_n_tissue = case_when(gene_n_top_hits >  1 ~ min(locus_n_tissue %>% as.integer()), 
-                                           gene_n_top_hits <= 1 ~ NA_integer_)) %>% 
-      ungroup() %>% 
-      mutate(locus_n_genes     = case_when(gene_n_top_hits >  1 ~ NA_integer_,
-                                           gene_n_top_hits <= 1 ~ locus_n_genes %>% as.integer())) %>% 
-      mutate(locus_n_tissue    = case_when(gene_n_top_hits >  1 ~ NA_integer_,
-                                           gene_n_top_hits <= 1 ~ locus_n_tissue %>% as.integer())) %>% 
-      select(ensemblid, hgncid, 
-             gene_n_traits, gene_n_tissue, gene_n_top_hits,
-             locus_n_genes,     locus_n_tissue, 
-             loci_max_n_genes,  loci_min_n_genes,
-             loci_max_n_tissue, loci_min_n_tissue) %>% 
-      distinct() %>% 
-      arrange(gene_n_top_hits, gene_n_tissue, locus_n_genes) 
-  }
-  
-  # Validate we got results back after filtering
-  if(traits_colocs %>% nrow() == 0){
-    flog.warn("aba.query_traits - after flattening, no colocs remain. Likely error/bug.")
-    next;
-  }
-  
-  flog.info("aba.query_traits - COMPLETED")
-  if(isTRUE(flatten_data)){
-    return(list(flat = flat_dat, full = traits_colocs))
-  }
-  else {
-    return(list(full = traits_colocs))
-  }
-} 
-
-#' \strong{aba.info_full_locus() - description of the cols from \code{\link{aba.query_locus}}}
-#' 
-#' Running this function will return a data frame with 
-#' descriptions for each column returned by \code{\link{aba.query_locus}}}
-#' and \code{\link{aba.query_traits}} in the "full" dataframe. 
-#' These column names are largely consistent with other RDIP tables for joins. 
-#' 
-#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @return data.frame
-#' @examples
-#' aba.info_full_locus() %>% filter(col_name == "log10_min_pval_colocGWAS_over_TopHitGWAS")
-#' @export
 #' @import dplyr
-aba.info_full_locus <- function(){
-  ret <- tibble(
-    col_name = c("analysis1", 
-                 "entity", 
-                 "p0", 
-                 "p1", 
-                 "p2", 
-                 "p1c2", 
-                 "p12",
-                 "alpha21", 
-                 "minpval1", 
-                 "minpval2", 
-                 "analysis2", 
-                 "gene_start",                  
-                 "genetype", 
-                 "hgncid", 
-                 "description", 
-                 "ncase", 
-                 "ncontrol",
-                 "ncohort", 
-                 "gwas_chrom", 
-                 "gwas_pos_index", 
-                 "gwas_th_pval", 
-                 "rs", 
-                 "log10_min_pval_colocGWAS_over_TopHitGWAS", 
-                 "minpval1_sci", 
-                 "minpval2_sci"),
-     description = c("eQTL tissue name", 
-                     "gene ensembld ID", 
-                     "coloc H0 - No association", 
-                     "coloc H1 - One variant associated with phenotype 1 only", 
-                     "coloc H2 - One variant associated with phenotype 2 only", 
-                     "coloc H3 - Two variants separately associated with phenotypes 1 and 2", 
-                     "coloc H4 - One variant associated with phenotypes 1 and 2",
-                     "direction of effect - average betas weighted posterior probability of the GWAS over the eQTL", 
-                     "min eQTL pval seen in coloc", 
-                     "min GWAS pval seen in coloc", 
-                     "GWAS analysis ID", 
-                     "entity start position", 
-                     "type of entity e.g., protein coding, miRNA, etc", 
-                     "Gene symbol", 
-                     "description of GWAS trait", 
-                     "number of cases in GWAS trait", 
-                     "number of controls in GWAS trait",
-                     "number of cohort in GWAS trait", 
-                     "GWAS top hit chromosome", 
-                     "GWAS top hit index position", 
-                     "GWAS top hit index pval",
-                     "GWAS top hit RSID",
-                     "log10 of the minpval2 / gwas_th_pval - Used to ensure the coloc GWAS signal overlaps primary top hit signal",
-                     "minpval1 formated as scientific string", 
-                     "minpval2 formated as scientific string"))
+#' @import ggplot2
+aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
+  ############################################
+  flog.debug("aba.save | validate input")
+  if(missing(.data)){flog.error("aba.save | missing input .data")}
   
-  return(ret)
-}
-
-#' \strong{aba.info_flat() - description of the cols from \code{\link{aba.query_locus}}}
-#' 
-#' Running this function will return a data frame with 
-#' descriptions for each column returned by \code{\link{aba.query_locus}}}. 
-#' These column names are consistent with other RDIP tables for joins. 
-#' 
-#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @return data.frame
-#' @examples
-#' aba.info_flat() %>% filter(col_name == "loci_max_n_genes")
-#' @export
-#' @import dplyr
-aba.info_flat <- function(){
-  ret <- tibble(
-    col_name = c("ensemblid", 
-                 "hgncid", 
-                 "gene_n_traits",
-                 "gene_n_tissue",
-                 "gene_n_top_hits",
-                 "locus_n_genes",
-                 "locus_n_tissue", 
-                 "loci_max_n_genes",
-                 "loci_min_n_genes",
-                 "loci_max_n_tissue",
-                 "loci_min_n_tissue"),
-    description = c("gene ensembl ID", 
-                    "gene hgnc id",
-                    "number of TRAITS colocalized with the gene",
-                    "number of TISSUES colocalized with the gene (across all traits)",
-                    "number of GWAS TOP HITS for the traits that coloc with the gene",
-                    "for the top hit in the coloc(s), how many GENES coloc'ed with that top hit signal",
-                    "for the top hit in the coloc(s), how many TISSUES had colocs with that top hit signal",
-                    "for the top hits with colocs with this gene, what was the MAX number of GENES per single top hit",
-                    "for the top hits with colocs with this gene, what was the MIN number of GENES per single top hit",
-                    "for the top hits with colocs with this gene, what was the MAX number of TISSUES per single top hit",
-                    "for the top hits with colocs with this gene, what was the MIN number of TISSUES per single top hit")
-  )
+  input = .data
+  mandatory_cols <- c("input", "figures")
+  if(any(map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
+    flog.error("aba.save | missing input column.")
+    return()
+  }
+  ############################################
+  flog.debug("aba.save | validate path")
+  safe_system <- safely(system)
   
-  return(ret)
-}
-
-#' \strong{aba.info_opt() - info about initiating and setting global opts for aba}
-#' 
-#' Running this function will return a data frame with 
-#' descriptions for each column returned by \code{\link{aba.query_locus}}}. 
-#' These column names are consistent with other RDIP tables for joins. 
-#' 
-#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @return data.frame
-#' @examples
-#' aba.info_opt()
-#' @export
-#' @import dplyr
-aba.info_opt <- function(){
-  ret <- tibble(
-         opt = c("sc",
-                 "flog_level"),
-         info = c("Spark connection", 
-                  "futile logger threshold"),
-         init = c(glue('sc <- spark_connect(master = {double_quote("yarn-client")}, spark_home = {double_quote("/opt/cloudera/parcels/SPARK2/lib/spark2")}, version = {double_quote("2.1")})'),
-                  glue('options(gtx.flog_level = {double_quote("WARN")})')),
-         global_opt = c(glue('options(gtx.sc = sc)'),
-                        glue('options(gtx.flog_level = {double_quote("WARN")})')))
+  exec <- safe_system(glue("mkdir -p {path}"))
+  if (!is.null(exec$error)){
+    flog.error(glue("aba.save | unable to create/validate {path}"))
+    stop()
+  }
   
-  return(ret)
+  ############################################
+  flog.debug("aba.save | saving figures . . .")
+  walk2(glue("{path}/{input$input}_{suffix}.pdf"), input$figures, ggsave, ...)
+  flog.debug("aba.save | saving figures complete")
 }

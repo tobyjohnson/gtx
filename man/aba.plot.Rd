@@ -2,10 +2,9 @@
 % Please edit documentation in R/aba.R
 \name{aba.plot}
 \alias{aba.plot}
-\title{\strong{aba.plot() - Plot aba results}}
+\title{aba.plot() - Plot aba results}
 \usage{
-aba.plot(.data, p12_ge = 0.8, max_dot_size = 5, title = NULL,
-  flog_level = getOption("gtx.flog_level", "WARN"))
+aba.plot(.data, ...)
 }
 \arguments{
 \item{p12_ge}{[Default = 0.80] Values below this will be colored as non-significant, while above have color for direction.}
@@ -13,8 +12,6 @@ aba.plot(.data, p12_ge = 0.8, max_dot_size = 5, title = NULL,
 \item{max_dot_size}{[Default = 5] Adjust max size of dots.}
 
 \item{title}{Set the plot title. NULL will remove title.}
-
-\item{flog_level}{[Default = getOption("gtx.flog_level", "WARN")] \code{\link{futile.logger}} \code{\link{flog.threshold}} [INFO, WARN, ERROR]}
 }
 \value{
 ggplot2 object for viz and export.
@@ -28,8 +25,8 @@ for best visualization of the plot.
 }
 \examples{
 Basic use:
-coloc_plot <-aba.plot(colocs_filtered)
-coloc_plot <- aba.plot(colocs_filtered, max_dot_size = 3, title = "Cool plot")
+coloc_plot <- aba.plot(colocs)
+coloc_plot <- aba.plot(colocs, max_dot_size = 3, title = "Cool plot")
 
 View the returned object:
 coloc_plot
@@ -37,15 +34,14 @@ coloc_plot
 Save the object to PDF:
 ggsave(filename = "coloc_aba.pdf", 
        plot     = coloc_plot, 
-       width    = 11, 
+       width    = 11,  
        height   = 8.5, 
        dpi      = 300)
        
 Advanced use: query data, remove death related traits, filter, and then plot
-coloc_plot <- aba.query_locus(hgncid = "HMGCR", sc = sc) \%>\% 
-                filter(!str_detect(description, "death")) \%>\% 
-                aba.filter() \%>\% 
-                aba.plot(title = "Best plot ever")
+colocs <- aba.wrapper(hgncid = "HMGCR")
+colocs \%>\% filter(input == "HMGCR") \%>\% pluck("figures", 1) + ggtitle("Best plot ever")
+colocs \%>\% filter(input == "HMGCR") \%>\% pluck("data", 1) \%>\% filter(hgncid != "bad_gene") \%>\% aba.plot()
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
