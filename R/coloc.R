@@ -1,46 +1,46 @@
 ## Colocalisation analysis, implementing method of Giambartolomei et al. 2014
 ##
-## changed API to pass in vectors instead of dataframe
-#' @export
-coloc.fast <- function(beta1, se1, beta2, se2, 
-                       priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5, 
-                       rounded = 6) {
-  abf1 <- abf.Wakefield(beta1, se1, priorsd1, log = TRUE)
-  abf2 <- abf.Wakefield(beta2, se2, priorsd2, log = TRUE)
-  w <- which(!is.na(abf1) & !is.na(abf2))
-  ## Fill in zeros not filter out, thanks Karl and Karsten!!!!
-  nv <- length(w)
-  abf1 <- norm1(c(0, abf1[w]), log = TRUE)
-  abf2 <- norm1(c(0, abf2[w]), log = TRUE)
-  res <- data.frame(hypothesis = paste0("H", 0:4),
-                    label = c("No association",
-                      "One variant associated with phenotype 1 only",
-                      "One variant associated with phenotype 2 only",
-                      "Two variants separately associated with phenotypes 1 and 2",
-                      "One variant associated with phenotypes 1 and 2"),
-                    prior = norm1(c(1, priorc1*nv, priorc2*nv, priorc1*priorc2*nv*(nv - 1), priorc12*nv)),
-                    bf = if (nv > 0) c(abf1[1]*abf2[1], 
-                      sum(abf1[-1])*abf2[1]/nv, 
-                      abf1[1]*sum(abf2[-1])/nv, 
-                      (sum(abf1[-1])*sum(abf2[-1]) - sum(abf1[-1]*abf2[-1]))/(nv*(nv - 1)), 
-                      sum(abf1[-1]*abf2[-1])/nv) else rep(NA, 5))
-  res$bf <- res$bf/max(res$bf) # was: res$bf/res$bf[1] # caused division by zero for strongly colocalized signals
-  res$posterior <- norm1(res$prior*res$bf)
-  ## compute model averaged effect size ratios
-  mw <- abf1[-1]*abf2[-1] # model weights
-  alpha12 <- sum(beta1[w]/beta2[w]*mw)/sum(mw)
-  alpha21 <- sum(beta2[w]/beta1[w]*mw)/sum(mw)
-  if (is.finite(rounded)) {
-    res$posterior = round(res$posterior, rounded)
-  }
-  return(list(results = res, nvariants = length(w), alpha12 = alpha12, alpha21 = alpha21))
-}
 
+#' Colocalization computation
+#'
+#' Colocalization computation using summary statistics
+#'
+#' Computes Bayesian posterior probabilities of colocalization versus
+#' alternative models, based on the approach of Giambartolomei et al. (2014)
+#' but with a more efficient and more flexible implementation.
+#' The original approach is also extended to compute a model averaged
+#' point estimate of the causal effect of each trait on the other.
+#'
+#' The parameter \code{join_type} controls how variants with missing
+#' summary statistics are handled.  \code{inner} subsets to variants
+#' with non-missing statistics for both analyses.  \code{outer} keeps
+#' substitutes Bayes factors of zero for all variants with missing
+#' statistics (i.e. assumes they have much less strong associations
+#' than other variants).  \code{left} subsets to variants with
+#' non-missing beta1 and se1 analysis 1, and substitutes Bayes factors
+#' of zero for variants with missing beta2 or se2.  \code{right} does
+#' the opposite.
+#'
+#' @param data Data frame with one row for each variant, and columns beta1, se1, beta2, se2
+#' @param priorsd1 Standard deviation of prior on beta1
+#' @param priorsd2 Standard deviation of prior on beta2
+#' @param priorc1 Prior on variant being causal for trait 1
+#' @param priorc2 Prior on variant being causal for trait 2
+#' @param priorc12 Prior on variant being causal for traits 1 and 2
+#' @param join_type How to handle missing summary statistics
+#' @param summary_only Whether to return only the colocalization results
+#'
+#' @return
+#'  The input data frame with additional columns added,
+#'  and colocalization probabilities as attributes.
+#'
+#' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
+#' @export
 coloc.compute <- function(data,
                           priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
                           join_type = 'inner',
                           summary_only = FALSE) {
-    ## coloc_compute replaces lnabf that are NA by -Inf , hance zero probability.
+    ## coloc_compute replaces lnabf that are NA by -Inf , hence zero probability.
     ## Can be used two ways:
     ##   1. Set to *match* the type of join used in the preceding db query, so that rows
     ##      missing from one side of the query are handled appropriately.
@@ -104,11 +104,48 @@ coloc.compute <- function(data,
     return(invisible(NULL))
 }
 
-## TO DO
-## Function rename rationalization
-##   regionplot.region -> gtxregion
-## Sanitation for required length 1
-## Wrapper for SQL queries that must return data frame of 1 or >=1 rows
+
+## coloc.fast() is a minimalist implementation
+## intended to be an internal function, for use inside
+## data table grouped operations (such inside multicoloc)
+##
+coloc.fast <- function(beta1, se1, beta2, se2,
+                       join_type = 'inner', 
+                       priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5) {
+
+  stopifnot(join_type %in% c('inner', 'left', 'right', 'outer'))
+  lnabf1 <- abf.Wakefield(beta1, se1, priorsd1, log = TRUE)
+  lnabf2 <- abf.Wakefield(beta2, se2, priorsd2, log = TRUE)
+  ## Fill in zeros not filter out, depending on join_type, thanks Karl and Karsten!!!!
+  inc1 <- if (join_type == 'inner' | join_type == 'left') !is.na(lnabf1) else TRUE
+  inc2 <- if (join_type == 'inner' | join_type == 'right') !is.na(lnabf2) else TRUE
+  inc <- inc1 & inc2
+  nv <- sum(inc)
+  if (nv > 0) {
+    ## compute colocalization model probabilities
+    abf1 <- norm1(c(0, lnabf1[inc]), log = TRUE)
+    abf2 <- norm1(c(0, lnabf2[inc]), log = TRUE)
+    abf1[is.na(abf1)] <- 0
+    abf2[is.na(abf2)] <- 0
+    posterior <- norm1(c(1. * abf1[1]*abf2[1],
+                         priorc1 * sum(abf1[-1])*abf2[1],
+                         priorc2 * abf1[1]*sum(abf2[-1]),
+                         priorc1*priorc2 * (sum(abf1[-1])*sum(abf2[-1]) - sum(abf1[-1]*abf2[-1])),
+                         priorc12 * sum(abf1[-1]*abf2[-1])))
+    ## compute model averaged effect size ratios
+    mw <- abf1[-1]*abf2[-1] # model weights
+    alpha12 <- sum(beta1[inc]/beta2[inc]*mw)/sum(mw)
+    alpha21 <- sum(beta2[inc]/beta1[inc]*mw)/sum(mw)
+  } else {
+    posterior <- rep(NA, 5)
+    alpha12 <- NA
+    alpha21 <- NA
+  }
+  res <- c(nv, posterior, alpha12, alpha21)
+  names(res) <- c('nv', 'P0', 'P1', 'P2', 'P1,2', 'P12', 'alpha12', 'alpha21')
+  return(as.list(res)) # FIXME make this more slick
+}
+
 
 #' @export
 coloc.data <- function(analysis1, analysis2,
@@ -240,7 +277,7 @@ coloc.data <- function(analysis1, analysis2,
 #' 
 #' @return
 #'  a data frame containing the result of the
-#'  colocalization analysis, see \code{\link{coloc.fast}} for details.
+#'  colocalization analysis, see \code{\link{coloc.compute}} for details.
 #'  The plot is generated as a side effect.
 #'
 #' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
@@ -512,40 +549,39 @@ multicoloc <- function(analysis1, analysis2,
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround, hard_clip = hard_clip, 
                          dbc = dbc)
-  ss <- data.table(ss) # could inline
   
+  ## get gene data for entities, FIXME not guaranteed entity_type is ensg
   res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
-                    sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
+                    sprintf('SELECT ensemblid AS entity1, hgncid FROM genes WHERE %s ORDER BY pos_start;',
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
                     uniq = FALSE)
-  res$entity <- res$ensemblid # FIXME not guaranteed entity_type
-  analyses <- unique(ss$analysis1)
-
+  
+  ## do colocalization analyses using data.table fast grouping
   t0 <- as.double(Sys.time())
+  ss <- data.table(ss) # could inline
+  setkey(ss, analysis1, entity1)
   resc1 <- ss[ ,
-              subset(coloc.fast(beta1, se1, beta2, se2, ...)$results, hypothesis == 'H4')$posterior,
+              coloc.fast(beta1, se1, beta2, se2), # FIXME explicitly pass priors
               by = .(analysis1, entity1)]
-  names(resc1)[3] <- 'Hxy'
-  resc <- reshape(resc1, direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
-  res <- cbind(res, resc[match(res$entity, resc$entity1), ])
-  #for (this_analysis in analyses) {
-  #    resc <- do.call(rbind,
-  #                    lapply(unique(res$entity), function(this_entity) {
-  #                        return(subset(coloc.fast(subset(ss, analysis1 == this_analysis & entity1 == this_entity))$results,
-  #                                      hypothesis == 'H4')$posterior)
-  #                    }))
-  #    colnames(resc) <- paste0('Hxy', '_', this_analysis)
-  #    res <- cbind(res, resc)
-  #}
   t1 <- as.double(Sys.time())
-  gtxlog('Colocalization analyzed for ', sum(!is.na(res[ , paste0('Hxy', '.', analyses)])), ' pairs in ', round(t1 - t0, 3), 's')
+  gtxlog('Colocalization analyzed for ', sum(!is.na(resc1$P12)), ' pairs in ', round(t1 - t0, 3), 's')
 
   if (identical(style, 'none')) {
       ## do nothing
   } else if (identical(style, 'heatplot')) {
-      zmat <- as.matrix(res[ , paste0('Hxy', '.', analyses)])
+      ## All of the following should be moved inside multicoloc.plot()
+      analyses <- unique(ss$analysis1)
+      resc1[ , z := P12] # to replace by next line
+      #resc1[ , z := P12*sign(alpha21)] # H4 probability * sign of effect of 1 on 2
+      # from multicoloc
+      resc <- reshape(resc1[ , list(analysis1, entity1, z)],
+                      direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
+      # joining onto res, note preserve order of res because sorted by pos_start,
+      # MUST BE preserved if replaced by a merge or left join
+      res <- cbind(res, resc[match(res$entity1, resc$entity1), paste0('z', '.', analyses), with  = FALSE])
+      zmat <- as.matrix(res[ , paste0('z', '.', analyses)])
       colnames(zmat) <- analyses
-      rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(ensemblid))) # FIXME will this work for all entity types
+      rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(entity1))) # FIXME will this work for all entity types
       ## thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold could be relative instead of absolute
       ## thresh_entity <- thresh_entity*max(zmat, na.rm = TRUE) # threshold, ditto
       ## FIXME, if nothing passes thresholds, should adapt more gracefully
@@ -563,14 +599,14 @@ multicoloc <- function(analysis1, analysis2,
       stop('unknown style [ ', style, ' ]')
   }
   
-  return(res)
+  return(resc1)
 }
 
 ## Input, a matrix of z values with analysis as column names and entity as row names 
 multicoloc.plot <- function(zmat,
                             dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
-    
+  
     ## Query plot labels for analyses
     label_y <- sqlWrapper(dbc, 
                          sprintf('SELECT analysis, label FROM analyses WHERE %s',
@@ -622,6 +658,9 @@ multicoloc.plot <- function(zmat,
     return(invisible(NULL))
 }
 
+
+## We aim to deprecate multicoloc.kbs by fixing multicoloc
+## to return results as a long list
 #' @export
 multicoloc.kbs <- function(analysis1, analysis2,
                        chrom, pos_start, pos_end, pos, 
@@ -640,24 +679,19 @@ multicoloc.kbs <- function(analysis1, analysis2,
           as.data.table()
   
   res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
-                    sprintf('SELECT * FROM genes WHERE %s ORDER BY pos_start;',
+                    sprintf('SELECT ensemblid AS entity1, hgncid FROM genes WHERE %s ORDER BY pos_start;',
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
                     uniq = FALSE)
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
 
   ret <- ss[ ,
-              coloc.fast(beta1, se1, beta2, se2, ...)$results,
+              coloc.fast(beta1, se1, beta2, se2),
               by = .(analysis1, entity1)] %>% 
-         dplyr::select(-label, -prior, -bf) %>% 
-         left_join(., 
-                  res %>% 
-                    rename(entity1 = entity) %>% 
-                    select(entity1, hgncid), 
-                  by = "entity1") %>% 
-        dplyr::select(-posterior, -hypothesis, everything()) %>%
-        rename(tissue = analysis1) %>%
-        rename(ensembl_id = entity1) %>%
-        rename(hgnc_id = hgncid)
+         left_join(., res, by = "entity1") %>% 
+         rename(tissue = analysis1) %>%
+         rename(ensembl_id = entity1) %>%
+         rename(hgnc_id = hgncid)
+      # FIXME you may want to rename P1, P2, P12 etc.
   
   return(ret)
 }
