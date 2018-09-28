@@ -141,30 +141,30 @@ coloc.data <- function(analysis1, analysis2,
                                       chrom, pos, ref, alt, beta, se
                                   FROM %sgwas_results 
                                   WHERE
-                                      %s AND %s %s AND pval IS NOT NULL
+                                      %s AND %s AND %s AND pval IS NOT NULL
                                  ) AS t1 
                                  FULL JOIN 
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se
                                   FROM %sgwas_results 
                                   WHERE 
-                                      %s AND %s %s AND pval IS NOT NULL
+                                      %s AND %s AND %s AND pval IS NOT NULL
                                  ) AS t2
                                  USING (chrom, pos, ref, alt);',
                             gtxanalysisdb(analysis1), 
                             gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
                             gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
-                            if (!is.null(xentity1)) sprintf(' AND entity=\'%s\'', xentity1$entity) else '', 
+                            xentity1$entity_where, 
                             gtxanalysisdb(analysis2), 
                             gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis, different to arguments analysis1 and analysis2
                             gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
-                            if (!is.null(xentity2)) sprintf(' AND entity=\'%s\'', xentity2$entity) else '' 
+                            xentity2$entity_where 
                             ),
                     uniq = FALSE) # expect >=1 rows
 
   attr(res, 'region') <- xregion
-  attr(res, 'entity1') <- xentity1 # if NULL then no attr is set
-  attr(res, 'entity2') <- xentity2 # if NULL then no attr is set
+  attr(res, 'entity1') <- xentity1 # note never null, but $entity element may be NULL
+  attr(res, 'entity2') <- xentity2 # note never null, but $entity element may be NULL
   
   return(res)
 }

@@ -440,7 +440,7 @@ gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
     } else {
         alabel <- ares$label
     }
-    if (!is.null(entity)) alabel <- paste(entity$entity_label, alabel)
+    if (!is.null(entity$entity)) alabel <- paste(entity$entity_label, alabel)
     return(alabel)
 }
 
@@ -602,9 +602,11 @@ gtxregion <- function(chrom, pos_start, pos_end,
 #' @export
 gtxentity <- function(analysis, entity, hgncid, ensemblid, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
-    gtxdbcheck(dbc)
+    ## Check the db connections we will actually use (genes will always be queried before exit, unless error)
+    gtxdbcheck(getOption('gtx.dbConnection_cache_analyses', dbc), tables_required = 'analyses')
+    gtxdbcheck(getOption('gtx.dbConnection_cache_genes', dbc), tables_required = 'genes')
 
-    entity_type <- sqlWrapper(dbc,
+    entity_type <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
                               sprintf('SELECT entity_type FROM analyses WHERE %s;',
                                       gtxwhat(analysis1 = analysis))
                               )$entity_type
@@ -622,7 +624,8 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
             } else {
                 ## attempt to convert assumed HGNC id to Ensembl gene id
                 gtxlog('Looking for Ensembl gene id for entity [ ', entity, ' ]')
-                entity <- sqlWrapper(dbc,
+                ## Check the db connections we will actually use
+                entity <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                                      sprintf('SELECT ensemblid FROM genes WHERE %s;', 
                                              gtxwhere(hgncid = entity))
                                      )$ensemblid
@@ -631,7 +634,7 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
         } else {
             ## infer entity from other arguments if supplied
             if (!missing(hgncid)) {
-                entity <- sqlWrapper(dbc,
+                entity <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                                      sprintf('SELECT ensemblid FROM genes WHERE %s;', 
                                              gtxwhere(hgncid = hgncid))
                                      )$ensemblid
@@ -643,14 +646,18 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
                 stop('Analysis [ ', analysis, ' ] requires an Ensembl gene id entity but none could be inferred')
             }
         }
-        entity_label <- sqlWrapper(dbc,
+        entity_label <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                                    sprintf('SELECT hgncid FROM genes WHERE %s;',
                                            gtxwhere(ensemblid = entity))
                                    )$hgncid
         if (is.na(entity_label) || entity_label == '') entity_label <- entity # may have to paste 'ENSG' back on when switch to ints
-        return(list(entity = entity, entity_label = entity_label))
+        return(list(entity = entity,
+                    entity_label = entity_label,
+                    entity_where = sprintf('(entity = \'%s\')', entity)))
     } else {
-        return(NULL)
+        return(list(entity = NULL,
+                    entity_label = '',
+                    entity_where = '(True)'))
         # entity_type is NULL or unrecognized type
     }
     stop('internal error in gtxentity')
