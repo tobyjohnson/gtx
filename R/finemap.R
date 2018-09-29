@@ -34,27 +34,27 @@ fm_signal <- function(data,
                       priorsd = 1, priorc = 1e-5, cs_size = 0.95, cs_only = FALSE) {
   stopifnot(all(c('beta', 'se') %in% names(data)))
     
+  ## Compute lnABF for each variant versus empty model
   data$lnabf <- with(data, abf.Wakefield(beta, se, priorsd, log = TRUE))
-    
-  data <-
-    data %>% 
-    tibble::as_tibble(rownames = NULL) %>% 
-    tibble::rownames_to_column(var="original_order") %>% 
-    dplyr::mutate(abf = exp(lnabf)) %>% 
-    dplyr::mutate(sum_abf = sum(abf, na.rm = TRUE)) %>% 
-    dplyr::mutate(pp_signal = abf / sum_abf) %>% 
-    dplyr::arrange(desc(pp_signal)) %>% 
-    dplyr::mutate(pp_cumsum = cumsum(pp_signal)) %>% 
-    dplyr::mutate(cs_signal = case_when(
-					pp_cumsum-pp_signal <= cs_size ~ TRUE,   # Note: subtracting pp_signal so that the value that makes the cumulative sum surpassing the threshold is also marked as F
-                                 	pp_cumsum-pp_signal >  cs_size ~ FALSE)
-    	) %>% 
-    dplyr::arrange(original_order) %>%
-    dplyr::select(-sum_abf, -pp_cumsum, -abf, -original_order) 
-    
-  if (cs_only){ data <- data[which(data$cs_signal), ] }
+  ## Make a vector of (ABFs and) posteriors *with empty model as first element*
+  ## (*) Thus the i-th variant has position (i+1) in this vector
+  ## Normalization sum-to-one is thus over the empty model and all one-causal-variant models
+  ##abf <- norm1(c(0, data$lnabf), log = TRUE) # general decision not to return this intermediate quantity
+  pp <- norm1(c(0, data$lnabf + log(priorc)), log = TRUE)
+  ##abf[is.na(abf)] <- 0.
+  pp[is.na(pp)] <- 0. # should be option to leave as NA or set to zero
+  ## Add normalised probabilities for variants back to dataframe;
+  ## drop first element see note (*) above
+  ##data$abf_signal <- abf[-1]
+  data$pp_signal <- pp[-1]
+  ## Compute credible set on whole vector including empty model, then
+  ## add TRUE/FALSE indicators for variants back to the dataframe
+  ## drop first element see note (*) above
+  data$cs_signal <- credset(pp, cred = cs_size)[-1]
+  if (cs_only) data <- data[which(data$cs_signal), ]
   attr(data, 'params_signal') <- list(priorsd = priorsd, priorc = priorc, cs_size = cs_size)
-  
+  ##attr(data, 'nullabf_signal') <- abf[1]
+  attr(data, 'nullpp_signal') <- pp[1]
   return(data)
 }
 

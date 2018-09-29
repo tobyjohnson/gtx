@@ -17,7 +17,7 @@
 #' @export
 # Could inherit param documentation from gtxanalyses
 # Should merge phewas.qq into main phewas as an alternative plot style
-phewas <- function(chrom, pos, rs,
+phewas <- function(chrom, pos, ref, alt, rs,
                    analysis, analysis_not, 
                    description_contains,
                    phenotype_contains,
@@ -32,7 +32,7 @@ phewas <- function(chrom, pos, rs,
                    dbc = getOption("gtx.dbConnection", NULL)) {
 
     gtxdbcheck(dbc)
-    p1 <- phewas.data(chrom = chrom, pos = pos, rs = rs,
+    p1 <- phewas.data(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs,
                       analysis = analysis, analysis_not = analysis_not,
                       description_contains = description_contains,
                       phenotype_contains = phenotype_contains,
@@ -97,9 +97,11 @@ phewas <- function(chrom, pos, rs,
 
 #' @describeIn phewas Look up results without plotting
 #' 
-#' @param chrom Chromosome of the variant of interest
-#' @param pos Position of the variant of interest
-#' @param rs dbSNP rs identifier of the variant of interest
+#' @param chrom Chromosome of variant of interest
+#' @param pos Position of variant of interest
+#' @param ref Reference allele of variant of interest
+#' @param alt Alternate allele of variant of interest
+#' @param rs dbSNP rs identifier of variant of interest
 #' @param analysis Identifiers of analyses to include
 #' @param analysis_not Identifiers of analyses to exclude
 #' @param description_contains Search term for analyses to include
@@ -113,7 +115,7 @@ phewas <- function(chrom, pos, rs,
 #'
 #' @return Data frame of summary statistics
 #' @export
-phewas.data <- function(chrom, pos, rs,
+phewas.data <- function(chrom, pos, ref, alt, rs,
                         analysis, analysis_not, 
                         description_contains,
                         phenotype_contains,
@@ -131,7 +133,7 @@ phewas.data <- function(chrom, pos, rs,
     ## Look up variant
     v1 <- sqlWrapper(dbc,
                      sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
-                             gtxwhere(chrom = chrom, pos = pos, rs = rs))) # default uniq = TRUE
+                             gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs))) # default uniq = TRUE
 
     ## Look up analysis metadata
     a1 <- gtxanalyses(analysis = analysis, analysis_not = analysis_not, 
@@ -220,7 +222,7 @@ phewas.data <- function(chrom, pos, rs,
 #' @describeIn phewas Draw simple QQ plot of PheWAS results
 
 #' @export 
-phewas.qq <- function(chrom, pos, rs,
+phewas.qq <- function(chrom, pos, ref, alt, rs,
                       analysis, analysis_not, 
                       description_contains,
                       phenotype_contains,
@@ -229,7 +231,7 @@ phewas.qq <- function(chrom, pos, rs,
                       dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
 
-    res <- phewas.data(chrom = chrom, pos = pos, rs = rs,
+    res <- phewas.data(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs,
                        analysis = analysis, analysis_not = analysis_not, 
                        description_contains = description_contains,
                        phenotype_contains = phenotype_contains,

@@ -14,7 +14,7 @@ gtxwhere <- function(chrom,
                      pos, pos_ge, pos_le, 
                      pos_end_ge, pos_start_le, 
                      pos_start_ge, pos_end_le, 
-                     rs, hgncid, ensemblid,
+                     ref, alt, rs, hgncid, ensemblid,
                      entity, 
                      tablename) {
   ## function to construct a WHERE string for constructing SQL queries
@@ -58,6 +58,12 @@ gtxwhere <- function(chrom,
         
         if (missing(pos_end_le)) NULL
         else sprintf("pos_end<=%s", sanitize(pos_end_le, type = "int")),
+        
+        if (missing(ref)) NULL
+        else sprintf("ref='%s'", sanitize(ref, type = "ACGT+")),
+        
+        if (missing(alt)) NULL
+        else sprintf("alt='%s'", sanitize(alt, type = "ACGT+")),
         
         if (missing(rs)) NULL
         else sprintf("rsid=%s", sanitize(rs, type = "rs")), # note sanitize(type="rs") strips the rs parts hence returns integers
