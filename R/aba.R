@@ -473,7 +473,6 @@ aba.plot <- function(.data, ...){
 #' @param title Set the plot title. NULL will remove title. 
 #' @return ggplot2 object for viz and export.
 #' @import dplyr
-#' @import rsample
 aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL){
   flog.debug("aba.plot | validating input")
   input <- .data
