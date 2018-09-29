@@ -10,7 +10,7 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
 Imports:
     beeswarm,survival,meta,rmeta
 Depends:
-    DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger,tibble,readr
+    DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger,tibble,readr,implyr
 Suggests:
     knitr,testthat,tidyr
 VignetteBuilder: knitr
