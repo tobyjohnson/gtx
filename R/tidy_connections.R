@@ -235,7 +235,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_strin
     left_join(col_info, 
               sql_types, 
               by = c("col_class" = "r_class"))
-  # mutate(sql_create_tbl = glue("{col_names} {sql_class}"))
+
   if(any(is.na(col_info$sql_class))){
     bad_cols <- 
       col_info %>% 

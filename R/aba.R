@@ -21,12 +21,11 @@
 #' @param pos_start start position - Used to define a specific region, overrides surround
 #' @param pos_end end position - Used to define a specific region, overrides surround
 #' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
-#' @param minpval1_lt [Default <= 1e-4] Min pval seen in the eQTL                
-#' @param minpval2_lt [Default <= 5e-8] Min pval seen in the GWAS data           
-#' @param gwas2gene_dist_lt [Default = 1e6] Max distance between coloc gene and gwas top hit. 
+#' @param minpval1_le [Default <= 1e-4] Min pval seen in the eQTL                
+#' @param minpval2_le [Default <= 5e-8] Min pval seen in the GWAS data           
 #' @param ncase_ge [Default >= 200] Minimum ncases for traits.                   
 #' @param ncohort_ge [Default >= 200] Minimum ncohort for traits.
-#' @param protein_coding [Default = TRUE] Filter only for protein coding transcripts
+#' @param protein_coding_only [Default = TRUE] Filter only for protein coding transcripts
 #' @param neale_only [Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.
 #' @param gsk_only [Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.
 #' @param db [Defalt = "gene_gwas"] Database to pull data from. 
@@ -46,8 +45,7 @@
 aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                       chrom, pos, pos_start, pos_end, p12_ge = 0.80, 
                       minpval1_le   = 1e-4, minpval2_le = 5e-8,
-                      surround = 1e6, gwas2gene_dist_lt = 1e6,
-                      ncase_ge = 200, ncohort_ge = 200, 
+                      surround = 1e6, ncase_ge = 200, ncohort_ge = 200, 
                       protein_coding_only = FALSE, 
                       neale_only  = FALSE, 
                       gsk_only    = FALSE,
@@ -497,7 +495,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
     mutate(analysis1 = str_replace_all(analysis1, "gtex7", "")) %>%
     mutate(analysis1 = str_to_title(analysis1)) %>% 
     mutate(analysis1 = str_trim(analysis1)) %>% 
-    # clean GWAS description names
+    # clean GWAS description names by removing "_" 
     mutate(description = str_replace_all(description, "_", " ")) %>% 
     # Fill in missing hgncdids with ensemblids
     mutate(hgncid = case_when(!str_detect(hgncid, "\\w+") ~ entity,
@@ -544,7 +542,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
           axis.title.y     = element_blank(),
           panel.grid.major = element_line(size = 0.25),
           panel.grid.minor = element_line(size = 0.25),
-          strip.text.x     = element_text(face = "bold"),
+          strip.text.x     = element_text(face = "bold.italic"),
           strip.text.y     = element_text(size = 5, angle = 0),
           plot.title       = element_text(hjust = 0.5)) +
     guides(size  = guide_legend(title = "Posterior probability\nof colocalization"))
@@ -569,12 +567,11 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
 #' @param pos_start start position - Used to define a specific region, overrides surround
 #' @param pos_end end position - Used to define a specific region, overrides surround
 #' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
-#' @param minpval1_lt [Default <= 1e-4] Min pval seen in the eQTL                
-#' @param minpval2_lt [Default <= 5e-8] Min pval seen in the GWAS data           
-#' @param gwas2gene_dist_lt [Default = 1e6] Max distance between coloc gene and gwas top hit. 
+#' @param minpval1_le [Default <= 1e-4] Min pval seen in the eQTL                
+#' @param minpval2_le [Default <= 5e-8] Min pval seen in the GWAS data           
 #' @param ncase_ge [Default >= 200] Minimum ncases for traits.                   
 #' @param ncohort_ge [Default >= 200] Minimum ncohort for traits.
-#' @param protein_coding [Default = TRUE] Filter only for protein coding transcripts
+#' @param protein_coding_only [Default = TRUE] Filter only for protein coding transcripts
 #' @param neale_only [Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.
 #' @param gsk_only [Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.
 #' @return data.frame with the inputs used, all the data for each input, and default plots
