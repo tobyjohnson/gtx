@@ -5,7 +5,7 @@
 \title{Copy large data to RDIP tables.}
 \usage{
 big_copy_to(df, dest = getOption("gtx.impala", NULL),
-  chrom_as_string = TRUE)
+  chrom_as_string = TRUE, database = NULL, table_name = NULL)
 }
 \arguments{
 \item{df}{Data to copy to RDIP}

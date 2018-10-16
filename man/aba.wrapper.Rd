@@ -26,17 +26,15 @@ aba.wrapper(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
 
 \item{p12_ge}{[Default >= 0.80] This is the "H4" posterior probability cutoff}
 
-\item{minpval1_lt}{[Default <= 1e-4] Min pval seen in the eQTL}
+\item{minpval1_le}{[Default <= 1e-4] Min pval seen in the eQTL}
 
-\item{minpval2_lt}{[Default <= 5e-8] Min pval seen in the GWAS data}
-
-\item{gwas2gene_dist_lt}{[Default = 1e6] Max distance between coloc gene and gwas top hit.}
+\item{minpval2_le}{[Default <= 5e-8] Min pval seen in the GWAS data}
 
 \item{ncase_ge}{[Default >= 200] Minimum ncases for traits.}
 
 \item{ncohort_ge}{[Default >= 200] Minimum ncohort for traits.}
 
-\item{protein_coding}{[Default = TRUE] Filter only for protein coding transcripts}
+\item{protein_coding_only}{[Default = TRUE] Filter only for protein coding transcripts}
 
 \item{neale_only}{[Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.}
 

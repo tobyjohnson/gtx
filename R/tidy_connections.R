@@ -119,52 +119,108 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @export
 #' @param df Data to copy to RDIP
 #' @param dest Impala implyr connection
-#' @return table reference to the \code{.data} in RDIP
+#' @param database Defaults to user's database: \code{whoami}.
+#' @param table_name [Default = "tmp_data4join"] Specify table name, overrides random_name = TRUE
+#' @param random_name [Default = FALSE] TRUE = ~random number name for the table. 
+#' @return table reference to the \code{df} in RDIP
 #' @import dplyr
 #' @import glue
 #' @import implyr
 #' @import readr
 #' @import futile.logger
 ############################################
-impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
-  
+impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
+                           database = NULL, table_name = "tmp_data4join", random_name = FALSE ){
+  safely_dbExecute  <- purrr::safely(implyr::dbExecute)
+  safely_dbGetQuery <- purrr::safely(implyr::dbGetQuery)
   # Validate input has rows
   if(nrow(df) == 0){ flog.error("tidy_connections::impala_copy_to | The data has no rows.") }
   
   # Validate impala connection
   impala = validate_impala(impala = dest)
   
-  # Determine user name for tables
-  user_name <- whoami()
-  if(is.null(user_name)){ 
-    flog.error("tidy_connections::impala_copy_to | Unable to determine user name.") 
-    return()
+  # Determine database for tables
+  if(is.null(database)){
+    database <- whoami()
+    if(is.null(database)){ 
+      flog.error("tidy_connections::impala_copy_to | Unable to determine user name for database.") 
+      stop()
+    }
+  }
+
+  # If old tmp table, clean it up. 
+  if(database == whoami() & table_name == "tmp_data4join" & random_name == FALSE){
+    sql_statement <- glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
+    exec <- safely_dbGetQuery(impala, sql_statement)
+    
+    if (is.null(exec$error) & nrow(exec$result) >= 1){
+      flog.debug(glue("tidy_connections::impala_copy_to | overwriting {database}.{table_name}"))
+    }
+    
+    sql_statement <- glue("DROP TABLE IF EXISTS {`database`}.tmp_data4join PURGE")
+    exec <- safely_dbExecute(impala, sql_statement)
+    
+    if (!is.null(exec$error)){
+      flog.error(glue("tidy_connections::impala_copy_to | unable to remove {database}.tmp_data4join because:\n{exec$error}"))
+      stop()
+    }
+  }
+  # If a new table, determine if the table already exists
+  else if(table_name != "tmp_data4join" & random_name == FALSE){
+    sql_statement <- glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
+    exec <- safely_dbGetQuery(impala, sql_statement)
+    
+    if (!is.null(exec$error)){ 
+      flog.error(glue("tidy_connections::impala_copy_to | failed to determine if {database}.{table_name} exist because:\n{exec$error}"))
+      stop()
+    }
+    # If we have rows here, we found tables that have conflicting names
+    else if (nrow(exec$result) >=1){
+      flog.error(glue("tidy_connections::impala_copy_to | {database}.{table_name} already exists."))
+      stop();
+    }
+  }
+  else if(random_name == TRUE){
+    time_stamp <- as.integer(Sys.time())
+    table_name <- glue("tmp_{time_stamp}")
+    
+    sql_statement <- glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
+    exec <- safely_dbGetQuery(impala, sql_statement)
+    
+    if (!is.null(exec$error)){ 
+      flog.error(glue("tidy_connections::impala_copy_to | unable to query if random_name table exists because:\n{exec$error}"))
+      stop();
+    }
+    # If we have rows here, we found tables that have conflicting names
+    else if (nrow(exec$result) >=1){
+      flog.error(glue("tidy_connections::impala_copy_to | {database}.{table_name} already exists."))
+      stop();
+    }
+  }
+  else {
+    flog.error(glue("tidy_connections::impala_copy_to | Unable to determine appropriate table_name."))
+    stop();
   }
   ############################################
   # If we have a small data frame, copy the data directly to RDIP
   if(nrow(df) < 250){
-    safely_dbExecute <- purrr::safely(implyr::dbExecute)
-    
-    sql_statement <- glue("DROP TABLE IF EXISTS {`user_name`}.tmp_data4join PURGE")
-    
-    exec <- safely_dbExecute(impala, sql_statement)
-    if (!is.null(exec$error)){
-      flog.error(glue("tidy_connections::impala_copy_to | unable to remove {user_name}.tmp_data4join because:\n{exec$error}"))
-      return()
-    }
-    
     input_tbl <- 
       copy_to(
         dest = impala, 
-        df = df,
-        name = glue("{`user_name`}.tmp_data4join"), 
+        df   = df,
+        name = glue("{`user_name`}.{`table_name`}"), 
         temporary = FALSE)
   }
   ############################################
   # If we have a big table, need to more complicated copy
   else {
-    input_tbl <- big_copy_to(df = df, dest = impala)
+    input_tbl <- big_copy_to(df = df, dest = impala, database = database, table_name = table_name)
   }
+  
+  # Attach "tmp" status to delete
+  attr(input_tbl, "tmp_impala_tbl") <- TRUE
+  
+  # Return final table
   return(input_tbl)
 }
 
@@ -179,14 +235,25 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL)){
 #' @export
 #' @param df Data to copy to RDIP
 #' @param dest Impala implyr connection
+#' @param database
+#' @param table_name
 #' @param chrom_as_string Convert "chrom" col's to character instead of integers
+#' @import readr
 #' @import glue
 #' @import implyr
 #' @import dplyr
 #' @import futile.logger
 #' @import purrr
 ############################################
-big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_string = TRUE){
+big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
+                        chrom_as_string = TRUE, database = NULL, table_name = NULL){
+  if(is.null(database)){
+    flog.error("tidy_connections::big_copy_to | database is NULL.")
+  }
+  if(is.null(table_name)){
+    flog.error("tidy_connections::big_copy_to | table_name is NULL.")
+  }
+  
   # Data 
   if(any(str_detect(names(df), "chrom")) & chrom_as_string == TRUE){
     if(typeof(df$chrom) != "character"){
@@ -201,29 +268,53 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_strin
   user_name <- whoami()
   if(is.null(user_name)){ 
     flog.error("Unable to determine user name which is needed for copying data to RDIP.") 
-    return()
+    stop();
   }
   
   ############################################
   # Write the data 4 join to a tmp file on the edge node
+  safely_system <- purrr::safely(system)
+  
   flog.debug("tidy_connections::big_copy_to | create tmp dir")
-  system("mkdir -p ~/tmp")
-  
+  exec <- safely_system("mkdir -p ~/tmp")
+  if(!is.null(exec$error)){
+    flog.error(glue("tidy_connections::big_copy_to | Unable to create ~/tmp because: {exec$error}"))
+    stop();
+  }
+  # Export data to tmp.csv in user's home directory
   flog.debug("tidy_connections::big_copy_to | write data to tmp csv")
-  write_csv(df, path = "~/tmp/tmp_data4join.csv")
+  safely_write_csv <- purrr::safely(readr::write_csv)
+  exec <- safely_write_csv(df, path = glue("~/tmp/{table_name}.csv"))
+  if(!is.null(exec$error)){
+    flog.error(glue("tidy_connections::big_copy_to | Unable to export data to: ~/tmp/{table_name}.csv because: {exec$error}"))
+    stop();
+  }
   
-  # Move the data to hdfs
-  cmd <- glue("hdfs dfs -mkdir -p /user/{user_name}/staging/")
+  # Make sure there is a user staging direction on HDFS
   flog.debug(glue("tidy_connections::big_copy_to | create staging dir on hdfs"))
-  system(cmd)
+  exec <- safely_system(glue("hdfs dfs -mkdir -p /user/{user_name}/staging/"))
+  if(!is.null(exec$error)){
+    flog.error(glue("tidy_connections::big_copy_to | Unable to create: /user/{user_name}/staging/ on HDFS because: {exec$error}"))
+    stop();
+  }
   
-  cmd <- glue("hdfs dfs -put -f ~/tmp/tmp_data4join.csv /user/{user_name}/staging/")
+  # Move data to HDFS
   flog.debug(glue("tidy_connections::big_copy_to | move data to hdfs"))
-  system(cmd)
+  exec <- safely_system(glue("hdfs dfs -put -f ~/tmp/{table_name}.csv /user/{user_name}/staging/"))
+  if(!is.null(exec$error)){
+    flog.error(glue("tidy_connections::big_copy_to | Unable to put data on HDFS because: {exec$error}"))
+    stop();
+  }
   
-  cmd <- "rm ~/tmp/tmp_data4join.csv"
+  # Remove tmp data in user's home directory
   flog.debug(glue("tidy_connections::big_copy_to | remove tmp file on edge node"))
-  system(cmd)
+  exec <- safely_system(glue("rm ~/tmp/{table_name}.csv"))
+  if(!is.null(exec$error)){
+    flog.error(glue("tidy_connections::big_copy_to | Unable to remove tmp data in ~/tmp because: {exec$error}"))
+    stop();
+  }
+  # Data is now ready to be read into a table
+  
   ############################################
   # Make a list for conversion of R class to SQL class
   sql_types <- tibble(r_class   = c("character", "integer", "double", "logical"),
@@ -244,24 +335,14 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_strin
       glue_collapse(., sep = ",")
     
     flog.error(glue("Could not match {bad_cols}"))
-    return()
-  }
-  ############################################
-  # Drop pre-existing tmp table
-  safely_dbExecute <- purrr::safely(implyr::dbExecute)
-  
-  sql_statement <- glue("DROP TABLE IF EXISTS {`user_name`}.tmp_data4join PURGE")
-  
-  exec <- safely_dbExecute(dest, sql_statement)
-  if (!is.null(exec$error)){
-    flog.error(glue("tidy_connections::big_copy_to | unable to remove {user_name}.tmp_data4join because:\n{exec$error}"))
-    return()
+    stop()
   }
   ############################################
   # Create new table based on correct col types
+  flog.debug(glue("tidy_connections::big_copy_to | create new table: {database}.{table_name}"))
   sql_statement <- 
     glue(
-      glue("CREATE TABLE {`user_name`}.tmp_data4join ("), 
+      glue("CREATE TABLE {`database`}.{`table_name`} ("), 
       glue_collapse(glue("`{col_info$col_names}` {col_info$sql_class}"), sep = ", ", last = ""),
       glue(") 
            ROW FORMAT DELIMITED FIELDS TERMINATED BY \",\"
@@ -270,23 +351,24 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_strin
   
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
-    flog.error(glue("tidy_connections::big_copy_to | unable to create table: {user_name}.tmp_data4join because:\n{exec$error}"))
-    return()
+    flog.error(glue("tidy_connections::big_copy_to | unable to create table: {database}.{table_name} because:\n{exec$error}"))
+    stop()
   }
   ############################################
   # Load data from tmp HDFS file into table
+  flog.debug(glue("tidy_connections::big_copy_to | Load data into new table: {database}.{table_name}"))
   sql_statement <- 
-    glue("LOAD DATA INPATH '/user/{`user_name`}/staging/tmp_data4join.csv' 
-         INTO TABLE {`user_name`}.`tmp_data4join`")
+    glue("LOAD DATA INPATH '/user/{`user_name`}/staging/{table_name}.csv' 
+         INTO TABLE {`database`}.{`table_name`}")
   
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
-    flog.error(glue("tidy_connections::big_copy_to | Unable to load tmp_data4join.csv into table: {user_name}.tmp_data4join because:\n{exec$error}"))
-    return()
+    flog.error(glue("tidy_connections::big_copy_to | Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}"))
+    stop()
   }
   ############################################
   # Return table to data in RDIP
-  input_tbl <- tbl(dest, glue("{user_name}.tmp_data4join"))
+  input_tbl <- tbl(dest, glue("{database}.{table_name}"))
   return(input_tbl)
 }
 #############################################
@@ -306,6 +388,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), chrom_as_strin
 #' @import futile.logger
 close_int_conn <- function(conn){
   internal_conn_atrr <- pluck(conn, attr_getter("internal_conn"))
+  
   if(!is.null(internal_conn_atrr)){
     if(internal_conn_atrr ==  TRUE){
       flog.debug("tidy_connections::close_int_conn | internal connection detected.")
@@ -331,8 +414,6 @@ close_int_conn <- function(conn){
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @example
-#' username <- whoami()
 #' @import futile.logger
 #' @import glue
 #' @import dplyr
@@ -360,4 +441,62 @@ whoami <- function(){
   }
   
   return(ret)
+}
+
+# TODO: Add debug comments
+############################################
+#' Drop (tmp) impala_copy_to tables.
+#' 
+#' \strong{drop_impala_copy() - drop tmp tables}
+#' This function will easily drop \code{tbl} referenecs that were created by \code{impala_copy_to}.
+#' This function will *not* drop other tables. 
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @export
+#' @param .table Table reference to drop
+#' @import futile.logger
+#' @import purrr
+#' @import glue
+#' @import dplyr
+#' @import stringr
+drop_impala_copy <- function(.table = NULL){
+  if(is.null(.table)){
+    flog.error("tidy_connections::drop_tmp_impala_tbl | no .table specified.")
+    return();
+  } 
+  
+  table_path <- pluck(.table, "ops") %>% pluck("x", 1)
+  if(!str_detect(table_path, regex("\\w+\\.\\w+"))){
+    flog.error(glue("tidy_connections::drop_tmp_impala_tbl | {table_path} path doesn't match database.table convention."))
+  }
+  
+  # Remove the table IF the table is an impala table
+  if("tbl_impala" %in% class(.table)){ 
+    tmp_impala_tbl_value <- attr(.table, "tmp_impala_tbl", exact = TRUE)
+    # And the table is marked with attribute tmp_impala_tbl == TRUE
+    if(!is.null(tmp_impala_tbl_value)){
+      if(tmp_impala_tbl_value == TRUE){
+        safely_dbExecute <- purrr::safely(implyr::dbExecute)
+        sql_statement <- glue("DROP TABLE IF EXISTS {`table_path`} PURGE")
+        
+        exec <- safely_dbExecute(impala, sql_statement)
+        if (!is.null(exec$error)){
+          flog.error(glue("tidy_connections::drop_tmp_impala_tbl | unable to remove {`table_path`} because:\n{exec$error}"))
+          stop();
+        }
+        else {
+          flog.debug(glue("tidy_connections::drop_tmp_impala_tbl | Successfully removed {`table_path`}"))
+        }
+      }
+      else{
+        flog.warn("tidy_connections::drop_tmp_impala_tbl | This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
+      }
+    }
+    else{
+      flog.warn("tidy_connections::drop_tmp_impala_tbl | This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
+    }
+  }
+  else{
+    flog.warn("tidy_connections::drop_tmp_impala_tbl | This is not an impala tbl. Skipping.")
+  }
 }

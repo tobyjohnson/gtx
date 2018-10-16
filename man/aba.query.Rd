@@ -6,10 +6,9 @@
 \usage{
 aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
   pos_end, p12_ge = 0.8, minpval1_le = 1e-04, minpval2_le = 5e-08,
-  surround = 1e+06, gwas2gene_dist_lt = 1e+06, ncase_ge = 200,
-  ncohort_ge = 200, protein_coding_only = FALSE, neale_only = FALSE,
-  gsk_only = FALSE, db = "gene_gwas",
-  impala = getOption("gtx.impala", NULL))
+  surround = 1e+06, ncase_ge = 200, ncohort_ge = 200,
+  protein_coding_only = FALSE, neale_only = FALSE, gsk_only = FALSE,
+  db = "gene_gwas", impala = getOption("gtx.impala", NULL))
 }
 \arguments{
 \item{analysis_ids}{ukbiobank analysis id(s), single string or vector.}
@@ -30,13 +29,17 @@ aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
 
 \item{p12_ge}{[Default >= 0.80] This is the "H4" posterior probability cutoff}
 
-\item{surround}{[Default = 1e6] Distance to pull in TH + respective genes.}
+\item{minpval1_le}{[Default <= 1e-4] Min pval seen in the eQTL}
 
-\item{gwas2gene_dist_lt}{[Default = 1e6] Max distance between coloc gene and gwas top hit.}
+\item{minpval2_le}{[Default <= 5e-8] Min pval seen in the GWAS data}
+
+\item{surround}{[Default = 1e6] Distance to pull in TH + respective genes.}
 
 \item{ncase_ge}{[Default >= 200] Minimum ncases for traits.}
 
 \item{ncohort_ge}{[Default >= 200] Minimum ncohort for traits.}
+
+\item{protein_coding_only}{[Default = TRUE] Filter only for protein coding transcripts}
 
 \item{neale_only}{[Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.}
 
@@ -45,12 +48,6 @@ aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
 \item{db}{[Defalt = "gene_gwas"] Database to pull data from.}
 
 \item{impala}{[getOption("gtx.impala", NULL)] Implyr impala connection}
-
-\item{minpval1_lt}{[Default <= 1e-4] Min pval seen in the eQTL}
-
-\item{minpval2_lt}{[Default <= 5e-8] Min pval seen in the GWAS data}
-
-\item{protein_coding}{[Default = TRUE] Filter only for protein coding transcripts}
 }
 \value{
 data.frame with all coloc results in the region
