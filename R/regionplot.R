@@ -65,6 +65,11 @@ regionplot <- function(analysis, # what analysis (entity should be next)
       gp <- rbind(gp, merge(pvals, qrs, all.x = FALSE, all.y = TRUE)[ , c('pos', 'pval')])
   }
 
+  ## set par to ensure large enough margins, internal xaxs, regular yaxs,
+  ## should apply for all plots generated
+  oldpar <- par(mar = pmin(c(4, 4, 4, 4) + 0.1, par('mar')), 
+                xaxs = 'i', yaxs = 'r') # xaxs='i' stops R expanding x axis
+
   if ('classic' %in% style) {
     regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
@@ -186,6 +191,9 @@ regionplot <- function(analysis, # what analysis (entity should be next)
            horiz=T, bty="n", cex=.5)
     regionplot.highlight(gp, highlight_style = highlight_style)
   } 
+
+  ## restore par
+  par(oldpar)
 
   ## for when called from within GUI tools, return 
   ## the pvalue dataframe.  Should also return information on the genelayout. 
@@ -394,7 +402,6 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   
   ## Set up plotting area
   plot.new()
-  par(mar = c(4, 4, 4, 4) + 0.1, xaxs = 'i') # xaxs='i' stops R expanding x axis
   plot.window(c(pos_start, pos_end), range(gl$yline, na.rm=TRUE))
   
   ## Draw axes, and axis labels
