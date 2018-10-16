@@ -80,7 +80,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     ## Plot all variants with VEP annotation as blue diamonds in top layer
     pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## Next statement, captures the actual yvalues used when plotting
-    within(pvals, ploty <- regionplot.points(pos, pval,
+    pvals <- within(pvals, ploty <- regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
