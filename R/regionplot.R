@@ -187,7 +187,9 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     regionplot.highlight(gp, highlight_style = highlight_style)
   } 
 
-  return(invisible(NULL))
+  ## for when called from within GUI tools, return 
+  ## the pvalue dataframe.  Should also return information on the genelayout. 
+  return(invisible(pvals))
 }
 
 #' @export
