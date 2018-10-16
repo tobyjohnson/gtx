@@ -247,6 +247,9 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
 ############################################
 big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
                         chrom_as_string = TRUE, database = NULL, table_name = NULL){
+  safely_dbExecute  <- purrr::safely(implyr::dbExecute)
+  safely_dbGetQuery <- purrr::safely(implyr::dbGetQuery)
+  safely_system     <- purrr::safely(system)
   if(is.null(database)){
     flog.error("tidy_connections::big_copy_to | database is NULL.")
   }
@@ -273,7 +276,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   
   ############################################
   # Write the data 4 join to a tmp file on the edge node
-  safely_system <- purrr::safely(system)
+  
   
   flog.debug("tidy_connections::big_copy_to | create tmp dir")
   exec <- safely_system("mkdir -p ~/tmp")
