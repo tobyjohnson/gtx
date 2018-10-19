@@ -1,3 +1,28 @@
+##' @export
+gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
+                       use_database = 'gene_gwas',
+                       do_stop = TRUE) {
+  tmp <- try(eval(dbc))
+  if (identical('try-error', class(tmp))) {
+    if (do_stop) {
+      stop(tmp) # verbatim error message
+    } else {
+      return(list(check = FALSE,
+                  status = 'Error creating db connection'))
+    }
+  }
+  options(gtx.dbConnection = tmp)
+  tmp <- gtxdbcheck(check_databases = use_database, do_stop = do_stop) # overwrite previous value of tmp
+  gtxlog(tmp$status)
+  if (tmp$check) {
+    invisible(dbExecute(getOption('gtx.dbConnection'), 
+                        sprintf('USE %s;', sanitize1(use_database, type = 'alphanum'))))
+    tmp <- gtxdbcheck(do_stop = do_stop) # overwrite previous value of tmp
+    gtxlog(tmp$status)
+  }
+  return(tmp)
+}
+
 ## gtxdbcheck(dbc), called immediately within every gtx function that uses a database connection
 ##     should be the most lightweight check possible (minimize actual queries against dbc)
 ##     should throw an error with stop() in the most common failure modes
