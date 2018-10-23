@@ -442,7 +442,7 @@ aba.plot <- function(.data, ...){
   required_cols <- c("analysis1", "analysis2", "description", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   if(!all(required_cols %in% (names(input)))){
     flog.error(paste0("aba.plot | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
-    next;
+    stop();
   }
   
   # If we only have 1 "input" process as singular
@@ -477,7 +477,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   required_cols <- c("analysis1", "analysis2", "description", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   if(!all(required_cols %in% (names(input)))){
     flog.error(paste0("aba.plot | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
-    next;
+    stop();
   }
   if(!is.numeric(max_dot_size)){
     flog.warn("aba.plot | max_dot_size parameter is not numeric.")

@@ -208,7 +208,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
       copy_to(
         dest = impala, 
         df   = df,
-        name = glue("{`user_name`}.{`table_name`}"), 
+        name = glue("{`database`}.{`table_name`}"), 
         temporary = FALSE)
   }
   ############################################
