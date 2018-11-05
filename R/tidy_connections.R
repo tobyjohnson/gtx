@@ -49,6 +49,12 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version="2.1", app
   }
   else if(any(str_detect(class(sc), "spark_connection"))){
     flog.debug("tidy_connections::validate_sc | Spark connection is valid.")
+    # Check if spark version and app_name matches those requested. Otherwise, disconnect and call function again
+    if (grepl(spark_version, sc$spark_home)){
+	    flog.debug("Spark version detected is different from current version. Restarting Spark connection")
+	    spark_disconnect(sc)
+	    sc = validate_sc(spark_version=spark_version, app_name=app_name)
+    }
     if (sc$app_name != app_name){
 	    flog.debug("App name requested is different from current value. Restarting Spark connection")
 	    spark_disconnect(sc)
