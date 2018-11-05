@@ -17,7 +17,7 @@
 #' @import sparklyr
 #' @import futile.logger
 #' @import glue
-validate_sc <- function(sc = getOption("gtx.sc", NULL)){
+validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version="2.1", app_name="sparklyr"){
   # Check we have a spark connection
   flog.debug("tidy_connections::validate_sc | Validating Spark connection.")
   if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
@@ -29,7 +29,7 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL)){
     safe_spark_connect <- purrr::safely(spark_connect)
     safe_sc <- safe_spark_connect(master     = "yarn-client",
                                   spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1",
+                                  version    = spark_version,
                                   config     = sc_config)
     # If there was no error, use the connection
     if(is.null(safe_sc$error)){ 
@@ -49,6 +49,11 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL)){
   }
   else if(any(str_detect(class(sc), "spark_connection"))){
     flog.debug("tidy_connections::validate_sc | Spark connection is valid.")
+    if (sc$app_name != app_name){
+	    flog.debug("App name requested is different from current value. Restarting Spark connection")
+	    spark_disconnect(sc)
+	    sc = validate_sc(spark_version=spark_version, app_name=app_name)
+    }
   }
   else{
     flog.error("tidy_connections::validate_sc | Unsure how to process sc.")
