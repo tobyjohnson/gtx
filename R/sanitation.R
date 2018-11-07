@@ -57,6 +57,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## Check dbc is of a class we recognize
   ## Construct a string describing current database connection  
   if ('Impala' %in% class(dbc)) {
+      ## FIXME for Kerberized environment, consider SELECT effective_user() as more relevant than clientside USER@HOST 
       currdb <- paste0(Sys.getenv('USER'), '@', Sys.getenv('HOSTNAME'), ' <Impala>')
   } else if ('SQLiteConnection' %in% class(dbc)) {
       currdb <- '<SQLite>'
