@@ -1,7 +1,8 @@
 ##' @export
 gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
                        use_database = 'gene_gwas',
-                       do_stop = TRUE) {
+                       do_stop = TRUE,
+                       cache = TRUE, cache_analyses = TRUE, cache_genes = TRUE) {
   tmp <- try(eval(dbc))
   if (identical('try-error', class(tmp))) {
     if (do_stop) {
@@ -20,6 +21,8 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
     tmp <- gtxdbcheck(do_stop = do_stop) # overwrite previous value of tmp
     if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
   }
+  
+  if (cache) gtxcache(cache_analyses = cache_analyses, cache_genes = cache_genes)
   return(tmp)
 }
 
