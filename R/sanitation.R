@@ -13,12 +13,12 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
   }
   options(gtx.dbConnection = tmp)
   tmp <- gtxdbcheck(check_databases = use_database, do_stop = do_stop) # overwrite previous value of tmp
-  gtxlog(tmp$status)
+  if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
   if (tmp$check) {
     invisible(dbExecute(getOption('gtx.dbConnection'), 
                         sprintf('USE %s;', sanitize1(use_database, type = 'alphanum'))))
     tmp <- gtxdbcheck(do_stop = do_stop) # overwrite previous value of tmp
-    gtxlog(tmp$status)
+    if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
   }
   return(tmp)
 }
