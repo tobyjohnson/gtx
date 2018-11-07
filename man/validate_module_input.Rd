@@ -4,13 +4,13 @@
 \alias{validate_module_input}
 \title{Validate module input has been changed}
 \usage{
-validate_module_input(.data = NULL)
+validate_module_input(...)
 }
 \arguments{
-\item{.data}{A single/vector of inputs to validate.}
+\item{...}{A single or multiple comma seperated inputs to validate.}
 }
 \value{
-component \code{error} as TRUE or FALSE.
+Returns nothing. Will fail if encounters a problem.
 }
 \description{
 \strong{validate_module_input - validate module input}
@@ -19,8 +19,8 @@ This functions validates that the input was changed from the default.
 It is important to wrap this functionality in a function to keep it hidden from users.
 }
 \examples{
-inputs <- validate_module_input(hgncid)
-inputs <- validate_module_input(c(chrom, pos))
+validate_module_input(hgncid)
+validate_module_input(chrom, pos_start, pos_end)
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

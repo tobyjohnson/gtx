@@ -7,22 +7,33 @@
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param .data A single/vector of inputs to validate. 
-#' @return component \code{error} as TRUE or FALSE.
-#' @examples 
-#' inputs <- validate_module_input(hgncid)
-#' inputs <- validate_module_input(c(chrom, pos))
-
+#' @param ... A single or multiple comma seperated inputs to validate. 
+#' @return Returns nothing. Will fail if encounters a problem. 
+#' @examples
+#' validate_module_input(hgncid)
+#' validate_module_input(chrom, pos_start, pos_end)
 #' @import stringr
+#' @import glue
 #' @import futile.logger
-validate_module_input <- function(.data = NULL){
-  if(is.null(.data)){
-    flog.error("validate_mInput | no input specified. Example: valid = validate_module_input(hgncid) ")
-    stop;
+#' @import rlang
+validate_module_input <- function(...){
+  if(missing(...)){
+    flog.error("validate_module_input | Missing input.")
+    stop();
   }
-  flog.debug("validate_mInput | checking input strings")
-  ret = list(error = any(str_detect(.data, "DOUBLE_CLICK_HERE_TO_CHANGE") == TRUE))
+  flog.debug("validate_module_input | Setup.")
+  dots_quos <- quos(...)
   
-  flog.debug("validate_mInput | Done, returning results.")
-  return(ret)
+  validation_fxn <- function(x){
+    x_name <- quo_name(x)
+    if(str_detect(eval_tidy(x), "DOUBLE_CLICK_HERE_TO_CHANGE") == TRUE){
+      flog.error(glue("validate_module_input | \`{x_name}\` needs to be changed from the default \"DOUBLE_CLICK_HERE_TO_CHANGE\"."))
+      stop();
+    }
+  }
+ 
+  flog.debug("validate_module_input | Evaluate inputs.")
+  map(dots_quos, validation_fxn)  
+  
+  flog.debug("validate_module_input | Done.")
 }
