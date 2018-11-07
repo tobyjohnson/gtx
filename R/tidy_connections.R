@@ -17,7 +17,7 @@
 #' @import sparklyr
 #' @import futile.logger
 #' @import glue
-validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.3.1", app_name = "sparklyr"){
+validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0", app_name = "sparklyr"){
   # Check we have a spark connection
   flog.debug("tidy_connections::validate_sc | Validating Spark connection.")
   if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
@@ -249,8 +249,8 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
 #' @export
 #' @param df Data to copy to RDIP
 #' @param dest Impala implyr connection
-#' @param database
-#' @param table_name
+#' @param database Name of the database
+#' @param table_name Name of the table within the database. 
 #' @param chrom_as_string Convert "chrom" col's to character instead of integers
 #' @import readr
 #' @import glue
