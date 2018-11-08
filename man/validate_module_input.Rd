@@ -7,7 +7,7 @@
 validate_module_input(...)
 }
 \arguments{
-\item{...}{A single or multiple comma seperated inputs to validate.}
+\item{...}{A single or multiple comma seperated inputs to validate. Inputs can be strings or vectors.}
 }
 \value{
 Returns nothing. Will fail if encounters a problem.

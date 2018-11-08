@@ -7,7 +7,7 @@
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param ... A single or multiple comma seperated inputs to validate. 
+#' @param ... A single or multiple comma seperated inputs to validate. Inputs can be strings or vectors. 
 #' @return Returns nothing. Will fail if encounters a problem. 
 #' @examples
 #' validate_module_input(hgncid)
@@ -26,9 +26,9 @@ validate_module_input <- function(...){
   
   validation_fxn <- function(x){
     x_name <- quo_name(x)
-    if(str_detect(eval_tidy(x), "DOUBLE_CLICK_HERE_TO_CHANGE") == TRUE){
+    if(any(str_detect(eval_tidy(x), "DOUBLE_CLICK_HERE_TO_CHANGE")) == TRUE){
       flog.error(glue("validate_module_input | \`{x_name}\` needs to be changed from the default \"DOUBLE_CLICK_HERE_TO_CHANGE\"."))
-      stop();
+      stop(call. = FALSE);
     }
   }
  
