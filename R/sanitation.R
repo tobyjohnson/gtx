@@ -1,8 +1,11 @@
 ##' @export
 gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
-                       use_database = 'gene_gwas',
+                       use_database,
                        do_stop = TRUE,
                        cache = TRUE, cache_analyses = TRUE, cache_genes = TRUE) {
+  if (missing(use_database)) {
+    stop('gtxconnect() requires use_database argument')
+  }
   tmp <- try(eval(dbc))
   if (identical('try-error', class(tmp))) {
     if (do_stop) {
