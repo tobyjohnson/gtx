@@ -1,3 +1,18 @@
+# internal function to display version and build information
+# of the installed package
+gtxversion <- function() {
+  desc <- scan(system.file('DESCRIPTION', package = 'gtx'),
+               character(0), sep = '\n', quiet = TRUE)
+  return(paste(sapply(c('^Package:', '^Version:', '^Built:', '^RemoteSha:'),
+                      function(p1) return(grep(p1, desc, value = TRUE))),
+               collapse = '; '))
+}
+
+# display version and build information when attaching package
+.onAttach <- function(...) {
+  packageStartupMessage(gtxversion())
+}
+
 ## for debugging, we have a function to print messages depending on a global option gtx.debug
 #' @export
 gtxlog <- function(...) {

@@ -97,7 +97,7 @@ coloc.compute <- function(data,
     } else {
         attr(data, 'coloc') <- list(nv = nv, prior = prior, bf = bf, posterior = posterior, alpha12 = alpha12, alpha21 = alpha21)
         ## should we include the assumed priors?
-        return(data)
+        return(invisible(data))
     }
 
     ## should never:
@@ -375,7 +375,7 @@ coloc <- function(analysis1, analysis2,
       })
   }
 
-  return(resc) # in future, will return invisible res with resc as an attribute
+  return(invisible(resc)) # in future, will return invisible res with resc as an attribute
 }
 
 
@@ -563,7 +563,7 @@ multicoloc <- function(analysis1, analysis2,
       stop('unknown style [ ', style, ' ]')
   }
   
-  return(res)
+  return(invisible(res))
 }
 
 ## Input, a matrix of z values with analysis as column names and entity as row names 
