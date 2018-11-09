@@ -9,7 +9,7 @@ gtxversion <- function() {
 }
 
 # display version and build information when attaching package
-onAttach <- function(...) {
+.onAttach <- function(...) {
   packageStartupMessage(gtxversion())
 }
 
