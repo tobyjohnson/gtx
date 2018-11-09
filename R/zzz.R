@@ -1,30 +1,27 @@
-#' .onAttach - Report GTX package info
-#' 
-#' To time & version stamp notebooks, this internal function will parse and report the github SHA tag.
-#' 
-#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @import stringr
-#' @import glue
-#' @import futile.logger
-#' @import dplyr
-#' @import purrr
-.onAttach <- function(libname, pkgname){
-  description <- packageDescription("gtx")
-  
-  params <- c("GithubRepo", "GithubRef", "GithubSHA1", "Packaged")
-  
-  if(!all(params %in% names(description))){
-    flog.warn("GTX was not installed from github, no SHA version available.")
-  }
-  else {
-    version_info <-
-      params %>% 
-      map_chr(~pluck(description, .)) %>% 
-      glue_collapse(., sep = " | ")
-    
-    flog.info(glue("GTX package info: {version_info}"))
-  }
-}
+## Replaced by functions gtxversion() and .onAttach() in gtxbase.R
+## * Suggest have separate function to generate the version info
+##   (which may be useful in other contexts)
+## * Suggest use packageStartupMessage() per R package dev guidelines
+## * Made robust to multiple methods of buidling from github repo
+## * Should be internal functions, hence no export or docs
+
+#.onAttach <- function(libname, pkgname){
+#  description <- packageDescription("gtx")
+#  
+#  params <- c("GithubRepo", "GithubRef", "GithubSHA1", "Packaged")
+#  
+#  if(!all(params %in% names(description))){
+#    flog.warn("GTX was not installed from github, no SHA version available.")
+#  }
+#  else {
+#    version_info <-
+#      params %>% 
+#      map_chr(~pluck(description, .)) %>% 
+#      glue_collapse(., sep = " | ")
+#    
+#    flog.info(glue("GTX package info: {version_info}"))
+#  }
+#}
 
 # gtx_dirs <- 
 #   .libPaths() %>% 

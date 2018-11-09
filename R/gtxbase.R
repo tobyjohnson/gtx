@@ -1,14 +1,21 @@
-# internal function to display version and build information
-# of the installed package
+#' gtxversion - Report GTX package info
+#' 
+#' Internal function to extract and report version and build information, 
+#' including ref and sha1 if built from github using devtools.
+#' Intent is for this to be printed to help time/versionstamp outputs
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @import utils
+
 gtxversion <- function() {
-  desc <- scan(system.file('DESCRIPTION', package = 'gtx'),
-               character(0), sep = '\n', quiet = TRUE)
-  return(paste(sapply(c('^Package:', '^Version:', '^Built:', '^RemoteSha:'),
-                      function(p1) return(grep(p1, desc, value = TRUE))),
-               collapse = '; '))
+  # Note, not all the listed elements will be present, depending on whether built 
+  # using devtools::install_git() or devtools::install_github()
+  desc <- unlist(packageDescription('gtx')[c('Package', 'Version', 'Built', 'Packaged', 
+                                             'RemoteSha', 'GithubRepo', 'GithubRef', 'GithubSHA1')])
+  return(paste0(names(desc), ': ', desc, collapse = '|'))
 }
 
-# display version and build information when attaching package
+# gtxversion() output when attaching package
 .onAttach <- function(...) {
   packageStartupMessage(gtxversion())
 }
