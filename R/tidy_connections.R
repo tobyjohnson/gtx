@@ -449,7 +449,8 @@ whoami <- function(){
     names %>% 
     filter(!str_detect(getenv, "cdsw") & !is.na(getenv)) %>% 
     distinct(getenv) %>% 
-    pull(getenv)
+    pull(getenv) %>% 
+    str_to_lower()
   
   flog.debug(glue("whoami | Determined username to be: {ret}"))
   
