@@ -15,7 +15,7 @@
 #' @import stringr
 #' @import glue
 #' @import futile.logger
-#' @import rlang
+#' @importFrom rlang eval_tidy
 validate_module_input <- function(...){
   if(missing(...)){
     flog.error("validate_module_input | Missing input.")
@@ -26,7 +26,7 @@ validate_module_input <- function(...){
   
   validation_fxn <- function(x){
     x_name <- quo_name(x)
-    if(any(str_detect(eval_tidy(x), "DOUBLE_CLICK_HERE_TO_CHANGE")) == TRUE){
+    if(any(str_detect(rlang::eval_tidy(x), "DOUBLE_CLICK_HERE_TO_CHANGE")) == TRUE){
       flog.error(glue("validate_module_input | \`{x_name}\` needs to be changed from the default \"DOUBLE_CLICK_HERE_TO_CHANGE\"."))
       stop(call. = FALSE);
     }
