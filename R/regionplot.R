@@ -65,6 +65,11 @@ regionplot <- function(analysis, # what analysis (entity should be next)
       gp <- rbind(gp, merge(pvals, qrs, all.x = FALSE, all.y = TRUE)[ , c('pos', 'pval')])
   }
 
+  ## set par to ensure large enough margins, internal xaxs, regular yaxs,
+  ## should apply for all plots generated
+  oldpar <- par(mar = pmin(c(4, 4, 4, 4) + 0.1, par('mar')), 
+                xaxs = 'i', yaxs = 'r') # xaxs='i' stops R expanding x axis
+
   if ('classic' %in% style) {
     regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
@@ -74,7 +79,8 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     ## best order for plotting
     ## Plot all variants with VEP annotation as blue diamonds in top layer
     pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
-    with(pvals, regionplot.points(pos, pval,
+    ## Next statement, captures the actual yvalues used when plotting
+    pvals <- within(pvals, ploty <- regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21),
                                   col = ifelse(!is.na(impact), rgb(0, 0, 1, .75), rgb(.33, .33, .33, .5)),
                                   bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
@@ -187,7 +193,12 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     regionplot.highlight(gp, highlight_style = highlight_style)
   } 
 
-  return(invisible(NULL))
+  ## restore par
+  par(oldpar)
+
+  ## for when called from within GUI tools, return 
+  ## the pvalue dataframe.  Should also return information on the genelayout. 
+  return(invisible(pvals))
 }
 
 #' @export
@@ -225,7 +236,7 @@ regionplot.data <- function(analysis,
                                 if (any(c('signal', 'signals') %in% style)) ', beta, se, rsq, freq' else '', 
                                 gtxanalysisdb(analysis), 
                                 gtxwhat(analysis1 = analysis),
-                                if (!is.null(xentity)) sprintf('entity=\'%s\'', xentity$entity) else '(True)',
+                                xentity$entity_where, # (entity=...) or (True)
                                 gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
                                 gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
                         uniq = FALSE)
@@ -392,7 +403,6 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   
   ## Set up plotting area
   plot.new()
-  par(mar = c(4, 4, 4, 4) + 0.1, xaxs = 'i') # xaxs='i' stops R expanding x axis
   plot.window(c(pos_start, pos_end), range(gl$yline, na.rm=TRUE))
   
   ## Draw axes, and axis labels
@@ -504,7 +514,7 @@ regionplot.points <- function(pos, pval,
     text(mean(range(pos[f])), ymax, 'Plot truncated', adj = c(0.5, 0), cex = 0.5)
     return(FALSE)
   }
-  return(TRUE)
+  return(ifelse(f, ymax, y))
 }
 
 regionplot.highlight <- function(pvals, highlight_style) {

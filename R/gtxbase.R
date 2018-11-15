@@ -1,3 +1,25 @@
+#' gtxversion - Report GTX package info
+#' 
+#' Internal function to extract and report version and build information, 
+#' including ref and sha1 if built from github using devtools.
+#' Intent is for this to be printed to help time/versionstamp outputs
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @import utils
+
+gtxversion <- function() {
+  # Note, not all the listed elements will be present, depending on whether built 
+  # using devtools::install_git() or devtools::install_github()
+  desc <- unlist(packageDescription('gtx')[c('Package', 'Version', 'Built', 'Packaged', 
+                                             'RemoteSha', 'GithubRepo', 'GithubRef', 'GithubSHA1')])
+  return(paste0(names(desc), ': ', desc, collapse = '|'))
+}
+
+# gtxversion() output when attaching package
+.onAttach <- function(...) {
+  packageStartupMessage(gtxversion())
+}
+
 ## for debugging, we have a function to print messages depending on a global option gtx.debug
 #' @export
 gtxlog <- function(...) {
@@ -14,7 +36,7 @@ gtxwhere <- function(chrom,
                      pos, pos_ge, pos_le, 
                      pos_end_ge, pos_start_le, 
                      pos_start_ge, pos_end_le, 
-                     rs, hgncid, ensemblid,
+                     ref, alt, rs, hgncid, ensemblid,
                      entity, 
                      tablename) {
   ## function to construct a WHERE string for constructing SQL queries
@@ -58,6 +80,12 @@ gtxwhere <- function(chrom,
         
         if (missing(pos_end_le)) NULL
         else sprintf("pos_end<=%s", sanitize(pos_end_le, type = "int")),
+        
+        if (missing(ref)) NULL
+        else sprintf("ref='%s'", sanitize(ref, type = "ACGT+")),
+        
+        if (missing(alt)) NULL
+        else sprintf("alt='%s'", sanitize(alt, type = "ACGT+")),
         
         if (missing(rs)) NULL
         else sprintf("rsid=%s", sanitize(rs, type = "rs")), # note sanitize(type="rs") strips the rs parts hence returns integers
@@ -491,7 +519,7 @@ gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
     } else {
         alabel <- ares$label
     }
-    if (!is.null(entity)) alabel <- paste(entity$entity_label, alabel)
+    if (!is.null(entity$entity)) alabel <- paste(entity$entity_label, alabel)
     return(alabel)
 }
 
@@ -653,9 +681,11 @@ gtxregion <- function(chrom, pos_start, pos_end,
 #' @export
 gtxentity <- function(analysis, entity, hgncid, ensemblid, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
-    gtxdbcheck(dbc)
+    ## Check the db connections we will actually use (genes will always be queried before exit, unless error)
+    gtxdbcheck(getOption('gtx.dbConnection_cache_analyses', dbc), tables_required = 'analyses')
+    gtxdbcheck(getOption('gtx.dbConnection_cache_genes', dbc), tables_required = 'genes')
 
-    entity_type <- sqlWrapper(dbc,
+    entity_type <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc),
                               sprintf('SELECT entity_type FROM analyses WHERE %s;',
                                       gtxwhat(analysis1 = analysis))
                               )$entity_type
@@ -673,7 +703,8 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
             } else {
                 ## attempt to convert assumed HGNC id to Ensembl gene id
                 gtxlog('Looking for Ensembl gene id for entity [ ', entity, ' ]')
-                entity <- sqlWrapper(dbc,
+                ## Check the db connections we will actually use
+                entity <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                                      sprintf('SELECT ensemblid FROM genes WHERE %s;', 
                                              gtxwhere(hgncid = entity))
                                      )$ensemblid
@@ -682,7 +713,7 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
         } else {
             ## infer entity from other arguments if supplied
             if (!missing(hgncid)) {
-                entity <- sqlWrapper(dbc,
+                entity <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                                      sprintf('SELECT ensemblid FROM genes WHERE %s;', 
                                              gtxwhere(hgncid = hgncid))
                                      )$ensemblid
@@ -694,14 +725,18 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
                 stop('Analysis [ ', analysis, ' ] requires an Ensembl gene id entity but none could be inferred')
             }
         }
-        entity_label <- sqlWrapper(dbc,
+        entity_label <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                                    sprintf('SELECT hgncid FROM genes WHERE %s;',
                                            gtxwhere(ensemblid = entity))
                                    )$hgncid
         if (is.na(entity_label) || entity_label == '') entity_label <- entity # may have to paste 'ENSG' back on when switch to ints
-        return(list(entity = entity, entity_label = entity_label))
+        return(list(entity = entity,
+                    entity_label = entity_label,
+                    entity_where = sprintf('(entity = \'%s\')', entity)))
     } else {
-        return(NULL)
+        return(list(entity = NULL,
+                    entity_label = '',
+                    entity_where = '(True)'))
         # entity_type is NULL or unrecognized type
     }
     stop('internal error in gtxentity')
