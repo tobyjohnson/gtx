@@ -560,7 +560,7 @@ gtxanalyses <- function(analysis, analysis_not,
 
     ## If accessible databases known, add 'has_access' column and filter if requested
     if (!is.null(dbs)) {
-        res$has_access <- res$results_db %in% dbs$name
+        res$has_access <- is.na(res$results_db) | res$results_db == '' | res$results_db %in% dbs$name
         if (has_access_only) {
             res <- subset(res, has_access)
         }
