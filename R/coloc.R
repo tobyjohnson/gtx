@@ -411,6 +411,7 @@ multicoloc.data <- function(analysis1, analysis2,
     } else {
       # sanitize
       db1 <- sanitize1(db1, type = 'alphanum.')
+    }
   } else {
     stop('multicoloc does not work with analysis1 spanning multiple databases')
   }
