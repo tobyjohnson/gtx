@@ -134,6 +134,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     v1 <- sqlWrapper(dbc,
                      sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
                              gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs))) # default uniq = TRUE
+    flog.debug(paste0('Resolved PheWAS varint to chr', v1$chrom, ':', v1$pos, ':', v1$ref, '>', v1$alt))
 
     ## Look up analysis metadata
     a1 <- gtxanalyses(analysis = analysis, analysis_not = analysis_not, 
@@ -145,6 +146,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
                       tag_is = tag_is, with_tags = with_tags, 
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
+    flog.debug(paste0('Queried metadata for ', nrow(a1), ' analyses'))
 
     ## Handle when results_db is NULL in database (returned as NA to R), since not using gtxanalysisdb()
     ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
@@ -160,6 +162,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         ## Optimize for the case where all analyses are desired, to avoid having a
         ## very long SQL string with thousands of 'OR analysis=' clauses
         res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
+            flog.debug(paste0('PheWAS all_analyses query in db ', results_db, ' ...'))
             sqlWrapper(getOption('gtx.dbConnection'),
                        sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
                                sanitize(results_db, type = 'alphanum.'),
