@@ -151,9 +151,10 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     ## Handle when results_db is NULL in database (returned as NA to R), since not using gtxanalysisdb()
     ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
     ## (FIXME it would be better if this did go through gtxanalysisdb() for future maintenance)
-    a1$results_db <- ifelse(is.na(a1$results_db) | a1$results_db == '', '', paste0(a1$results_db, '.'))
-    ## FIXME consider sanitizing here to avoid repeated calls to sanitize below
-    
+    loop_clean_db <- sapply(unique(a1$results_db), function(x) {
+      return(if (is.na(x) || x == '') '' else sanitize1(paste0(x, ''), type = 'alphanum.'))
+    })
+
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
                      missing(description_contains) && missing(has_tag) && 
                      missing(ncase_ge) && missing(ncohort_ge))
@@ -164,11 +165,11 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     if (all_analyses) {
         ## Optimize for the case where all analyses are desired, to avoid having a
         ## very long SQL string with thousands of 'OR analysis=' clauses
-        res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
+        res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
             flog.debug(paste0('PheWAS all_analyses query in db ', results_db, ' ...'))
             sqlWrapper(getOption('gtx.dbConnection'),
                        sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
-                               sanitize(results_db, type = 'alphanum.'),
+                               results_db,
                                sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
                                sanitize1(v1$pos, type = "int"),
                                sanitize1(v1$ref, type = "ACGT+"),
@@ -177,20 +178,20 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         }))
         if (!missing(nearby)) {
             ## FIXME check nearby is an integer
-            res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
+            res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
                            sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %sgwas_results WHERE %s AND pval IS NOT NULL GROUP BY analysis, entity;',
-                                   sanitize(results_db, type = 'alphanum.'),
+                                   results_db,
                                    gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
                            uniq = FALSE, zrok = TRUE)
             }))
             res <- merge(res, res_nearby, all.x = TRUE, all.y = FALSE)
         }
     } else {
-        res <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
+        res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
             sqlWrapper(getOption('gtx.dbConnection'),
                        sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE %s AND chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
-                               sanitize(results_db, type = 'alphanum.'),
+                               results_db,
                                gtxwhat(analysis = a1$analysis),
                                sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
                                sanitize1(v1$pos, type = "int"),
@@ -200,10 +201,10 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         }))
         if (!missing(nearby)) {
             ## FIXME check nearby is an integer
-            res_nearby <- do.call(rbind, lapply(unique(a1$results_db), function(results_db) {
+            res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
                            sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %sgwas_results WHERE %s AND %s AND pval IS NOT NULL GROUP BY analysis, entity;',
-                                   sanitize(results_db, type = 'alphanum.'),
+                                   results_db,
                                    gtxwhat(analysis = a1$analysis),
                                    gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
                            uniq = FALSE, zrok = TRUE)
