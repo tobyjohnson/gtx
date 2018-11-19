@@ -152,7 +152,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
     ## (FIXME it would be better if this did go through gtxanalysisdb() for future maintenance)
     loop_clean_db <- sapply(unique(a1$results_db), function(x) {
-      return(if (is.na(x) || x == '') '' else sanitize1(paste0(x, ''), type = 'alphanum.'))
+      return(if (is.na(x) || x == '') '' else sanitize1(paste0(x, '.'), type = 'alphanum.'))
     })
 
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
