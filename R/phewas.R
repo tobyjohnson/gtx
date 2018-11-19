@@ -146,7 +146,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
                       tag_is = tag_is, with_tags = with_tags, 
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
-    flog.debug(paste0('Queried metadata for ', nrow(a1), ' analyses'))
+    flog.debug(paste0('Queried metadata for ', nrow(a1), ' analyses with access to'))
 
     ## Handle when results_db is NULL in database (returned as NA to R), since not using gtxanalysisdb()
     ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
@@ -157,6 +157,9 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
                      missing(description_contains) && missing(has_tag) && 
                      missing(ncase_ge) && missing(ncohort_ge))
+
+    # note, following do.call(rbind, lapply(...)) constructs generate R NULL when a1 has zero rows
+    # okay but need to check below
 
     if (all_analyses) {
         ## Optimize for the case where all analyses are desired, to avoid having a
@@ -207,6 +210,10 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
             }))
             res <- merge(res, res_nearby, all.x = TRUE, all.y = FALSE)
         }
+    }
+    if (is.null(res)) {
+        res <- data.frame(analysis = character(0), entity = character(0), 
+                          beta = double(0), se = double(0), pval = double(0), rsq = double(0), freq = double(0))
     }
     ## Merge results of phewas query with metadata about analyses
     ## Note analyses missing either results or metadata are dropped
