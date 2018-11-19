@@ -229,7 +229,7 @@ gtxanalysisdb <- function(analysis,
                                   gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE
         ## First, if null or empty string, return empty string (hence caller will use unqualified table name)
         ## (note, database nulls are returned as R NAs; following is safe because length(res$results_db)==1)
-        if (is.null(res$results_db) || res$results_db == '') {
+        if (is.na(res$results_db) || res$results_db == '') {
             return('')
         }
         ## Next, if results_db is specified but dbs is NULL, throw error
