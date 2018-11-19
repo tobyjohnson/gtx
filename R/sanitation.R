@@ -1,10 +1,12 @@
 ##' @export
+## FIXME, change to required(?) argument odbc=...
 gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
                        use_database,
-                       do_stop = TRUE,
+                       do_stop = TRUE, # deprecate this, it's cleaner for caller to use a tryCatch()
                        cache = TRUE, cache_analyses = TRUE, cache_genes = TRUE) {
   if (missing(use_database)) {
     stop('gtxconnect() requires use_database argument')
+    ## FIXME instead don't execute USE statement
   }
   tmp <- try(eval(dbc))
   if (identical('try-error', class(tmp))) {

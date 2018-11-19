@@ -20,9 +20,11 @@ gtxversion <- function() {
   packageStartupMessage(gtxversion())
 }
 
-## for debugging, we have a function to print messages depending on a global option gtx.debug
-#' @export
+## for debugging, we have an internal function to print messages depending on a global option gtx.debug
+## FIXME, deprecate this by flog.warn'ing the message, and then
+##        change all calling instances to flog.<level>
 gtxlog <- function(...) {
+    #flog.warn(paste0('legacy gtxlog: ', ...))
     if (getOption('gtx.debug', FALSE)) return(message(...))
     return(invisible(NULL))
 }
