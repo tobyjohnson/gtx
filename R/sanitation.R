@@ -396,7 +396,7 @@ sanitize1 <- function(x, values, type) {
 }
 
 ##
-## wrapper for sqlQuery()
+## wrapper for dbGetQuery()
 ## checks return value is data frame with exactly
 ## [or at least] one row (if uniq is TRUE [or FALSE])
 ## -- allow zero rows is zrok=TRUE
@@ -406,8 +406,9 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
     if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc)) {
-        stop('dbc does not appear to be an Impala connection (not of class Impala or SQLiteConnection)')
+        stop('dbc is not an odbc database connection of class Impala or SQLiteConnection')
     }
+    flog.debug(paste0('SQL: ', sql))
     res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
