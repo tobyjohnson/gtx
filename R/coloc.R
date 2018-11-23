@@ -213,9 +213,10 @@ coloc.data <- function(analysis1, analysis2,
 #'
 #' This high level function conducts a colocalization analysis, using
 #' summary statistics for association with two traits, across a region of
-#' the genome.  The two sets of summary statistics are specified using
-#' the \code{analysis1} and \code{analysis2} arguments.  Where one or
-#' both contain summary statistics for multiple entities (e.g. from eQTL or
+#' the genome.  The \code{analysis1} and \code{analysis2} arguments specify
+#' which analyses to use summary statistics from.
+#' Where one or both analyses 
+#' have summary statistics for multiple entities (e.g. from eQTL or
 #' pQTL analyses), the desired entities must be specified (see below).
 #'
 #' The \code{style} argument can be set to \code{'Z'} to plot Z
@@ -223,8 +224,16 @@ coloc.data <- function(analysis1, analysis2,
 #' size) statistics for the two analyses.  \dQuote{One-sided} plots, where
 #' the ref/alt alleles are flipped so that beta is always positive for
 #' \code{analysis1}, are provided as styles \code{'Z1'} and \code{'beta1'}.
-#' The style \code{'none'} suppresses plotting altogether.
+#' The style \code{'none'} suppresses plotting altogether.  In all plots,
+#' the x and y axes are used for analysis1 and analysis2 respectively.
 #'
+#' To help interpretation, 95% credible sets are calculated
+#' separately for each analysis.  Variants in both credible sets are plotted
+#' as diamonds, and variants only in one credible set are plotted as triangles
+#' (down for the x axis analysis1; up for the y axis analysis 2).  Additionally,
+#' two channel shading is used to indicate posterior probability of
+#' causality for analysis1 (red), analysis2 (green), or both (yellow).
+#' 
 #' Note that when using a \code{hgncid} or \code{ensemblid} gene
 #' identifier to specify the region from which to use summary statistics,
 #' the default \code{surround=500000} will \emph{not} include the full
@@ -420,7 +429,7 @@ coloc <- function(analysis1, analysis2,
 ## note that surround=0 is a sensible default because
 ## of the region expansion performed within this function
 #' @export
-multicoloc.data <- function(analysis1, analysis2,
+multicoloc.data <- function(analysis1, analysis2, signal2, 
                             chrom, pos_start, pos_end, pos, 
                             hgncid, ensemblid, rs, surround = 0,
 ##                            entity, entity1, entity2,
@@ -465,8 +474,8 @@ multicoloc.data <- function(analysis1, analysis2,
   ## Note that for efficiency regions we want query 3. to be by a defined physical region
   ## rather than directly selecting on WHERE entity IN ...
   
-  gtxlog('Query region is chr', chrom, ':', pos_start, '-', pos_end, 
-         ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)')
+  flog.info(paste0('Query region is chr', chrom, ':', pos_start, '-', pos_end, 
+         ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)'))
 
   eq <- sqlWrapper(dbc, 
                     sprintf('SELECT 
@@ -479,7 +488,7 @@ multicoloc.data <- function(analysis1, analysis2,
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)),
                     uniq = FALSE)$entity
   ## FIXME this may return zero rows, should handle gracefully
-  gtxlog('Query region includes association statistics for ', length(eq), ' entities')
+  flog.info(paste0('Query region includes association statistics for ', length(eq), ' entities'))
 
   if (!hard_clip) {
       ep <- sqlWrapper(dbc, 
@@ -493,49 +502,87 @@ multicoloc.data <- function(analysis1, analysis2,
                              gtxwhere(chrom = chrom, entity = eq)))
       pos_start <- ep$minpos
       pos_end <- ep$maxpos
-      gtxlog('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
-             ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)')
+      flog.info(paste0('Expanded region is chr', chrom, ':', pos_start, '-', pos_end,
+             ' (', prettyNum(pos_end - pos_start + 1, big.mark = ',', scientific = FALSE), ' bp)'))
   }
 
-  ## We use a (INNER) JOIN and silently drop rows that don't match
+  ## If using marginal results from analysis2 (i.e. missing(signal2)), then
+  ##   we use a (INNER) JOIN and hence silently drop rows that don't match
+  ## If using CLEO results from analysis2, then we use a LEFT JOIN
+  ##
   ## FIXME if hard_clip can make this query run faster by not selecting on entity
   t0 <- as.double(Sys.time())
-  res <- sqlWrapper(dbc,
-                    sprintf('SELECT 
-                                 t1.analysis AS analysis1, t1.entity AS entity1,
-                                 t1.beta AS beta1, t1.se AS se1, 
-                                 t2.beta AS beta2, t2.se AS se2 
-                             FROM 
-                                 (SELECT
-                                      chrom, pos, ref, alt, analysis, entity, beta, se
-                                  FROM %sgwas_results 
-                                  WHERE
-                                      %s AND %s AND %s AND pval IS NOT NULL
-                                 ) AS t1 
-                             JOIN 
-                                 (SELECT 
-                                      chrom, pos, ref, alt, beta, se
-                                  FROM %sgwas_results 
-                                  WHERE 
-                                      %s AND %s AND pval IS NOT NULL
-                                 ) AS t2
-                             USING (chrom, pos, ref, alt);',
+  if (missing(signal2)) {
+    # query marginal statistics for analysis2
+    res <- sqlWrapper(dbc,
+                      sprintf('SELECT 
+                                   t1.analysis AS analysis1, t1.entity AS entity1,
+                                   t1.beta AS beta1, t1.se AS se1, 
+                                   t2.beta AS beta2, t2.se AS se2 
+                               FROM 
+                                   (SELECT
+                                        chrom, pos, ref, alt, analysis, entity, beta, se
+                                    FROM %sgwas_results 
+                                    WHERE
+                                        %s AND %s AND %s AND pval IS NOT NULL
+                                   ) AS t1 
+                               JOIN 
+                                   (SELECT 
+                                        chrom, pos, ref, alt, beta, se
+                                    FROM %sgwas_results
+                                    WHERE 
+                                        %s AND %s AND pval IS NOT NULL
+                                   ) AS t2
+                               USING (chrom, pos, ref, alt);',
                             db1, 
                             gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
-                            gtxwhere(chrom = chrom, entity = eq), 
+                            gtxwhere(chrom = chrom, entity = eq),
                             gtxanalysisdb(analysis2),
-                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis
-                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end)
+                            where_from(analysisu = analysis2), 
+                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
                             ),
                     uniq = FALSE) # expect >=1 rows
+  } else {
+    # query CLEO statistics for analysis2; may include multiple signals
+    res <- sqlWrapper(dbc,
+                      sprintf('SELECT 
+                                   t1.analysis AS analysis1, t1.entity AS entity1, t2.signal AS signal2, 
+                                   t1.beta AS beta1, t1.se AS se1, 
+                                   t2.beta AS beta2, t2.se AS se2 
+                               FROM 
+                                   (SELECT
+                                        chrom, pos, ref, alt, analysis, entity, beta, se
+                                    FROM %sgwas_results 
+                                    WHERE
+                                        %s AND %s AND %s AND pval IS NOT NULL
+                                   ) AS t1 
+                               LEFT JOIN 
+                                   (SELECT 
+                                        signal, chrom, pos, ref, alt, beta_cond AS beta, se_cond AS se
+                                    FROM %sgwas_results_cond
+                                    WHERE 
+                                        %s AND %s
+                                   ) AS t2
+                               USING (chrom, pos, ref, alt);',
+                            db1, 
+                            gtxwhat(analysis = analysis1),
+                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
+                            gtxwhere(chrom = chrom, entity = eq),
+                            gtxanalysisdb(analysis2),
+                            where_from(analysisu = analysis2, signal = signal2), 
+                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
+                            ),
+                    uniq = FALSE) # expect >=1 rows
+                              
+  }
   t1 <- as.double(Sys.time())
-  gtxlog('Results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
+  flog.info(paste0('Results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
   return(res)
 }
 
 #' @export
-multicoloc <- function(analysis1, analysis2,
+multicoloc <- function(analysis1, analysis2, signal2, 
                        chrom, pos_start, pos_end, pos, 
                        hgncid, ensemblid, rs, surround = 0,
                        hard_clip = FALSE, style = 'heatplot',
@@ -544,7 +591,7 @@ multicoloc <- function(analysis1, analysis2,
   gtxdbcheck(dbc)
 
   ## get summary stats
-  ss <- multicoloc.data(analysis1 = analysis1, analysis2 = analysis2,
+  ss <- multicoloc.data(analysis1 = analysis1, analysis2 = analysis2, signal2 = signal2, 
                          chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround, hard_clip = hard_clip, 
@@ -559,12 +606,61 @@ multicoloc <- function(analysis1, analysis2,
   ## do colocalization analyses using data.table fast grouping
   t0 <- as.double(Sys.time())
   ss <- data.table(ss) # could inline
-  setkey(ss, analysis1, entity1)
-  resc1 <- ss[ ,
-              coloc.fast(beta1, se1, beta2, se2), # FIXME explicitly pass priors
-              by = .(analysis1, entity1)]
+  if (missing(signal2)) {
+    # query was marginal statistics for analysis2
+    # FIXME handle this better in multicoloc.data, 
+    # always return signal2, but 'default' if a marginal lookup
+    
+    setkey(ss, analysis1, entity1)
+    resc1 <- ss[ ,
+                coloc.fast(beta1, se1, beta2, se2), # FIXME explicitly pass priors
+                by = .(analysis1, entity1)]
+  } else {
+    # query was CLEO statistics for analysis2, may include multiple signals, and was LEFT JOIN not (inner) JOIN
+    #
+    # FUNDAMENTAL AND SERIOUS PROBLEM IS THAT 
+    # after this left join, eqtl stats that do not match any signal,
+    # need to be replicated for all signals, or need to be members of 
+    # multiple groups
+    # Considering possibilities:
+    #   If there is only one signal plus NA rows, we
+    #   can set signal=NA to the only non-NA signal value
+    #   and proceed (still left join assumption beta2=NA -> abf2=0
+    #
+    #   If there is no signal (all.is.na(signal)),
+    #   all the lnABF will be -Inf under left join assumptions
+    #   and the norm1 will fail with a division by zero - FIX THIS UPSTREAM IN coloc.fast
+    s1 <- na.omit(unique(ss$signal2))
+    # could make logic on this, with set to empty vector if missing(signals2)
+    if (length(s1) == 0L) {
+      
+    } else if (length(s1) == 1L) {
+      ss[ , signal2 := s1]
+      # group by signal2 not necessary, could just add after
+      setkey(ss, analysis1, entity1, signal2)
+      resc1 <- ss[ ,
+                coloc.fast(beta1, se1, beta2, se2, join_type = 'left'), # FIXME explicitly pass priors
+                by = .(analysis1, entity1, signal2)]
+    } else {
+      # don't know how to handle this case efficiently, what follows is horrible code!
+      wna <- ss[ , which(is.na(signal2))]
+      ssn <- ss[wna, ]   
+      ssm <- do.call(rbind, lapply(s1, function(s11) {
+        ssn <- ss[wna, ]
+        ssn[ , signal2 := s11]
+      }))
+      wnna <- ss[ , which(!is.na(signal2))]
+      ss <- rbind(ss[wnna, ], ssm)
+      setkey(ss, analysis1, entity1, signal2)
+      resc1 <- ss[ ,
+                  coloc.fast(beta1, se1, beta2, se2, join_type = 'left'), # FIXME explicitly pass priors
+                    by = .(analysis1, entity1, signal2)]  
+    }
+      
+    
+  }  
   t1 <- as.double(Sys.time())
-  gtxlog('Colocalization analyzed for ', sum(!is.na(resc1$P12)), ' pairs in ', round(t1 - t0, 3), 's')
+  flog.info(paste0('Colocalization analyzed for ', sum(!is.na(resc1$P12)), ' pairs in ', round(t1 - t0, 3), 's'))
 
   if (identical(style, 'none')) {
       ## do nothing
