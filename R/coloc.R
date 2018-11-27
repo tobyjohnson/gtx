@@ -149,6 +149,7 @@ coloc.fast <- function(beta1, se1, beta2, se2,
 
 #' @export
 coloc.data <- function(analysis1, analysis2,
+                       signal1, signal2, 
                   chrom, pos_start, pos_end, pos, 
                   hgncid, ensemblid, rs, surround = 500000,
                   entity, entity1, entity2,
@@ -165,37 +166,43 @@ coloc.data <- function(analysis1, analysis2,
   if (missing(entity2) && !missing(entity)) entity2 <- entity
 
   ## Determine entity, if required, for each analysis
-  xentity1 <- gtxentity(analysis1, entity = entity1, hgncid = hgncid, ensemblid = ensemblid)
-  xentity2 <- gtxentity(analysis2, entity = entity2, hgncid = hgncid, ensemblid = ensemblid)
+  xentity1 <- gtxentity(analysis1, 
+                        entity = entity1, hgncid = hgncid, ensemblid = ensemblid,
+                        tablename = 't1')
+  xentity2 <- gtxentity(analysis2, 
+                        entity = entity2, hgncid = hgncid, ensemblid = ensemblid,
+                        tablename = 't2')
 
   ## Get association statistics
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT 
-                                 t1.beta AS beta1, t1.se AS se1, 
-                                 t2.beta AS beta2, t2.se AS se2 
+                                 t1.beta%s AS beta1, t1.se%s AS se1, 
+                                 t2.beta%s AS beta2, t2.se%s AS se2  
                              FROM 
-                                 (SELECT
-                                      chrom, pos, ref, alt, beta, se
-                                  FROM %sgwas_results 
-                                  WHERE
-                                      %s AND %s AND %s AND pval IS NOT NULL
-                                 ) AS t1 
-                                 FULL JOIN 
-                                 (SELECT 
-                                      chrom, pos, ref, alt, beta, se
-                                  FROM %sgwas_results 
-                                  WHERE 
-                                      %s AND %s AND %s AND pval IS NOT NULL
-                                 ) AS t2
-                                 USING (chrom, pos, ref, alt);',
+                                 %sgwas_results%s AS t1 
+                             FULL JOIN 
+                                 %sgwas_results%s AS t2 
+                             USING (chrom, pos, ref, alt) 
+                             WHERE 
+                                 %s AND %s AND %s %s AND 
+                                 %s AND %s AND %s %s 
+                             ;', 
+                            if (missing(signal1)) '' else '_cond', 
+                            if (missing(signal1)) '' else '_cond', 
+                            if (missing(signal2)) '' else '_cond', 
+                            if (missing(signal2)) '' else '_cond', 
                             gtxanalysisdb(analysis1), 
-                            gtxwhat(analysis1 = analysis1), # analysis1= argument allows only one analysis
-                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
-                            xentity1$entity_where, 
+                            if (missing(signal1)) '' else '_cond', 
                             gtxanalysisdb(analysis2), 
-                            gtxwhat(analysis1 = analysis2), # analysis1= argument allows only one analysis, different to arguments analysis1 and analysis2
-                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end),
-                            xentity2$entity_where 
+                            if (missing(signal2)) '' else '_cond', 
+                            where_from(analysisu = analysis1, signalu = signal1, tablename = 't1'), 
+                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end, tablename = 't1'), 
+                            xentity1$entity_where, 
+                            if (missing(signal1)) 'AND t1.pval IS NOT NULL' else '', 
+                            where_from(analysisu = analysis2, signalu = signal2, tablename = 't2'),
+                            gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end, tablename = 't2'),
+                            xentity2$entity_where, 
+                            if (missing(signal2)) 'AND t2.pval IS NOT NULL' else ''
                             ),
                     uniq = FALSE) # expect >=1 rows
 
@@ -292,7 +299,7 @@ coloc.data <- function(analysis1, analysis2,
 #' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
 #' @export
 
-coloc <- function(analysis1, analysis2,
+coloc <- function(analysis1, analysis2, signal1, signal2, 
                   chrom, pos_start, pos_end, pos, 
                   hgncid, ensemblid, rs, surround = 500000,
                   entity, entity1, entity2,
@@ -304,14 +311,15 @@ coloc <- function(analysis1, analysis2,
 
   ## query variant-level summary stats
   res <- coloc.data(analysis1 = analysis1, analysis2 = analysis2,
+                    signal1 = signal1, signal2 = signal2, 
                     chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos,
                     hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
                     entity = entity, entity1 = entity1, entity2 = entity2,
                     dbc = dbc)  
   gtxlog('coloc.data query returned ', nrow(res), ' rows')
 
-  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = attr(res, 'entity1'), nlabel = FALSE, dbc = dbc)
-  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), nlabel = FALSE, dbc = dbc)
+  pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = attr(res, 'entity1'), signal = signal1, nlabel = FALSE, dbc = dbc)
+  pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), signal = signal2, nlabel = FALSE, dbc = dbc)
   
   ## compute coloc probabilities
   resc <- coloc.compute(res,
@@ -343,10 +351,10 @@ coloc <- function(analysis1, analysis2,
       b <- pmin(pmax(1+x*y-y-x, 0), 1)
       return(rgb(grey*r, grey*g, grey*b, alpha = alpha))
   }
-  p1 <- gtx:::norm1(c(attr(resc, 'nullabf1'), priorc1*resc$abf1))
-  p2 <- gtx:::norm1(c(attr(resc, 'nullabf2'), priorc2*resc$abf2))
-  cs1 <- gtx:::credset(p1)[-1]
-  cs2 <- gtx:::credset(p2)[-1]
+  p1 <- norm1(c(attr(resc, 'nullabf1'), priorc1*resc$abf1))
+  p2 <- norm1(c(attr(resc, 'nullabf2'), priorc2*resc$abf2))
+  cs1 <- credset(p1)[-1]
+  cs2 <- credset(p2)[-1]
   bg <- twochannel(x = p1[-1]/max(p1),
                    y = p2[-1]/max(p2))
   cex <- 0.75 + 0.5*p1[-1] + 0.5*p2[-1]
@@ -450,7 +458,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   pos_end = xregion$pos_end
 
   ## Currently only works if analysis1 all in the same db table
-  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum.')
+  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum.') # FIXME this should be properly vectorized
   
 #  ## substitute generic entity for entity1 and entity2 if needed
 #  if (missing(entity1) && !missing(entity)) entity1 <- entity
@@ -511,8 +519,8 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   ## If using CLEO results from analysis2, then we use a LEFT JOIN
   ##
   ## FIXME if hard_clip can make this query run faster by not selecting on entity
-  t0 <- as.double(Sys.time())
   if (missing(signal2)) {
+    t0 <- as.double(Sys.time())
     # query marginal statistics for analysis2
     res <- sqlWrapper(dbc,
                       sprintf('SELECT 
@@ -543,41 +551,59 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
                             ),
                     uniq = FALSE) # expect >=1 rows
+    t1 <- as.double(Sys.time())
+    flog.info(paste0('Results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
   } else {
-    # query CLEO statistics for analysis2; may include multiple signals
-    res <- sqlWrapper(dbc,
+    # query CLEO statistics for analysis2, 
+    # the left join strategy *only works for a single signal*
+    t0 <- as.double(Sys.time())
+    res <- try(sqlWrapper(dbc,
                       sprintf('SELECT 
+                                   t1.chrom, t1.pos, t1.ref, t1.alt, 
                                    t1.analysis AS analysis1, t1.entity AS entity1, t2.signal AS signal2, 
                                    t1.beta AS beta1, t1.se AS se1, 
-                                   t2.beta AS beta2, t2.se AS se2 
-                               FROM 
-                                   (SELECT
-                                        chrom, pos, ref, alt, analysis, entity, beta, se
-                                    FROM %sgwas_results 
-                                    WHERE
-                                        %s AND %s AND %s AND pval IS NOT NULL
-                                   ) AS t1 
-                               LEFT JOIN 
-                                   (SELECT 
-                                        signal, chrom, pos, ref, alt, beta_cond AS beta, se_cond AS se
-                                    FROM %sgwas_results_cond
-                                    WHERE 
-                                        %s AND %s
-                                   ) AS t2
-                               USING (chrom, pos, ref, alt);',
-                            db1, 
-                            gtxwhat(analysis = analysis1),
-                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
-                            gtxwhere(chrom = chrom, entity = eq),
-                            gtxanalysisdb(analysis2),
-                            where_from(analysisu = analysis2, signal = signal2), 
-                            gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
-                            ),
-                    uniq = FALSE) # expect >=1 rows
-                              
+                                   t2.beta_cond AS beta2, t2.se_cond AS se2 
+                               FROM %sgwas_results AS t1
+                               LEFT JOIN %sgwas_results_cond AS t2
+                               USING (chrom, pos, ref, alt)
+                               WHERE
+                                   %s AND %s AND %s AND pval IS NOT NULL
+                                   AND %s AND %s
+                               ;',
+                              db1, 
+                              gtxanalysisdb(analysis2),
+                              gtxwhat(analysis = analysis1, tablename = 't1'),
+                              gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 't1'), 
+                              gtxwhere(chrom = chrom, entity = eq, tablename = 't1'),
+                              where_from(analysisu = analysis2, signalu = signal2, tablename = 't2'), 
+                              gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 't2')
+                          ),
+                    uniq = FALSE)) # expect >=1 rows
+    #res$signal2 <- signal2 # WARNING this only works when there is one signal queried at a time
+    t1 <- as.double(Sys.time())
+    flog.info(paste0('Results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
+    
+    signals_found <- na.omit(unique(res$signal2))
+    if (length(signals_found) == 0L) {
+      flog.warn(paste0('Query returned no summary statistics for signal=', paste0(signal2, collapse = ',')))
+    } else if (length(signals_found) == 1L) {
+      flog.debug(paste0('multicoloc LEFT JOIN query returned ', 
+                        sum(res$signal2 == signals_found[1]),
+                        ' rows with signal2=', signals_found[1], ' and ',
+                        sum(is.na(res$signal2)),
+                        ' rows with signal2=NA'))
+      res$signal2 <- signals_found[1]
+    } else {
+      # don't know how to handle this case efficiently, what follows is horrible code!
+      stop('multicoloc.data currently cannot handle multiple signal2 in one call')
+      #resalt <- do.call(rbind, lapply(signals_found, function(s1) { 
+      #  tmp <- rbind(subset(res, signal2 == s1), 
+      #               subset(res, is.na(signal2) | signal2 != s1))
+      #  tmp <- tmp[!duplicated(with(tmp, paste0(analysis1, ' ', entity1, ' ', chrom, ':', pos, ':', ref, '>', alt))), ]
+    }
   }
-  t1 <- as.double(Sys.time())
-  flog.info(paste0('Results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
+
+
   return(res)
 }
 
@@ -596,6 +622,9 @@ multicoloc <- function(analysis1, analysis2, signal2,
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround, hard_clip = hard_clip, 
                          dbc = dbc)
+
+  ## analysis2 is not allowed an entity currently
+  pdesc2 <- gtxanalysis_label(analysis = analysis2, signal = signal2, nlabel = FALSE, dbc = dbc)
   
   ## get gene data for entities, FIXME not guaranteed entity_type is ensg
   res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
@@ -630,33 +659,13 @@ multicoloc <- function(analysis1, analysis2, signal2,
     #   If there is no signal (all.is.na(signal)),
     #   all the lnABF will be -Inf under left join assumptions
     #   and the norm1 will fail with a division by zero - FIX THIS UPSTREAM IN coloc.fast
-    s1 <- na.omit(unique(ss$signal2))
+    
     # could make logic on this, with set to empty vector if missing(signals2)
-    if (length(s1) == 0L) {
       
-    } else if (length(s1) == 1L) {
-      ss[ , signal2 := s1]
-      # group by signal2 not necessary, could just add after
-      setkey(ss, analysis1, entity1, signal2)
-      resc1 <- ss[ ,
-                coloc.fast(beta1, se1, beta2, se2, join_type = 'left'), # FIXME explicitly pass priors
-                by = .(analysis1, entity1, signal2)]
-    } else {
-      # don't know how to handle this case efficiently, what follows is horrible code!
-      wna <- ss[ , which(is.na(signal2))]
-      ssn <- ss[wna, ]   
-      ssm <- do.call(rbind, lapply(s1, function(s11) {
-        ssn <- ss[wna, ]
-        ssn[ , signal2 := s11]
-      }))
-      wnna <- ss[ , which(!is.na(signal2))]
-      ss <- rbind(ss[wnna, ], ssm)
-      setkey(ss, analysis1, entity1, signal2)
-      resc1 <- ss[ ,
-                  coloc.fast(beta1, se1, beta2, se2, join_type = 'left'), # FIXME explicitly pass priors
-                    by = .(analysis1, entity1, signal2)]  
-    }
-      
+    setkey(ss, analysis1, entity1)
+    resc1 <- ss[ ,
+              coloc.fast(beta1, se1, beta2, se2, join_type = 'left'), # FIXME explicitly pass priors
+              by = .(analysis1, entity1, signal2)]
     
   }  
   t1 <- as.double(Sys.time())
@@ -688,6 +697,8 @@ multicoloc <- function(analysis1, analysis2, signal2,
       zmat <- zmat[zmat.rsel, zmat.cord, drop = FALSE]
       if (any(zmat.rsel) && length(zmat.cord) > 0L) {
           multicoloc.plot(zmat, dbc = dbc)
+          mtext.fit(main = pdesc2)
+	  ## FIXME add legend about what is not shown, region used, hard clipping on/off
       } else {
           message('Skipping plotting')
       }
