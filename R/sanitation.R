@@ -408,8 +408,11 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc)) {
         stop('dbc is not an odbc database connection of class Impala or SQLiteConnection')
     }
-    flog.debug(paste0('SQL: ', sql))
+    flog.debug(paste0(class(dbc), ' query: ', sql))
+    t0 <- as.double(Sys.time())
     res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
+    t1 <- as.double(Sys.time())
+    flog.debug(paste0(class(dbc), ' query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
             if (zrok) return(res)
