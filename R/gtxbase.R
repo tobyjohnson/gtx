@@ -208,7 +208,7 @@ gtxwhat <- function(analysis1,
 ##
 where_from <- function(analysis, analysisu,
                        entity, entityu,
-                       signal,
+                       signal, signalu, 
                        tablename) {
 
     if (!missing(tablename)) {
@@ -239,17 +239,16 @@ where_from <- function(analysis, analysisu,
         },
 
         if (missing(entity)) NULL
-        else {
-            sprintf("entity='%s'", sanitize(entity, type = "alphanum"))
-        },
+        else sprintf("entity='%s'", sanitize(entity, type = "alphanum")),
 
         if (missing(entityu)) NULL
-        else {
-            sprintf("entity='%s'", sanitize1(entityu, type = "alphanum"))
-        },
-
+        else sprintf("entity='%s'", sanitize1(entityu, type = "alphanum")),
+        
         if (missing(signal)) NULL
-        else sprintf("signal=%s", sanitize(signal, type = "count"))
+        else sprintf("signal=%s", sanitize(signal, type = "count")),
+        
+        if (missing(signalu)) NULL
+        else sprintf("signal=%s", sanitize1(signalu, type = "count"))
     )
     ## format
     ws1f <- paste0("(",
@@ -677,9 +676,11 @@ gtxregion <- function(chrom, pos_start, pos_end,
 }
 
 
-## infer the entity id according to the type required for the analysis
-#' @export
-gtxentity <- function(analysis, entity, hgncid, ensemblid, 
+## internal function to infer the entity id according to the type required for the analysis
+##
+## note optional tablename argument, is not completely flexible since we
+## might want to apply the WHERE clause on multiple tables
+gtxentity <- function(analysis, entity, hgncid, ensemblid, tablename, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
     ## Check the db connections we will actually use (genes will always be queried before exit, unless error)
     gtxdbcheck(getOption('gtx.dbConnection_cache_analyses', dbc), tables_required = 'analyses')
@@ -691,7 +692,13 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
                               )$entity_type
     ## FIXME this logging message could be improved when entity_type is null or empty string
     gtxlog('analysis [ ', analysis, ' ] requires entity type [ ', entity_type, ' ]')
-    
+
+    if (!missing(tablename)) {
+      tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
+    } else {
+      tablename <- ''
+    }
+        
     if (identical(entity_type, 'ensg')) {
         ## analysis requires an entity that is Ensembl gene id
         if (!missing(entity)) {
@@ -732,7 +739,7 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
         if (is.na(entity_label) || entity_label == '') entity_label <- entity # may have to paste 'ENSG' back on when switch to ints
         return(list(entity = entity,
                     entity_label = entity_label,
-                    entity_where = sprintf('(entity = \'%s\')', entity)))
+                    entity_where = sprintf('(%sentity = \'%s\')', tablename, entity)))
     } else {
         return(list(entity = NULL,
                     entity_label = '',
