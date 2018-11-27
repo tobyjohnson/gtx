@@ -502,7 +502,8 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 ## function to return pretty printing label for an analysis
 ## analysis is the analysis id
 ## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
-gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
+## signal is the integer index of a CLEO signal from gwas_results_cond
+gtxanalysis_label <- function(analysis, entity, signal, nlabel = TRUE,
                               dbc = getOption("gtx.dbConnection", NULL)) {
     ares <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
                        sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
@@ -518,7 +519,8 @@ gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
     } else {
         alabel <- ares$label
     }
-    if (!is.null(entity$entity)) alabel <- paste(entity$entity_label, alabel)
+    if (!missing(entity) && !is.null(entity$entity)) alabel <- paste(entity$entity_label, alabel)
+    if (!missing(signal)) alabel <- paste0(alabel, ' signal #', signal)
     return(alabel)
 }
 
