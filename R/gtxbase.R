@@ -46,9 +46,9 @@ gtxwhere <- function(chrom,
   ##  if multiple arguments, WHERE string AND's over arguments, producing e.g.
   ##      "chrom='1' AND pos_start>=123456 AND pos_end<=123789"
 
-  ## For a query region of interest, to finding segments (e.g. genes, recombination rate) that:
-  ## wholly or partially overlap, use pos_end_ge=query_start, pos_start_le=query_end
-  ## wholly overlap, use pos_start_ge=query_start, pos_end_le=query_end
+  ## For a query region of interest, to find segments (e.g. genes, recombination rate) that:
+  ## wholly *or partially* overlap, use:   pos_end_ge=query_start, pos_start_le=query_end
+  ## wholly overlap (only), use:           pos_start_ge=query_start, pos_end_le=query_end
 
     if (!missing(tablename)) {
         tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
@@ -109,8 +109,8 @@ gtxwhere <- function(chrom,
 ## convenience function to construct WHERE
 ## part of SQL for analyses table
 ## Note behaviour for most arguments here is OR/OR, different to gtxwhere()
-##
-gtxwhat <- function(analysis1,
+## (but AND with ncase_ge and ncohort_ge filters, document this better, FIXME)
+gtxwhat <- function(analysis1, # rename to analysis_u or analysis_uniq FIXME
                     analysis,
                     analysis_not, 
                     description_contains,
