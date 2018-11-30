@@ -28,7 +28,7 @@
 #' @param protein_coding_only [Default = TRUE] Filter only for protein coding transcripts
 #' @param neale_only [Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.
 #' @param gsk_only [Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.
-#' @param db [Defalt = "gene_gwas"] Database to pull data from. 
+#' @param db [Defalt = gtx::config_db()] Database to pull data from. 
 #' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
 #' @return data.frame with all coloc results in the region
 #' @examples 
@@ -49,7 +49,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                       protein_coding_only = FALSE, 
                       neale_only  = FALSE, 
                       gsk_only    = FALSE,
-                      db     = "gene_gwas",
+                      db     = gtx::config_db(),
                       impala = getOption("gtx.impala", NULL)){
   ############################################
   flog.debug("aba.query | validating input.")
@@ -322,7 +322,7 @@ aba.flatten <- function(.data){
 #' this function to fill in the matrix of missing data based on positive hits.
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @param .data 
-#' @param db [Default = "gene_gwas"]
+#' @param db [Default = gtx::config_db()]
 #' @return data.frame 
 #' @examples 
 #' Basic use:
@@ -334,7 +334,7 @@ aba.flatten <- function(.data){
 #' @import futile.logger
 #' @import glue
 #' @import dplyr
-aba.fill <- function(.data, db = "gene_gwas", impala = getOption("gtx.impala", NULL)){
+aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impala", NULL)){
   input = .data
   ############################################
   flog.debug("aba.fill | verify input")
