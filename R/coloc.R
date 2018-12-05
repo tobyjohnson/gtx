@@ -474,7 +474,7 @@ multicoloc.data <- function(analysis1, analysis2,
   ## FIXME if hard_clip can make this query run faster by not selecting on entity
   t0 <- as.double(Sys.time())
   res <- sqlWrapper(dbc,
-                    sprintf('SELECT 
+                    sprintf('SELECT STRAIGHT_JOIN 
                                  t1.analysis AS analysis1, t1.entity AS entity1,
                                  t1.beta AS beta1, t1.se AS se1, 
                                  t2.beta AS beta2, t2.se AS se2 
@@ -485,7 +485,7 @@ multicoloc.data <- function(analysis1, analysis2,
                                   WHERE
                                       %s AND %s AND %s AND pval IS NOT NULL
                                  ) AS t1 
-                             JOIN 
+                             JOIN /* +SHUFFLE */
                                  (SELECT 
                                       chrom, pos, ref, alt, beta, se
                                   FROM %sgwas_results 

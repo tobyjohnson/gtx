@@ -633,7 +633,7 @@ aba.wrapper <-
     colocs <- aba.query(chrom     = chrom, 
                         pos_start = pos_start, 
                         pos_end   = pos_end, 
-                        impala    = conn, ...)
+                        impala    = conn, ...) 
   }
   else {
     flog.error("aba.wrapper | unable to properly handle input.")
