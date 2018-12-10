@@ -28,6 +28,9 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0",
     sc_config$spark.executor.memory              <- '16G'
     sc_config$spark.yarn.executor.memoryOverhead <- '8G'
     sc_config$spark.port.maxRetries              <- 60
+    sc_config$spark.rpc.message.maxSize          <- 512    # This works best for uploading data via copy_to
+
+	  
     
     safe_spark_connect <- purrr::safely(spark_connect)
     safe_sc <- safe_spark_connect(master     = "yarn-client",

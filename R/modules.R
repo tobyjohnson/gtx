@@ -37,3 +37,76 @@ validate_module_input <- function(...){
   
   flog.debug("validate_module_input | Done.")
 }
+
+#' config_db
+#' 
+#' \strong{config_db - Read default project config database name}
+#' Read in a default config file and identify the named database to use. 
+#' This is useful in different projects where you want the code to point to different databses.
+#' The config file is csv, 2 cols (key, value), and config_db uses key=database
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @export
+#' @param file [Default = ~/.gtx_config.csv] Path to the config file to read in
+#' @return String of the database name
+#' @examples
+#' gtxconnection(use_database = config_db())
+#' gtxconnection(use_database = config_db(file = "/some/path/config.csv"))
+#' @import futile.logger
+#' @import glue
+#' @import purrr
+#' @import readr
+
+config_db <- function(file = "~/.gtx_config.csv"){
+  # Check the file exists
+  if(!file.exists(file)){
+    flog.error(glue("config_db | The input file doesn't exist:{file}"))
+    stop()
+  }
+  
+  # Safely read in the config file
+  safely_read_csv <- purrr::safely(readr::read_csv)
+  exec <- safely_read_csv(file = file,
+                          col_types = cols("key"   = col_character(), 
+                                           "value" = col_character()))
+  
+  if (!is.null(exec$error)){
+    flog.error(glue("config_db | Unable to use the config file: {file} because: {exec$error}"))
+    stop()
+  }
+  
+  mandatory_cols <- c("key", "value")
+  if(any(map_lgl(mandatory_cols, ~ .x %in% names(exec$result)) == FALSE)){
+    flog.error("config_db | config file is missing \"key\" and/or \"value\" col header.")
+    stop()
+  }
+  
+  # Select the key-value pair where key=database
+  ret <- exec$result %>% filter(key == "database") %>% select(value)
+  
+  if(nrow(ret) != 1){
+    flog.error("config_db | key \"database\" does not have exactly 1 row/value.")
+  }
+  ret <- pull(ret)
+  
+  # Validate the database name doesn't have "DROP" in it for SQL protection
+  if(str_detect(ret, coll("DROP", ignore_case = TRUE))){
+    flog.error("config_db | database value has \"drop\" in it, refusing to use it.")
+    stop()
+  }
+  
+  # Validate the database name has valid characters in it
+  if(!str_detect(ret, regex("^[A-Za-z0-9_]+$"))){
+    illegal <- str_replace_all(ret, regex("[A-Za-z0-9_]+"), "")
+    if(!str_detect(illegal, regex(".+"))){
+      flog.error(glue("config_db | database value contains no characters, value:{ret}"))
+      stop()   
+    }
+    else {
+      flog.error(glue("config_db | database value contains illegal characters: {illegal} : value:{ret}"))
+      stop() 
+    }
+  }
+  
+  return(ret)
+}
