@@ -458,8 +458,18 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   pos_end = xregion$pos_end
 
   ## Currently only works if analysis1 all in the same db table
-  db1 <- sanitize1(unique(sapply(analysis1, gtxanalysisdb)), type = 'alphanum.') # FIXME this should be properly vectorized
-  
+  db1 <- unique(sapply(analysis1, gtxanalysisdb))
+  if (length(db1) == 1L) {
+    if (db1 == '') {
+      # current database, okay
+    } else {
+      # sanitize
+      db1 <- sanitize1(db1, type = 'alphanum.')
+    }
+  } else {
+    stop('multicoloc does not work with analysis1 spanning multiple databases')
+  }
+
 #  ## substitute generic entity for entity1 and entity2 if needed
 #  if (missing(entity1) && !missing(entity)) entity1 <- entity
 #  if (missing(entity2) && !missing(entity)) entity2 <- entity

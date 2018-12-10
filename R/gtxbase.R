@@ -20,9 +20,11 @@ gtxversion <- function() {
   packageStartupMessage(gtxversion())
 }
 
-## for debugging, we have a function to print messages depending on a global option gtx.debug
-#' @export
+## for debugging, we have an internal function to print messages depending on a global option gtx.debug
+## FIXME, deprecate this by flog.warn'ing the message, and then
+##        change all calling instances to flog.<level>
 gtxlog <- function(...) {
+    #flog.warn(paste0('legacy gtxlog: ', ...))
     if (getOption('gtx.debug', FALSE)) return(message(...))
     return(invisible(NULL))
 }
@@ -618,7 +620,7 @@ gtxanalyses <- function(analysis, analysis_not,
 
     ## If accessible databases known, add 'has_access' column and filter if requested
     if (!is.null(dbs)) {
-        res$has_access <- res$results_db %in% dbs$name
+        res$has_access <- is.na(res$results_db) | res$results_db == '' | res$results_db %in% dbs$name
         if (has_access_only) {
             res <- subset(res, has_access)
         }

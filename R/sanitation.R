@@ -1,10 +1,12 @@
 ##' @export
+## FIXME, change to required(?) argument odbc=...
 gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
                        use_database,
-                       do_stop = TRUE,
+                       do_stop = TRUE, # deprecate this, it's cleaner for caller to use a tryCatch()
                        cache = TRUE, cache_analyses = TRUE, cache_genes = TRUE) {
   if (missing(use_database)) {
     stop('gtxconnect() requires use_database argument')
+    ## FIXME instead don't execute USE statement
   }
   tmp <- try(eval(dbc))
   if (identical('try-error', class(tmp))) {
@@ -229,7 +231,7 @@ gtxanalysisdb <- function(analysis,
                                   gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE
         ## First, if null or empty string, return empty string (hence caller will use unqualified table name)
         ## (note, database nulls are returned as R NAs; following is safe because length(res$results_db)==1)
-        if (is.null(res$results_db) || res$results_db == '') {
+        if (is.na(res$results_db) || res$results_db == '') {
             return('')
         }
         ## Next, if results_db is specified but dbs is NULL, throw error
