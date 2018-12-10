@@ -16,7 +16,7 @@ This method extracts a GWAS meta-information such as its analysis ID and samples
 info<-extract_study_info('body mass')
 ```
 
-## Instrument extraction (exposure)
+## Instrument (exposure) extraction
 The exposure instruments can be extracted by either using the chosen GWASs (_analysis_ or _analysis+entity_); or searching by a keyword/keyphrase such as 'body mass'. In the latest case, all studies which have a specified keyphrase will be considered for instrument extraction. If all studies should be looked up then:
 ```R
 exp<-extract_exposure()
@@ -69,7 +69,7 @@ __Note!__ By default, the method returns the dataframe with SNPs uniquely identi
 out<-extract_outcome(snp_list=snps,analyses_out=df.out,rsid=TRUE)
 ```
 ### Outcome extraction using the internal database
-In this scenario, there is no need to specify a SNP list but the studies to be extracted from the database as in the previous examples, that is the dataframe __df.exp__ with 2 columns of _analysis_ and _entity_ (if applicable). If rsIDs should be returned, then __rsid__=TRUE. Hence, the method would be:
+In this scenario, there is no need to specify a SNP list but the studies to be extracted from the database for both the exposure and outcome as in the previous examples, that is the dataframe __df.exp__ for the exposure and __df.out__ for the outcome with 2 columns of _analysis_ and _entity_ (if applicable) where _entity_ could be an empty column. If rsIDs should be returned, then __rsid__=TRUE. Hence, the method would be:
 ```R
 out<-extract_outcome(analyses_exp=df.exp,analyses_out=df.out,rsid=TRUE)
 ```
@@ -87,7 +87,7 @@ exposure_data<-format_for_mr(data=df,rsid=TRUE) #  for the exposure (default)
 outcome_data<-format_for_mr(data=df,type="outcome",rsid=TRUE) # for the outcome
 ```
 ## The univariable MR and follow-up analyses
-This method runs the MR analysis and follow-up analyses such as the heterogeneity and pleiotropy tests as well as a single SNP MR analysis (all implemented as separate methods in [TwoSampleMR](https://mrcieu.github.io/TwoSampleMR/) but don't require a connection to MR-Base), using any unique SNP identifier that is it could be chromosome positions & alleles (pos:chrom_ref_alt) or rsIDs or potentially anything else.
+This method runs the MR analysis and follow-up analyses such as the heterogeneity and pleiotropy tests as well as a single SNP MR analysis (all implemented as separate methods in [TwoSampleMR](https://mrcieu.github.io/TwoSampleMR/) but don't require a connection to [MR-Base](http://www.mrbase.org)), using any unique SNP identifier that is it could be chromosome positions & alleles (pos:chrom_ref_alt) or rsIDs or potentially anything else.
 
 __Note!__ It is important to ensure that both the exposure and outcome use same unique SNP identifiers before applying this method. If alleles are used as a part of SNP identification, then they should be aligned in the same way in both the exposure and outcome at the formatting stage.
 
@@ -100,7 +100,7 @@ It is possible to 'force' this method to skip LD-pruning when rsIDs are used (fo
 ```R
 res<-run_mr_gsk(exposure_data,outcome_data,rsid=TRUE,clump=FALSE)
 ```
-__Note!__ If __clump__=TRUE, then it is necessary to establish a connection to MR-Base. If you have never used the TwoSampleMR package, then the 'mrbase.auth' has to generated first. Please, generate this token on your personal machine rather than a server by installing TwoSampleMR and running 'available_outcomes()' in R. Then, the prompt to input your Gmail credentials will appear, and after that the file will be generated inside the working directory. This token can then be copied to the server or anywhere else and will authorise your access to MR-Base.
+__Note!__ If __clump__=TRUE, then it is necessary to establish a connection to [MR-Base](http://www.mrbase.org). If you have never used the TwoSampleMR package, then the 'mrbase.auth' token has to be generated first. Please, generate this token on your personal machine rather than a server by installing TwoSampleMR and running __available_outcomes()__ in R. You will be prompted to login into your Gmail account and after you have logged in, then the token will be generated and appear in the working directory. This token can then be copied to the server or anywhere else and will authorise your access to MR-Base.
 
 It is also possible to skip any follow-up analyses, where __hetero__ and __pleio__ stand for the heterogeneity and pleiotropy tests, while __single__ stands for the single SNP MR analysis:
 ```R
