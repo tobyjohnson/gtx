@@ -113,6 +113,6 @@ The output of this method is the list of dataframes __res__:
 4. Single SNP MR analysis
 5. Harmonisation data
 
-For example, to access the MR results, choose __res[[1]]__.
+For example, if you would like to access the MR results, please, choose __res[[1]]__.
 
 
