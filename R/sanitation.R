@@ -28,7 +28,11 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
   }
   
   if (cache) gtxcache(cache_analyses = cache_analyses, cache_genes = cache_genes)
-  futile.logger::flog.info(glue::glue("GTX connection established to: {use_database}."))
+  
+  # Document DB connection & GTX version.
+  futile.logger::flog.info(glue::glue("{gtx:::gtxversion()}"))
+  futile.logger::flog.info(glue::glue("GTX connection established to: {use_database}"))
+  
   return(tmp)
 }
 
