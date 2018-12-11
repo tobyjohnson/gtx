@@ -2,12 +2,12 @@
 Genetics ToolboX R package
 # Mendelian Randomization Analysis
 
-* [Introduction](mr-analysis/DOCS.md#introduction)
-* [GWAS search](mr-analysis/DOCS.md#gwas-search)
-* [Instruments extraction](mr-analysis/DOCS.md#instrument-exposure-extraction)
-* [Outcome extraction](mr-analysis/DOCS.md#outcome-extraction)
-* [Data formatting](mr-analysis/DOCS.md#data-formatting)
-* [MR and follow-up analyses](mr-analysis/DOCS.md#mr-and-follow-up-analyses)
+* [Introduction](https://github.com/tobyjohnson/gtx/blob/mr-analysis/DOCS.md#introduction)
+* [GWAS search](../mr-analysis/DOCS.md#gwas-search)
+* [Instruments extraction](../mr-analysis/DOCS.md#instrument-exposure-extraction)
+* [Outcome extraction](../mr-analysis/DOCS.md#outcome-extraction)
+* [Data formatting](../mr-analysis/DOCS.md#data-formatting)
+* [MR and follow-up analyses](../mr-analysis/DOCS.md#mr-and-follow-up-analyses)
 
 ## Introduction
 Mendelian Randomization analysis consists of several steps:
