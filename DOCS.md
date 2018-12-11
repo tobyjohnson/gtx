@@ -2,6 +2,13 @@
 Genetics ToolboX R package
 # Mendelian Randomization Analysis
 
+* [Introduction](mr-analysis/DOCS.md#introduction)
+* [GWAS search](mr-analysis/DOCS.md#gwas-search)
+* [Instruments extraction](mr-analysis/DOCS.md#instrument-exposure-extraction)
+* [Outcome extraction](mr-analysis/DOCS.md#outcome-extraction)
+* [Data formatting](mr-analysis/DOCS.md#data-formatting)
+* [MR and follow-up analyses](mr-analysis/DOCS.md#mr-and-follow-up-analyses)
+
 ## Introduction
 Mendelian Randomization analysis consists of several steps:
 1. Extract the instruments (SNPs) related to an exposure e.g., a risk factor such as smoking.
@@ -86,7 +93,7 @@ If rsIDs has to be used as unique SNP identifiers instead of chromosome position
 exposure_data<-format_for_mr(data=df,rsid=TRUE) #  for the exposure (default)
 outcome_data<-format_for_mr(data=df,type="outcome",rsid=TRUE) # for the outcome
 ```
-## The univariable MR and follow-up analyses
+## MR and follow-up analyses
 This method runs the MR analysis and follow-up analyses such as the heterogeneity and pleiotropy tests as well as a single SNP MR analysis (all implemented as separate methods in [TwoSampleMR](https://mrcieu.github.io/TwoSampleMR/) but don't require a connection to [MR-Base](http://www.mrbase.org)), using any unique SNP identifier that is it could be chromosome positions & alleles (pos:chrom_ref_alt) or rsIDs or potentially anything else.
 
 __Note!__ It is important to ensure that both the exposure and outcome use same unique SNP identifiers before applying this method. If alleles are used as a part of SNP identification, then they should be aligned in the same way in both the exposure and outcome at the formatting stage.
