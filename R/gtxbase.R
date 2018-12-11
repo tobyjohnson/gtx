@@ -144,6 +144,10 @@ gtxwhat <- function(analysis1, # rename to analysis_u or analysis_uniq FIXME
     
     ##
     ## analysis, description_contains, phenotype_contains etc. are OR'ed within and between arguments
+    ##
+    ## FIXME, in Impala, LIKE is case sensitive and ILIKE is case insensitive
+    ##    but in SQLite, LIKE is case insensitive
+    ##    so either we switch on the class of the dbc, or use "lower(a) LIKE lower(b)"
     ws1 <- list(
         if (missing(analysis)) NULL
         else {
@@ -192,7 +196,7 @@ gtxwhat <- function(analysis1, # rename to analysis_u or analysis_uniq FIXME
 
     ## FIXME bad hack make this better
     if (ws1f == '()' && ws2f == '()') {
-        stop('gtxwhat() produced no conditions')
+        return('(True)')
     } else if (ws1f != '()' && ws2f == '()') {
         return(paste0('(', ws1f, ')'))
     } else if (ws1f == '()' && ws2f != '()') {
@@ -537,6 +541,7 @@ gtxanalyses <- function(analysis, analysis_not,
                         analysis_fields = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
                         tag_is, with_tags = FALSE,
+                        with_cleo = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
 
@@ -583,41 +588,30 @@ gtxanalyses <- function(analysis, analysis_not,
             error('tag_is logicals [ ', paste(tag_is[tag_is_bad], collapse = ', '), ' ] not found in TABLE analyses_tags')
         }
         rm(acols)
-        paste0('(analysis_tags.', tag_is, ')', collapse = ' AND ')
+        tag_is <- paste0('(analyses_tags.', tag_is, ' OR analyses_tags.', tag_is, ' IS NULL)', collapse = ' AND ')
         with_tags <- TRUE
     } else {
         tag_is <- '(True)'
     }
     
-    all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
-                     missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
-                     missing(has_tag))
-    if (all_analyses) {
-        ## This query cannot use cache unless JOIN with analyses_tags, and subquery, are supported
-        res <- sqlWrapper(dbc,
-                          sprintf('SELECT %s %s FROM analyses %s',
-                                  analysis_fields,
-                                  if (with_tags) ', t1.tag' else '',
-                                  if (with_tags) sprintf('LEFT JOIN (SELECT analysis, tag FROM analyses_tags WHERE %s) AS t1 USING (analysis)', tag_is) else ''),
-                                  ## This LEFT JOIN does not work as expected when tag_is is used
-                                  ## because, logically, the left join happens BEFORE the WHERE clause is applied
-                                  ## need the tag_is as a subquery because ... EXPLAIN
-                          uniq = FALSE)
-    } else {
-        res <- sqlWrapper(dbc,
-                          sprintf('SELECT %s %s FROM analyses %s WHERE %s AND %s',
-                                  analysis_fields,
-                                  if (with_tags) ', analyses_tags.tag' else '',
-                                  if (with_tags) 'LEFT JOIN analyses_tags USING (analysis)' else '',
-                                  gtxwhat(analysis = analysis, analysis_not = analysis_not, 
-                                          description_contains = description_contains,
-                                          phenotype_contains = phenotype_contains,
-                                          has_tag = has_tag, 
-                                          ncase_ge = ncase_ge, ncohort_ge = ncohort_ge),
-                                  tag_is),
-                          uniq = FALSE)
-    }
-
+    #all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
+    #                 missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
+    #                 missing(has_tag))
+    res <- sqlWrapper(dbc,
+                      sprintf('SELECT %s %s FROM analyses %s %s WHERE %s AND %s',
+                              analysis_fields, 
+                              if (with_tags) ', analyses_tags.tag' else '',
+                              if (with_cleo) 'LEFT SEMI JOIN gwas_results_joint ON (analyses.analysis=gwas_results_joint.analysis)' else '',
+                              if (with_tags) 'LEFT JOIN analyses_tags ON (analyses.analysis=analyses_tags.analysis)' else '',
+                              gtxwhat(analysis = analysis, analysis_not = analysis_not, 
+                                      description_contains = description_contains,
+                                      phenotype_contains = phenotype_contains,
+                                      has_tag = has_tag, 
+                                      ncase_ge = ncase_ge, ncohort_ge = ncohort_ge,
+                                      tablename = 'analyses'),
+                              tag_is),
+                      uniq = FALSE, zrok = TRUE)
+    
     ## If accessible databases known, add 'has_access' column and filter if requested
     if (!is.null(dbs)) {
         res$has_access <- is.na(res$results_db) | res$results_db == '' | res$results_db %in% dbs$name
@@ -626,6 +620,9 @@ gtxanalyses <- function(analysis, analysis_not,
         }
     }
     
+    if (identical(nrow(res), 0L)) {
+      futile.logger::flog.warn('No analyses match the search criteria')
+    }
     return(res)
 }
 
