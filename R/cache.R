@@ -45,7 +45,7 @@ gtxcache <- function(cache_analyses = TRUE,
                      sqlWrapper(dbc_from, 'SELECT * FROM analyses;', uniq = FALSE),
                          overwrite = TRUE)
         DBI::dbExecute(getOption('gtx.dbConnection_cache'),
-                  'CREATE INDEX analyses_analysis ON analyses (analysis)') # should be unique
+                  'CREATE UNIQUE INDEX analyses_analysis ON analyses (analysis)') # should be unique
         t1 <- as.double(Sys.time())
         futile.logger::flog.info(paste0('Cached and INDEXed TABLE analyses with ',
                     sqlWrapper(getOption('gtx.dbConnection_cache'),
