@@ -15,11 +15,6 @@ gtxversion <- function() {
   return(paste0(names(desc), ': ', desc, collapse = '|'))
 }
 
-# gtxversion() output when attaching package
-.onAttach <- function(...) {
-  packageStartupMessage(gtxversion())
-}
-
 ## for debugging, we have an internal function to print messages depending on a global option gtx.debug
 ## FIXME, deprecate this by flog.warn'ing the message, and then
 ##        change all calling instances to flog.<level>

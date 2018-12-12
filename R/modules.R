@@ -18,24 +18,24 @@
 #' @importFrom rlang eval_tidy
 validate_module_input <- function(...){
   if(missing(...)){
-    flog.error("validate_module_input | Missing input.")
+    futile.logger::flog.error("validate_module_input | Missing input.")
     stop();
   }
-  flog.debug("validate_module_input | Setup.")
-  dots_quos <- quos(...)
+  futile.logger::flog.debug("validate_module_input | Setup.")
+  dots_quos <- dplyr::quos(...)
   
   validation_fxn <- function(x){
     x_name <- quo_name(x)
-    if(any(str_detect(rlang::eval_tidy(x), "DOUBLE_CLICK_HERE_TO_CHANGE")) == TRUE){
-      flog.error(glue("validate_module_input | \`{x_name}\` needs to be changed from the default \"DOUBLE_CLICK_HERE_TO_CHANGE\"."))
+    if(any(stringr::str_detect(rlang::eval_tidy(x), "DOUBLE_CLICK_HERE_TO_CHANGE")) == TRUE){
+      futile.logger::flog.error(glue::glue("validate_module_input | \`{x_name}\` needs to be changed from the default \"DOUBLE_CLICK_HERE_TO_CHANGE\"."))
       stop(call. = FALSE);
     }
   }
  
-  flog.debug("validate_module_input | Evaluate inputs.")
-  map(dots_quos, validation_fxn)  
+  futile.logger::flog.debug("validate_module_input | Evaluate inputs.")
+  purrr::map(dots_quos, validation_fxn)  
   
-  flog.debug("validate_module_input | Done.")
+  futile.logger::flog.debug("validate_module_input | Done.")
 }
 
 #' config_db
@@ -60,7 +60,7 @@ validate_module_input <- function(...){
 config_db <- function(file = "~/.gtx_config.csv"){
   # Check the file exists
   if(!file.exists(file)){
-    flog.error(glue("config_db | The input file doesn't exist:{file}"))
+    futile.logger::flog.error(glue::glue("config_db | The input file doesn't exist:{file}"))
     stop()
   }
   
@@ -71,39 +71,39 @@ config_db <- function(file = "~/.gtx_config.csv"){
                                            "value" = col_character()))
   
   if (!is.null(exec$error)){
-    flog.error(glue("config_db | Unable to use the config file: {file} because: {exec$error}"))
+    futile.logger::flog.error(glue::glue("config_db | Unable to use the config file: {file} because: {exec$error}"))
     stop()
   }
   
   mandatory_cols <- c("key", "value")
-  if(any(map_lgl(mandatory_cols, ~ .x %in% names(exec$result)) == FALSE)){
-    flog.error("config_db | config file is missing \"key\" and/or \"value\" col header.")
+  if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(exec$result)) == FALSE)){
+    futile.logger::flog.error("config_db | config file is missing \"key\" and/or \"value\" col header.")
     stop()
   }
   
   # Select the key-value pair where key=database
-  ret <- exec$result %>% filter(key == "database") %>% select(value)
+  ret <- exec$result %>% dplyr::filter(key == "database") %>% dplyr::select(value)
   
   if(nrow(ret) != 1){
-    flog.error("config_db | key \"database\" does not have exactly 1 row/value.")
+    futile.logger::flog.error("config_db | key \"database\" does not have exactly 1 row/value.")
   }
-  ret <- pull(ret)
+  ret <- dplyr::pull(ret)
   
   # Validate the database name doesn't have "DROP" in it for SQL protection
-  if(str_detect(ret, coll("DROP", ignore_case = TRUE))){
-    flog.error("config_db | database value has \"drop\" in it, refusing to use it.")
+  if(stringr::str_detect(ret, stringr::coll("DROP", ignore_case = TRUE))){
+    futile.logger::flog.error("config_db | database value has \"drop\" in it, refusing to use it.")
     stop()
   }
   
   # Validate the database name has valid characters in it
-  if(!str_detect(ret, regex("^[A-Za-z0-9_]+$"))){
-    illegal <- str_replace_all(ret, regex("[A-Za-z0-9_]+"), "")
-    if(!str_detect(illegal, regex(".+"))){
-      flog.error(glue("config_db | database value contains no characters, value:{ret}"))
+  if(!stringr::str_detect(ret, stringr::regex("^[A-Za-z0-9_]+$"))){
+    illegal <- str_replace_all(ret, stringr::regex("[A-Za-z0-9_]+"), "")
+    if(!stringr::str_detect(illegal, stringr::regex(".+"))){
+      futile.logger::flog.error(glue::glue("config_db | database value contains no characters, value:{ret}"))
       stop()   
     }
     else {
-      flog.error(glue("config_db | database value contains illegal characters: {illegal} : value:{ret}"))
+      futile.logger::flog.error(glue::glue("config_db | database value contains illegal characters: {illegal} : value:{ret}"))
       stop() 
     }
   }

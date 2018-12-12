@@ -806,9 +806,9 @@ multicoloc.kbs <- function(analysis1, analysis2,
               coloc.fast(beta1, se1, beta2, se2),
               by = .(analysis1, entity1)] %>% 
          left_join(., res, by = "entity1") %>% 
-         rename(tissue = analysis1) %>%
-         rename(ensembl_id = entity1) %>%
-         rename(hgnc_id = hgncid)
+         dplyr::rename(tissue = analysis1) %>%
+         dplyr::rename(ensembl_id = entity1) %>%
+         dplyr::rename(hgnc_id = hgncid)
       # FIXME you may want to rename P1, P2, P12 etc.
   
   return(ret)
