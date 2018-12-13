@@ -17,13 +17,12 @@
 #' @import sparklyr
 #' @import futile.logger
 #' @import glue
-validate_sc <- function(sc = getOption("gtx.sc", NULL)){
+validate_sc <- function(sc = getOption("gtx.sc", NULL), sc_config=spark_config()){
   # Check we have a spark connection
   flog.debug("tidy_connections::validate_sc | Validating Spark connection.")
   if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
     flog.debug("tidy_connections::validate_sc | Spark connection is not valid, will try to establish a connection.")
     # Try to establish a spark connection 
-    sc_config <- spark_config()
     sc_config$spark.port.maxRetries <- 60
     
     safe_spark_connect <- purrr::safely(spark_connect)
