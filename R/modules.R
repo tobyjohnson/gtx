@@ -110,3 +110,75 @@ config_db <- function(file = "~/.gtx_config.csv"){
   
   return(ret)
 }
+
+#' add_ssh_known_host
+#'
+#'  This function adds a url to ssh known hosts. This allows us to enable users 
+#'  to run some code (a module) to automatically do git updates without the user 
+#'  needing to manually uthenticate that they want to add the url as a known host (e.g. github.com)
+#'  when you do a git query (fetch/pull/etc).
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @export
+#' @param known_host A host to search for and add as known host. e.g. "github.com"
+#' @example
+#' add_ssh_known_host(known_host = "github.com")
+#' @import futile.logger
+#' @import glue
+#' @import dplyr
+#' @import stringr
+add_ssh_known_host <- function(known_host){
+  
+  if(missing(known_host)){
+    futile.logger::flog.error("add_ssh_known_host | Must specify known_host = X.")
+    stop()
+  }
+  
+  home_dir <- Sys.getenv(x = "HOME", unset = NA)
+  if(is.na(home_dir)){
+    futile.logger::flog.error("add_ssh_known_host | Cannot determine home directory.")
+    stop()
+  }
+  
+  known_hosts_file <- glue::glue("{home_dir}/.ssh/known_hosts")
+  futile.logger::flog.debug(glue::glue("add_ssh_known_host | ssh known_hosts file determined: {known_hosts_file}"))  
+  if(file.exists(known_hosts_file)){
+    search_file <- system2(command = "grep", args = c(known_host, known_hosts_file), stdout = TRUE)
+    
+    if(!is.null(purrr::pluck(search_file, attr_getter("status")))){
+      futile.logger::flog.error("add_ssh_known_host | Unable to properly grep the known_hosts file.")  
+    }
+    
+    if(str_detect(string = search_file, pattern = known_host)){
+      futile.logger::flog.debug("add_ssh_known_host | Found previous url in known host, skipping add.")  
+      return()
+    }
+  }
+  
+  exec <- system2(command = "ssh-keyscan", 
+                  args   = known_host, 
+                  stdout = glue::glue("{home_dir}/tmp_keyscan"),
+                  stderr = FALSE)
+  
+  if(!is.null(purrr::pluck(exec, attr_getter("status")))){
+    futile.logger::flog.error("add_ssh_known_host | Unable to ssh-keyscan.")
+    stop()
+  }
+  
+  exec <- system2(command = "ssh-keygen", 
+                  args   = c("-lf", glue::glue("{home_dir}/tmp_keyscan")),
+                  stdout = FALSE,
+                  stderr = FALSE)
+  
+  if(!is.null(purrr::pluck(exec, attr_getter("status")))){
+    futile.logger::flog.error("add_ssh_known_host | Unable to ssh-keyscan.")  
+    stop()
+  }
+  
+  exec <- file.append(known_hosts_file, glue::glue("{home_dir}/tmp_keyscan"))
+  if(exec == FALSE){
+    futile.logger::flog.error("add_ssh_known_host | Unable to append keyscan to known_hosts.")  
+    stop()
+  }
+  futile.logger::flog.debug(glue::glue("add_ssh_known_host | completed adding: {known_host}"))
+}
