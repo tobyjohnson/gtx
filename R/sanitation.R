@@ -1,3 +1,41 @@
+##' @export
+## FIXME, change to required(?) argument odbc=...
+gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
+                       use_database,
+                       do_stop = TRUE, # deprecate this, it's cleaner for caller to use a tryCatch()
+                       cache = TRUE, cache_analyses = TRUE, cache_genes = TRUE) {
+  if (missing(use_database)) {
+    stop('gtxconnect() requires use_database argument')
+    ## FIXME instead don't execute USE statement
+  }
+  tmp <- try(eval(dbc))
+  if (identical('try-error', class(tmp))) {
+    if (do_stop) {
+      stop(tmp) # verbatim error message
+    } else {
+      return(list(check = FALSE,
+                  status = 'Error creating db connection'))
+    }
+  }
+  options(gtx.dbConnection = tmp)
+  tmp <- gtxdbcheck(check_databases = use_database, do_stop = do_stop) # overwrite previous value of tmp
+  if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
+  if (do_stop || tmp$check) { # if do_stop, would have stopped previously instead of setting tmp$check=FALSE
+    invisible(dbExecute(getOption('gtx.dbConnection'), 
+                        sprintf('USE %s;', sanitize1(use_database, type = 'alphanum'))))
+    tmp <- gtxdbcheck(do_stop = do_stop) # overwrite previous value of tmp
+    if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
+  }
+  
+  if (cache) gtxcache(cache_analyses = cache_analyses, cache_genes = cache_genes)
+  
+  # Document DB connection & GTX version.
+  futile.logger::flog.info(glue::glue("{gtx:::gtxversion()}"))
+  futile.logger::flog.info(glue::glue("GTX connection established to: {use_database}"))
+  
+  return(tmp)
+}
+
 ## gtxdbcheck(dbc), called immediately within every gtx function that uses a database connection
 ##     should be the most lightweight check possible (minimize actual queries against dbc)
 ##     should throw an error with stop() in the most common failure modes
@@ -29,6 +67,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## Check dbc is of a class we recognize
   ## Construct a string describing current database connection  
   if ('Impala' %in% class(dbc)) {
+      ## FIXME for Kerberized environment, consider SELECT effective_user() as more relevant than clientside USER@HOST 
       currdb <- paste0(Sys.getenv('USER'), '@', Sys.getenv('HOSTNAME'), ' <Impala>')
   } else if ('SQLiteConnection' %in% class(dbc)) {
       currdb <- '<SQLite>'
@@ -47,7 +86,16 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   if (!missing(check_databases)) {
       if ('Impala' %in% class(dbc)) {
           if (verbose) gtxlog('Trying query: SHOW DATABASES;')
-          dbs <- dbGetQuery(dbc, 'SHOW DATABASES;')
+          dbs <- try(dbGetQuery(dbc, 'SHOW DATABASES;'))
+	  if (identical('try-error', class(dbs))) {
+	      # FIXME grepl the content of dbs for 'Ticket expired' to help user
+              if (do_stop) {
+                  stop(currdb, ' is not an open database connection (SHOW DATABASES returned an error)')
+              } else {
+                  return(list(check = FALSE,
+                              status = paste(currdb, 'error listing available databases')))
+              }
+	  }
           if (!is.data.frame(dbs)) {
               if (do_stop) {
                   stop(currdb, ' does not appear to be an open database connection (SHOW DATABASES did not return a dataframe)')
@@ -73,15 +121,25 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
           return(TRUE)
       } else {
           return(list(check = TRUE,
-                      status = paste0(currdb, 'can access database(s) [ ', check_databases, ' ]')))
+                      status = paste0(currdb, ' can access database(s) [ ', check_databases, ' ]')))
       }
   }
   
   ## Update string describing current database connection to include db name or SQLite path
   if ('Impala' %in% class(dbc)) {
       if (verbose) gtxlog('Trying query: SELECT current_database();')
+      scdb <- try(dbGetQuery(dbc, 'SELECT current_database();'))
+      if (identical('try-error', class(scdb))) {
+	# FIXME grepl the content of scdb for 'Ticket expired' to help user
+        if (do_stop) {
+          stop(currdb, ' is not an open database connection (SELECT current_database() returned an error)')
+        } else {
+          return(list(check = FALSE,
+                      status = paste(currdb, 'error determining current database')))
+        }
+      }
       currdb <- paste0(Sys.getenv('USER'), '@', Sys.getenv('HOSTNAME'), ' <Impala:', 
-                       paste(dbGetQuery(dbc, 'SELECT current_database();')[ , 'current_database()'], collapse = ', '), '>')    
+                       paste(scdb[ , 'current_database()'], collapse = ', '), '>')    
   } else if ('SQLiteConnection' %in% class(dbc)) {
       currdb <- paste0('<SQLite:', dbc@dbname, '>')
   } else {
@@ -93,7 +151,16 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## db connection is working and pointing to the expected content
   if ('Impala' %in% class(dbc)) {
       if (verbose) gtxlog('Trying query: SHOW TABLES;')
-      tables <- dbGetQuery(dbc, 'SHOW TABLES;')
+      tables <- try(dbGetQuery(dbc, 'SHOW TABLES;'))
+      if (identical('try-error', class(tables))) {
+	# FIXME grepl the content of tables for 'Ticket expired' to help user
+        if (do_stop) {
+          stop(currdb, ' is not an open database connection (SHOW TABLES returned an error)')
+        } else {
+          return(list(check = FALSE,
+                      status = paste(currdb, 'error listing available tables')))
+        }
+      }
       if (!is.data.frame(tables)) {
           if (do_stop) {
               stop(currdb, ' does not appear to be an open database connection (SHOW TABLES did not return a dataframe)')
@@ -169,7 +236,7 @@ gtxanalysisdb <- function(analysis,
                                   gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE
         ## First, if null or empty string, return empty string (hence caller will use unqualified table name)
         ## (note, database nulls are returned as R NAs; following is safe because length(res$results_db)==1)
-        if (is.null(res$results_db) || res$results_db == '') {
+        if (is.na(res$results_db) || res$results_db == '') {
             return('')
         }
         ## Next, if results_db is specified but dbs is NULL, throw error
@@ -336,7 +403,7 @@ sanitize1 <- function(x, values, type) {
 }
 
 ##
-## wrapper for sqlQuery()
+## wrapper for dbGetQuery()
 ## checks return value is data frame with exactly
 ## [or at least] one row (if uniq is TRUE [or FALSE])
 ## -- allow zero rows is zrok=TRUE
@@ -346,9 +413,13 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
     if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc)) {
-        stop('dbc does not appear to be an Impala connection (not of class Impala or SQLiteConnection)')
+        stop('dbc is not an odbc database connection of class Impala or SQLiteConnection')
     }
+    flog.debug(paste0(class(dbc), ' query: ', sql))
+    t0 <- as.double(Sys.time())
     res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
+    t1 <- as.double(Sys.time())
+    flog.debug(paste0(class(dbc), ' query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
             if (zrok) return(res)

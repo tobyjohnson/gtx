@@ -13,6 +13,10 @@ big_copy_to(df, dest = getOption("gtx.impala", NULL),
 \item{dest}{Impala implyr connection}
 
 \item{chrom_as_string}{Convert "chrom" col's to character instead of integers}
+
+\item{database}{Name of the database}
+
+\item{table_name}{Name of the table within the database.}
 }
 \description{
 \strong{big_copy_to() - copy data to RDIP}

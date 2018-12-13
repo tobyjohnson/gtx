@@ -4,13 +4,13 @@
 \alias{aba.fill}
 \title{\strong{aba.fill() - Fill in missing data to complete matrix of aba.query() results}}
 \usage{
-aba.fill(.data, db = "gene_gwas", impala = getOption("gtx.impala",
+aba.fill(.data, db = gtx::config_db(), impala = getOption("gtx.impala",
   NULL))
 }
 \arguments{
 \item{.data}{}
 
-\item{db}{[Default = "gene_gwas"]}
+\item{db}{[Default = gtx::config_db()]}
 }
 \value{
 data.frame

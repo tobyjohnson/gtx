@@ -1,6 +1,30 @@
-## for debugging, we have a function to print messages depending on a global option gtx.debug
-#' @export
+#' gtxversion - Report GTX package info
+#' 
+#' Internal function to extract and report version and build information, 
+#' including ref and sha1 if built from github using devtools.
+#' Intent is for this to be printed to help time/versionstamp outputs
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @import utils
+
+gtxversion <- function() {
+  # Note, not all the listed elements will be present, depending on whether built 
+  # using devtools::install_git() or devtools::install_github()
+  desc <- unlist(packageDescription('gtx')[c('Package', 'Version', 'Built', 'Packaged', 
+                                             'RemoteSha', 'GithubRepo', 'GithubRef', 'GithubSHA1')])
+  return(paste0(names(desc), ': ', desc, collapse = '|'))
+}
+
+# gtxversion() output when attaching package
+.onAttach <- function(...) {
+  packageStartupMessage(gtxversion())
+}
+
+## for debugging, we have an internal function to print messages depending on a global option gtx.debug
+## FIXME, deprecate this by flog.warn'ing the message, and then
+##        change all calling instances to flog.<level>
 gtxlog <- function(...) {
+    #flog.warn(paste0('legacy gtxlog: ', ...))
     if (getOption('gtx.debug', FALSE)) return(message(...))
     return(invisible(NULL))
 }
@@ -24,9 +48,9 @@ gtxwhere <- function(chrom,
   ##  if multiple arguments, WHERE string AND's over arguments, producing e.g.
   ##      "chrom='1' AND pos_start>=123456 AND pos_end<=123789"
 
-  ## For a query region of interest, to finding segments (e.g. genes, recombination rate) that:
-  ## wholly or partially overlap, use pos_end_ge=query_start, pos_start_le=query_end
-  ## wholly overlap, use pos_start_ge=query_start, pos_end_le=query_end
+  ## For a query region of interest, to find segments (e.g. genes, recombination rate) that:
+  ## wholly *or partially* overlap, use:   pos_end_ge=query_start, pos_start_le=query_end
+  ## wholly overlap (only), use:           pos_start_ge=query_start, pos_end_le=query_end
 
     if (!missing(tablename)) {
         tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
@@ -87,8 +111,8 @@ gtxwhere <- function(chrom,
 ## convenience function to construct WHERE
 ## part of SQL for analyses table
 ## Note behaviour for most arguments here is OR/OR, different to gtxwhere()
-##
-gtxwhat <- function(analysis1,
+## (but AND with ncase_ge and ncohort_ge filters, document this better, FIXME)
+gtxwhat <- function(analysis1, # rename to analysis_u or analysis_uniq FIXME
                     analysis,
                     analysis_not, 
                     description_contains,
@@ -179,6 +203,62 @@ gtxwhat <- function(analysis1,
         stop('gtxwhat() logical error')
     }
 }
+
+##
+## convenience function to construct WHERE
+## part of SQL for gwas_results_[joint|cond]
+##
+where_from <- function(analysis, analysisu,
+                       entity, entityu,
+                       signal, signalu, 
+                       tablename) {
+
+    if (!missing(tablename)) {
+        tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
+    } else {
+        tablename <- ''
+    }
+
+    ##
+    ## analysis, entity, signal are OR within, AND between
+    ws1 <- list(
+        if (missing(analysis)) NULL
+        else {
+            if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
+                sprintf("analysis='%s'", sanitize(analysis, type = "alphanum"))
+            } else {
+                sprintf("analysis=%s", sanitize(analysis, type = "count")) # note no quotes
+            }
+        },
+
+        if (missing(analysisu)) NULL
+        else {
+            if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
+                sprintf("analysis='%s'", sanitize1(analysisu, type = "alphanum"))
+            } else {
+                sprintf("analysis=%s", sanitize1(analysisu, type = "count")) # note no quotes
+            }
+        },
+
+        if (missing(entity)) NULL
+        else sprintf("entity='%s'", sanitize(entity, type = "alphanum")),
+
+        if (missing(entityu)) NULL
+        else sprintf("entity='%s'", sanitize1(entityu, type = "alphanum")),
+        
+        if (missing(signal)) NULL
+        else sprintf("signal=%s", sanitize(signal, type = "count")),
+        
+        if (missing(signalu)) NULL
+        else sprintf("signal=%s", sanitize1(signalu, type = "count"))
+    )
+    ## format
+    ws1f <- paste0("(",
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))),
+                  ")", collapse = " AND ")
+    return(ws1f)
+}
+
 
 gtxfilter <- function(pval_le, pval_gt,
                       maf_ge, maf_lt,
@@ -424,7 +504,8 @@ gtxfilter_label <- function(maf_ge, maf_lt,
 ## function to return pretty printing label for an analysis
 ## analysis is the analysis id
 ## entity is the result of a call to gtxentity (i.e. a list with elements entity, entity_label)
-gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
+## signal is the integer index of a CLEO signal from gwas_results_cond
+gtxanalysis_label <- function(analysis, entity, signal, nlabel = TRUE,
                               dbc = getOption("gtx.dbConnection", NULL)) {
     ares <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
                        sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
@@ -440,7 +521,8 @@ gtxanalysis_label <- function(analysis, entity, nlabel = TRUE,
     } else {
         alabel <- ares$label
     }
-    if (!is.null(entity$entity)) alabel <- paste(entity$entity_label, alabel)
+    if (!missing(entity) && !is.null(entity$entity)) alabel <- paste(entity$entity_label, alabel)
+    if (!missing(signal)) alabel <- paste0(alabel, ' signal #', signal)
     return(alabel)
 }
 
@@ -538,7 +620,7 @@ gtxanalyses <- function(analysis, analysis_not,
 
     ## If accessible databases known, add 'has_access' column and filter if requested
     if (!is.null(dbs)) {
-        res$has_access <- res$results_db %in% dbs$name
+        res$has_access <- is.na(res$results_db) | res$results_db == '' | res$results_db %in% dbs$name
         if (has_access_only) {
             res <- subset(res, has_access)
         }
@@ -598,9 +680,11 @@ gtxregion <- function(chrom, pos_start, pos_end,
 }
 
 
-## infer the entity id according to the type required for the analysis
-#' @export
-gtxentity <- function(analysis, entity, hgncid, ensemblid, 
+## internal function to infer the entity id according to the type required for the analysis
+##
+## note optional tablename argument, is not completely flexible since we
+## might want to apply the WHERE clause on multiple tables
+gtxentity <- function(analysis, entity, hgncid, ensemblid, tablename, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
     ## Check the db connections we will actually use (genes will always be queried before exit, unless error)
     gtxdbcheck(getOption('gtx.dbConnection_cache_analyses', dbc), tables_required = 'analyses')
@@ -612,7 +696,13 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
                               )$entity_type
     ## FIXME this logging message could be improved when entity_type is null or empty string
     gtxlog('analysis [ ', analysis, ' ] requires entity type [ ', entity_type, ' ]')
-    
+
+    if (!missing(tablename)) {
+      tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
+    } else {
+      tablename <- ''
+    }
+        
     if (identical(entity_type, 'ensg')) {
         ## analysis requires an entity that is Ensembl gene id
         if (!missing(entity)) {
@@ -653,7 +743,7 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid,
         if (is.na(entity_label) || entity_label == '') entity_label <- entity # may have to paste 'ENSG' back on when switch to ints
         return(list(entity = entity,
                     entity_label = entity_label,
-                    entity_where = sprintf('(entity = \'%s\')', entity)))
+                    entity_where = sprintf('(%sentity = \'%s\')', tablename, entity)))
     } else {
         return(list(entity = NULL,
                     entity_label = '',

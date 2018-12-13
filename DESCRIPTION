@@ -12,7 +12,7 @@ Imports:
 Depends:
     DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger,tibble,readr,implyr
 Suggests:
-    knitr,testthat,tidyr
+    knitr,testthat,tidyr,rlang
 VignetteBuilder: knitr
 License: GPL (>= 3)
 Description: Assorted tools for genetic and pharmacogenetic association 

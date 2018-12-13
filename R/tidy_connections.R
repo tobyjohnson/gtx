@@ -17,18 +17,25 @@
 #' @import sparklyr
 #' @import futile.logger
 #' @import glue
-validate_sc <- function(sc = getOption("gtx.sc", NULL), sc_config=spark_config()){
+
+validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0", app_name = "sparklyr", sc_config=spark_config()){
+
   # Check we have a spark connection
   flog.debug("tidy_connections::validate_sc | Validating Spark connection.")
   if(is.null(sc) | !any(str_detect(class(sc), "spark_connection"))){ 
     flog.debug("tidy_connections::validate_sc | Spark connection is not valid, will try to establish a connection.")
     # Try to establish a spark connection 
     sc_config$spark.port.maxRetries <- 60
+    sc_config$spark.driver.memory                <- '16G'
+    sc_config$spark.executor.memory              <- '16G'
+    sc_config$spark.yarn.executor.memoryOverhead <- '8G'
+    sc_config$spark.port.maxRetries              <- 60
+    sc_config$spark.rpc.message.maxSize          <- 512    # This works best for uploading data via copy_to
     
     safe_spark_connect <- purrr::safely(spark_connect)
     safe_sc <- safe_spark_connect(master     = "yarn-client",
                                   spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
-                                  version    = "2.1",
+                                  version    = spark_version,
                                   config     = sc_config)
     # If there was no error, use the connection
     if(is.null(safe_sc$error)){ 
@@ -48,6 +55,17 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL), sc_config=spark_config()
   }
   else if(any(str_detect(class(sc), "spark_connection"))){
     flog.debug("tidy_connections::validate_sc | Spark connection is valid.")
+    # Check if spark version and app_name matches those requested. Otherwise, disconnect and call function again
+    if (grepl(spark_version, sc$spark_home)){
+	    flog.debug("Spark version detected is different from current version. Restarting Spark connection")
+	    spark_disconnect(sc)
+	    sc = validate_sc(spark_version=spark_version, app_name=app_name)
+    }
+    if (sc$app_name != app_name){
+	    flog.debug("App name requested is different from current value. Restarting Spark connection")
+	    spark_disconnect(sc)
+	    sc = validate_sc(spark_version=spark_version, app_name=app_name)
+    }
   }
   else{
     flog.error("tidy_connections::validate_sc | Unsure how to process sc.")
@@ -234,8 +252,8 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
 #' @export
 #' @param df Data to copy to RDIP
 #' @param dest Impala implyr connection
-#' @param database
-#' @param table_name
+#' @param database Name of the database
+#' @param table_name Name of the table within the database. 
 #' @param chrom_as_string Convert "chrom" col's to character instead of integers
 #' @import readr
 #' @import glue
@@ -434,7 +452,8 @@ whoami <- function(){
     names %>% 
     filter(!str_detect(getenv, "cdsw") & !is.na(getenv)) %>% 
     distinct(getenv) %>% 
-    pull(getenv)
+    pull(getenv) %>% 
+    str_to_lower()
   
   flog.debug(glue("whoami | Determined username to be: {ret}"))
   
