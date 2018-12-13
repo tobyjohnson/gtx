@@ -584,7 +584,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   ############################################
   # If we have >4 genes, flip gene names vertical
   if(fig_dat %>% dplyr::filter(p12 > 0.80) %>% dplyr::distinct(hgncid) %>% nrow() > 4){
-    fig <- fig + ggplot2:theme(strip.text.x = ggplot2::element_text(angle = 90, size = 12))
+    fig <- fig + ggplot2::theme(strip.text.x = ggplot2::element_text(angle = 90, size = 12))
   }
   ############################################
   flog.debug("aba.plot | return plot")
