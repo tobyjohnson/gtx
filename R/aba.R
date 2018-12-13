@@ -485,7 +485,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   if(!is.null(title) & !is.character(title)){
     flog.warn("aba.plot | title is neither NULL or character string.")
   }
-  
+  ############################################
   # Clean data (e.g. tissue & description), add simple direction of effect
   flog.debug("aba.plot | cleaing data for plotting")
   fig_dat <- 
@@ -517,7 +517,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
     hgncid <- reorder(hgncid, gene_start)
     rs_pos <- reorder(rs_pos, th_pos) 
   })
-  
+  ############################################
   flog.debug("aba.plot | plotting data")
   fig <-
     fig_dat %>% 
@@ -546,11 +546,47 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
           strip.text.y     = element_text(size = 5, angle = 0),
           plot.title       = element_text(hjust = 0.5)) +
     guides(size  = guide_legend(title = "Posterior probability\nof colocalization"))
-  
-  if(!is.null(title)){
-    fig <- fig + ggtitle(title)
+  ############################################
+  # Add a title for T2 zoom
+  if("tier2_zoom" %in% names(fig_dat)){
+    t2_title <- 
+      fig_dat %>% 
+      dplyr::distinct(tier1_zoom, tier2_zoom)
+    
+    if(nrow(t2_title) > 1){
+      futile.logger::flog.error("aba.plot | tier1/2 have too many variables.")
+      stop()
+    }
+    if(pull(t2_title, tier1_zoom) == pull(t2_title, tier2_zoom)){
+      fig <- fig + ggplot2::ggtitle(glue::glue("Tier 2 zoom on {glue::glue_collapse(t2_title$tier1_zoom, sep = ' & ')}"))
+    }
+    else {
+      fig <- fig + ggplot2::ggtitle(glue::glue("Tier 1 zoom on {glue::glue_collapse(t2_title$tier1_zoom, sep = ' & ')}, and Tier 2 zoom on {glue::glue_collapse(t2_title$tier2_zoom, sep = ' & ')}"))  
+    }
+    
   }
-  
+  # Add a title for T1 zoom
+  else if("tier1_zoom" %in% names(fig_dat)){
+    t1_title <- 
+      fig_dat %>% 
+      dplyr::distinct(tier1_zoom)
+    
+    if(nrow(t1_title) > 1){
+      futile.logger::flog.error("aba.plot | tier1 have too many variables.")
+      stop()
+    }
+    fig <- fig + ggplot2::ggtitle(glue::glue("Tier 1 zoom on {t1_title}"))
+  }
+  # Add a title based on ARGS input
+  else if(!is.null(title)){
+    fig <- fig + ggplot2::ggtitle(title)
+  }
+  ############################################
+  # If we have >4 genes, flip gene names vertical
+  if(fig_dat %>% dplyr::filter(p12 > 0.80) %>% dplyr::distinct(hgncid) %>% nrow() > 4){
+    fig <- fig + ggplot2:theme(strip.text.x = ggplot2::element_text(angle = 90, size = 12))
+  }
+  ############################################
   flog.debug("aba.plot | return plot")
   return(fig)
 }
@@ -705,4 +741,192 @@ aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
   flog.debug("aba.save | saving figures . . .")
   walk2(glue("{path}/{input$input}_{suffix}.pdf"), input$figures, ggsave, ...)
   flog.debug("aba.save | saving figures complete")
+}
+
+#' aba.zoom - A function to help zoom in on specific data from aba.
+#' 
+#' This function is to enable users to zoom in on specific features
+#' from the aba coloc data. The default aba plots can be very large and messy, 
+#' and filtering these data can be difficult. To enable users to filter the data,
+#' this function will help "zoom" in on specific features such as genes or GWAS. 
+#' This function can be used 1-2 times depending on the desired level of zoom. 
+#' 
+#' Tier 1 zoom: All colocs for the input query, all genes with shared coloc traits (extended gene list), 
+#' and all non-shared traits for the extended gene list.
+#' 
+#' Tier 2 zoom: All colocs for the input query, all genes with shared colocs. 
+#' Excludes non-shared traits from the extended gene list. Note, Tier 2 zoom does not always 
+#' further resolve data complexity.
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param hgncid HGNC symbol.
+#' @param entity Typically ensemblid. 
+#' @param analysis2 GWAS analysis ID
+#' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
+#' @export
+#' @import futile.logger
+#' @import dplyr
+#' @examples
+#' Use aba.wrapper to run query and get data. 
+#' colocs <- aba.wrapper(hgncid = "HMGCR", neale_only = TRUE, protein_coding_only = TRUE)
+#' 
+#' Tier 1 zoom
+#' colocs %>% pluck("data", 1) %>% aba.zoom(hgncid = "HMGCR") %>% aba.plot()
+#' 
+#' Tier 2 zoom:
+#' colocs %>% pluck("data", 1) %>% aba.zoom(hgncid = "HMGCR") %>% aba.zoom(hgncid = "HMGCR") %>% aba.plot()
+aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
+  input <- .data
+  ############################################
+  futile.logger::flog.debug("aba.zoom | validating args.")
+  if(missing(hgncid) & missing(entity) & missing(analysis2)){
+    futile.logger::flog.error("aba.zoom | must specify either:hgncid, entity, analysis2.")
+    stop()
+  }
+  ############################################
+  futile.logger::flog.debug("aba.zoom | validating input.")
+  required_cols <- c("analysis1", "analysis2", "hgncid", "entity", "p12")
+  if(!all(required_cols %in% (names(input)))){
+    futile.logger::flog.error(paste0("aba.zoom | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
+    stop();
+  }
+  if(!missing(hgncid)){
+    if(nrow(filter(.data, hgncid == !!hgncid)) == 0){
+      futile.logger::flog.error(glue::glue("aba.zoom | input data does not contain the input hgncid: {hgncid}"))
+      stop()
+    }
+  }
+  else if(!missing(entity)){
+    if(nrow(filter(.data, entity == !!entity)) == 0){
+      futile.logger::flog.error(glue::glue("aba.zoom | input data does not contain the input ensemblid: {ensemblid}"))
+      stop()
+    }
+  }
+  else if(!missing(analysis2)){
+    if(nrow(filter(.data, analysis2 == !!analysis2)) == 0){
+      futile.logger::flog.error(glue::glue("aba.zoom | input data does not contain the input analysis2: {analysis2}"))
+      stop()
+    }
+  }
+  ############################################
+  futile.logger::flog.debug("aba.zoom | Determining how to process data.")
+  if("zoom2" %in% names(input)){
+    futile.logger::flog.error("aba.zoom | previous zoom2 found, cannot further process.")
+    stop()
+  }
+  else if("zoom1" %in% names(input)){
+    futile.logger::flog.debug("aba.zoom | previous zoom1 found, tier 2 zoom processing")
+    ret <- aba.int_zoom2(input, hgncid = hgncid, entity = entity, 
+                         analysis2 = analysis2, p12_ge = p12_ge)
+  } 
+  else {
+    futile.logger::flog.debug("aba.zoom | no previous zoom found, tier 1 zoom processing")
+    ret <- aba.int_zoom1(input, hgncid = hgncid, entity = entity, 
+                         analysis2 = analysis2, p12_ge = p12_ge)
+  }
+  ############################################
+  futile.logger::flog.debug("aba.zoom | processing complete.")
+  return(ret)
+}
+
+#' aba.int_zoom1 - Internal fxn for \code{aba.zoom}
+#' 
+#' Tier 1 zoom
+#' @import dplyr
+aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
+  ############################################
+  if(!missing(hgncid)){
+    futile.logger::flog.debug(glue::glue("aba.zoom1 | Filtering using input hgncid: {hgncid}."))
+    ret <- 
+      .data %>% 
+      dplyr::mutate(tier1_zoom = !!hgncid) %>% 
+      dplyr::mutate(zoom1_pos_query = (hgncid == !!hgncid & p12 >= p12_ge)) %>% 
+      dplyr::group_by(analysis2) %>% 
+      dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query))
+  }
+  else if(!missing(entity)){
+    futile.logger::flog.debug(glue::glue("aba.zoom1 | Filtering using input entity: {entity}."))
+    ret <- 
+      .data %>% 
+      dplyr::mutate(tier1_zoom = !!entity) %>% 
+      dplyr::mutate(zoom1_pos_query = (entity == !!entity & p12 >= p12_ge)) %>% 
+      dplyr::group_by(analysis2) %>% 
+      dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query))
+  }
+  else if(!missing(analysis2)){
+    futile.logger::flog.debug(glue::glue("aba.zoom1 | Filtering using input analysis2: {analysis2}."))
+    ret <- 
+      .data %>% 
+      dplyr::mutate(tier1_zoom = !!analysis2) %>% 
+      dplyr::group_by(analysis2) %>%
+      dplyr::mutate(zoom1_pos_gwas = (analysis2 == !!analysis2))
+      
+  }
+  ############################################
+  ret <- 
+    ret %>% 
+    dplyr::group_by(hgncid) %>% 
+    dplyr::mutate(zoom1_proxy_genes = any(zoom1_pos_gwas & p12 >= p12_ge)) %>% 
+    dplyr::group_by(analysis2) %>% 
+    dplyr::mutate(zoom1_proxy_gwas = any(zoom1_proxy_genes & p12 >= p12_ge)) %>% 
+    dplyr::group_by(analysis1) %>% 
+    dplyr::mutate(zoom1_proxy_tissues = any(zoom1_proxy_genes & zoom1_proxy_gwas & p12 >= p12_ge)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(zoom1 = (zoom1_proxy_genes & zoom1_proxy_gwas & zoom1_proxy_tissues)) %>% 
+    dplyr::filter(zoom1) %>%
+    dplyr::select(-dplyr::matches("zoom1_"))
+  ############################################
+  
+  return(ret)
+}
+
+#' aba.int_zoom2 - Internal fxn for \code{aba.zoom}
+#' 
+#' Tier 2 zoom
+#' @import dplyr
+aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
+  ############################################
+  if(!missing(hgncid)){
+    futile.logger::flog.debug(glue::glue("aba.zoom2 | Filtering using input hgncid: {hgncid}."))
+    ret <- 
+      .data %>% 
+      dplyr::mutate(tier2_zoom = !!hgncid) %>% 
+      dplyr::mutate(zoom2_pos_query = (hgncid == !!hgncid & p12 >= p12_ge)) %>% 
+      dplyr::group_by(analysis2) %>% 
+      dplyr::mutate(zoom2_pos_gwas = any(zoom2_pos_query))
+      
+  }
+  else if(!missing(entity)){
+    futile.logger::flog.debug(glue::glue("aba.zoom2 | Filtering using input entity: {entity}."))
+    ret <- 
+      .data %>% 
+      dplyr::mutate(tier2_zoom = !!entity) %>% 
+      dplyr::mutate(zoom2_pos_query = (entity == !!entity & p12 >= p12_ge)) %>% 
+      dplyr::group_by(analysis2) %>% 
+      dplyr::mutate(zoom2_pos_gwas = any(zoom2_pos_query))
+  }
+  else if(!missing(analysis2)){
+    futile.logger::flog.debug(glue::glue("aba.zoom2 | Filtering using input analysis2: {analysis2}."))
+    ret <- 
+      .data %>% 
+      dplyr::mutate(tier2_zoom = !!analysis2)
+      dplyr::group_by(analysis2) %>%
+      dplyr::mutate(zoom2_pos_gwas = (analysis2 == !!analysis2))
+      
+  }
+  ############################################
+  ret <- 
+    ret %>% 
+    dplyr::group_by(hgncid) %>% 
+    dplyr::mutate(zoom2_proxy_genes = any(zoom2_pos_gwas & p12 >= 0.80)) %>% 
+    dplyr::group_by(analysis1) %>% 
+    dplyr::mutate(zoom2_proxy_tissues = any(zoom2_proxy_genes & zoom2_pos_gwas & p12 >= 0.80)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(zoom2 = (zoom2_proxy_genes & zoom2_pos_gwas & zoom2_proxy_tissues)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::filter(zoom2) %>% 
+    dplyr::select(-dplyr::matches("zoom2_"))
+  ############################################
+  
+  return(ret)
 }
