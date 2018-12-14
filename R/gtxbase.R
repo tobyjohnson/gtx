@@ -211,9 +211,11 @@ gtxwhat <- function(analysis1, # rename to analysis_u or analysis_uniq FIXME
 ##
 ## convenience function to construct WHERE
 ## part of SQL for gwas_results_[joint|cond]
+## note that it is meaningless to select signals without also selecting chrom
 ##
 where_from <- function(analysis, analysisu,
                        entity, entityu,
+                       chrom, 
                        signal, signalu, 
                        tablename) {
 
@@ -249,6 +251,9 @@ where_from <- function(analysis, analysisu,
 
         if (missing(entityu)) NULL
         else sprintf("entity='%s'", sanitize1(entityu, type = "alphanum")),
+        
+        if (missing(chrom)) NULL
+        else sprintf("chrom='%s'", sanitize1(chrom, values = c(as.character(1:22), "X", "Y"))),
         
         if (missing(signal)) NULL
         else sprintf("signal=%s", sanitize(signal, type = "count")),
