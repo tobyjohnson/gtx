@@ -603,7 +603,7 @@ gtxanalyses <- function(analysis, analysis_not,
     #                 missing(description_contains) && missing(ncase_ge) && missing(ncohort_ge) &&
     #                 missing(has_tag))
     res <- sqlWrapper(dbc,
-                      sprintf('SELECT %s %s FROM analyses %s %s WHERE %s AND %s',
+                      sprintf('SELECT %s %s FROM analyses %s %s WHERE %s AND %s AND %s',
                               analysis_fields, 
                               if (with_tags) ', analyses_tags.tag' else '',
                               if (has_cleo) 'LEFT SEMI JOIN gwas_results_joint ON (analyses.analysis=gwas_results_joint.analysis)' else '',
@@ -611,9 +611,9 @@ gtxanalyses <- function(analysis, analysis_not,
                               gtxwhat(analysis = analysis, analysis_not = analysis_not, 
                                       description_contains = description_contains,
                                       phenotype_contains = phenotype_contains,
-                                      has_tag = has_tag, 
                                       ncase_ge = ncase_ge, ncohort_ge = ncohort_ge,
                                       tablename = 'analyses'),
+                              gtxwhat(has_tag = has_tag, tablename = 'analyses_tags'),
                               tag_is),
                       uniq = FALSE, zrok = TRUE)
     
