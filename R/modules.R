@@ -149,9 +149,11 @@ add_ssh_known_host <- function(known_host){
       futile.logger::flog.error("add_ssh_known_host | Unable to properly grep the known_hosts file.")  
     }
     
-    if(str_detect(string = search_file, pattern = known_host)){
-      futile.logger::flog.debug("add_ssh_known_host | Found previous url in known host, skipping add.")  
-      return()
+    if(!is_bare_character(search_file)){
+      if(str_detect(string = search_file, pattern = known_host)){
+        futile.logger::flog.debug("add_ssh_known_host | Found previous url in known host, skipping add.")  
+        return()
+      }
     }
   }
   
