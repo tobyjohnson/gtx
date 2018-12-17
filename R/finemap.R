@@ -73,6 +73,8 @@ fm_cleo.data <- function(analysis,
                          dbc = dbc)
     
     futile.logger::flog.info('Querying distinct signals from CLEO analyses')
+    ## FIXME this could be made much more efficient by finding the pos_start and pos_end
+    ## from gwas_results_cond and attaching these as extra columns in gwas_results_joint
     t0 <- as.double(Sys.time())
     ds <- sqlWrapper(dbc,
                      sprintf('SELECT DISTINCT signal FROM %sgwas_results_cond WHERE %s AND %s;', 
@@ -106,6 +108,8 @@ fm_cleo.data <- function(analysis,
         ## modify xregion, extend to include the range of positions actually spanned by these signals
         xregion$pos_start <- min(ss$pos)
         xregion$pos_end <- max(ss$pos)
+        ## Add index variant stats as attr()ibute        
+        attr(ss, 'index_cleo') <- ssi
     } else {
         ## FIXME db query with LIMIT 0 is an expensive way to generate a df with 0 rows
         ss <- sqlWrapper(dbc,
@@ -115,7 +119,6 @@ fm_cleo.data <- function(analysis,
     }
     attr(ss, 'analysis') <- analysis
     attr(ss, 'region') <- xregion
-    attr(ss, 'index_cleo') <- ssi
     return(ss)
 }
 

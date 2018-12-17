@@ -145,17 +145,23 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
 
-    signals <- unique(na.omit(pvals$signal))
-    if (length(signals) == 0L) {
-        flog.debug('No CLEO results, using single signal results instead')
-        ## no signals, so use single signal results as if they were the CLEO results
-        pvals <- within(pvals, {
-            cs_cleo <- cs_signal
-            pp_cleo <- pp_signal
-            signal <- ifelse(cs_signal, 'default', NA)
-        })
-        signals <- 'default'
+    ## catch situation where CLEO results are present but no signals
+    if ('signal' %in% names(pvals)) {
+      signals <- sort(unique(na.omit(pvals$signal)))
+    } else {
+      signals <- NULL
     }
+    if (length(signals) == 0L) {
+      futile.logger::flog.warn('No CLEO results, using single signal results instead')
+      ## no signals, so use single signal results as if they were the CLEO results
+      pvals <- within(pvals, {
+        cs_cleo <- cs_signal
+        pp_cleo <- pp_signal
+        signal <- ifelse(cs_signal, 'default', NA)
+      })
+      signals <- 'default'
+    }
+    
     ## best order for plotting
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
     pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_cleo), ]
@@ -189,26 +195,31 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     ## legend indicating signals
     ## ssi = summary stats for index variants
     ssi <- attr(pvals, 'index_cleo')
-    ssi <- ssi[match(signals, ssi$signal), ] # order to match signals and colvec
-    ssi$keypos <- seq(from = xregion$pos_start, to = xregion$pos_end, length.out = nrow(ssi) + 2)[rank(ssi$pos) + 1]
-    arrows(x0 = ssi$keypos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
-           y1 = .5*gl$yline[5] + .5*gl$yline[4], 
-           length = 0, lty = 'dotted')
-    arrows(x0 = ssi$keypos, y0 = .5*gl$yline[5] + .5*gl$yline[4],
-           x1 = ssi$pos, y1 = .25*gl$yline[5] + .75*gl$yline[4],
-           length = 0, lty = 'dotted')
-    arrows(x0 = ssi$pos, y0 = .25*gl$yline[5] + .75*gl$yline[4],
-           y1 = -log10(ssi$pval),
-           length = 0, lty = 'dotted')
-    points(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
-           pch = 21, col = rgb(.33, .33, .33, .5), bg = colvec, cex = 1)
-    text(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
-         labels = paste0('#', signals), pos = 4, cex = 0.75)
-    text(mean(ssi$keypos), .75*gl$yline[5] + .25*gl$yline[4],
-         labels = 'CLEO index variants', pos = 3, cex = 0.75)
-    #legend("bottomleft", pch = 21, ,
-    #       pt.bg = colvec, legend=paste0('#', signals),
-    #       horiz=T, bty="n", cex=.5)
+    if (!is.null(ssi) && nrow(ssi) > 1) {
+      ssi <- ssi[match(signals, ssi$signal), ] # order to match signals and colvec
+      ssi$keypos <- seq(from = xregion$pos_start, to = xregion$pos_end, length.out = nrow(ssi) + 2)[rank(ssi$pos) + 1]
+      arrows(x0 = ssi$keypos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
+             y1 = .5*gl$yline[5] + .5*gl$yline[4], 
+             length = 0, lty = 'dotted')
+      arrows(x0 = ssi$keypos, y0 = .5*gl$yline[5] + .5*gl$yline[4],
+             x1 = ssi$pos, y1 = .25*gl$yline[5] + .75*gl$yline[4],
+             length = 0, lty = 'dotted')
+      arrows(x0 = ssi$pos, y0 = .25*gl$yline[5] + .75*gl$yline[4],
+             y1 = -log10(ssi$pval),
+             length = 0, lty = 'dotted')
+      points(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+             pch = 21, col = rgb(.33, .33, .33, .5), bg = colvec, cex = 1)
+      text(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+           labels = paste0('#', signals), pos = 4, cex = 0.75)
+      text(mean(ssi$keypos), .75*gl$yline[5] + .25*gl$yline[4],
+           labels = 'CLEO index variants', pos = 3, cex = 0.75)
+      #legend("bottomleft", pch = 21, ,
+      #       pt.bg = colvec, legend=paste0('#', signals),
+      #       horiz=T, bty="n", cex=.5)
+    } else {
+      text((xregion$pos_start + xregion$pos_end)/2., .75*gl$yline[5] + .25*gl$yline[4],
+           labels = 'No CLEO index variants', pos = 3, cex = 0.75)
+    }
     regionplot.highlight(gp, highlight_style = highlight_style)
   } 
 
