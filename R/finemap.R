@@ -174,7 +174,8 @@ fm_cleo <- function(analysis,
         attr(data, 'nullpp_cleo') <- nullpp
 
         ## return either the cs only, or the complete data
-        if (cs_only) return(subset(data, cs_cleo))
+        ## Note that subset() strips attributes, and is not recommended for programming
+        if (cs_only) return(data[data$cs_cleo, ])
         return(data)
         
     } else {

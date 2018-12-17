@@ -270,6 +270,8 @@ regionplot.data <- function(analysis,
             ## but then cbind with the *marginal* pp's from aggregating over signals
             pvals$pp_cleo[is.na(pvals$pp_cleo)] <- 0. # make zero to be safe with sorting/plotting
             pvals$cs_cleo[is.na(pvals$cs_cleo)] <- FALSE # make FALSE to be safe with tables/plotting
+            ## Propagate CLEO index variants as attr()ibute
+            attr(pvals, 'index_cleo') <- attr(fmres, 'index_cleo')
         } else {
             # do nothing
         }
