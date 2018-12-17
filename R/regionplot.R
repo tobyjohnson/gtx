@@ -139,7 +139,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
   if ('signals' %in% style) {
-    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+    gl <- regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
@@ -187,9 +187,28 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
 
     ## legend indicating signals
-    legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5),
-           pt.bg = colvec, legend=paste0('#', signals),
-           horiz=T, bty="n", cex=.5)
+    ## ssi = summary stats for index variants
+    ssi <- attr(pvals, 'index_cleo')
+    ssi <- ssi[match(signals, ssi$signal), ] # order to match signals and colvec
+    ssi$keypos <- seq(from = xregion$pos_start, to = xregion$pos_end, length.out = nrow(ssi) + 2)[rank(ssi$pos) + 1]
+    arrows(x0 = ssi$keypos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
+           y1 = .5*gl$yline[5] + .5*gl$yline[4], 
+           length = 0, lty = 'dotted')
+    arrows(x0 = ssi$keypos, y0 = .5*gl$yline[5] + .5*gl$yline[4],
+           x1 = ssi$pos, y1 = .25*gl$yline[5] + .75*gl$yline[4],
+           length = 0, lty = 'dotted')
+    arrows(x0 = ssi$pos, y0 = .25*gl$yline[5] + .75*gl$yline[4],
+           y1 = -log10(ssi$pval),
+           length = 0, lty = 'dotted')
+    points(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+           pch = 21, col = rgb(.33, .33, .33, .5), bg = colvec, cex = 1)
+    text(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+         labels = paste0('#', signals), pos = 4, cex = 0.75)
+    text(mean(ssi$keypos), .75*gl$yline[5] + .25*gl$yline[4],
+         labels = 'CLEO index variants', pos = 3, cex = 0.75)
+    #legend("bottomleft", pch = 21, ,
+    #       pt.bg = colvec, legend=paste0('#', signals),
+    #       horiz=T, bty="n", cex=.5)
     regionplot.highlight(gp, highlight_style = highlight_style)
   } 
 
@@ -434,7 +453,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   ## Draw box last to overdraw any edge marks
   box()
 
-  return(invisible(NULL))
+  return(invisible(gl))
 }
 
 #' @export
