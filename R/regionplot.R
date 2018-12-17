@@ -67,7 +67,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 
   ## set par to ensure large enough margins, internal xaxs, regular yaxs,
   ## should apply for all plots generated
-  oldpar <- par(mar = pmin(c(4, 4, 4, 4) + 0.1, par('mar')), 
+  oldpar <- par(mar = pmax(c(4, 4, 4, 4) + 0.1, par('mar')), 
                 xaxs = 'i', yaxs = 'r') # xaxs='i' stops R expanding x axis
 
   if ('classic' %in% style) {
@@ -449,6 +449,13 @@ regionplot.genedraw <- function(gl) {
   return(invisible(NULL))
 }
 
+# each gene is assigned to a line (iline) such that the horizontal line
+# and label will not overlap neighboring genes.  The y positions are
+# then evenly distributed [add more explanation]
+#
+# returns a list with elements:
+# cex:  value of cex used when computing the layout
+# yline:  vector of length 5
 #' @export
 regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
 				   protein_coding_only = TRUE, 
@@ -484,17 +491,17 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
                     }
                   }
                 }
-                fy <- 0
+                fy <- 0 # fraction of total figure y space needed
                 if (length(iline) > 0) {
                   fy <- max(iline + 1)*2*strheight("M", units = "figure", cex = cex)/yplt # fraction of total figure region needed
-                  if (fy > 0.6) {
-                    warning('Squashing gene annotation to fit within .6 of plot area')
-                    fy <- 0.6
+                  if (fy > 0.5) {
+                    futile.logger::flog.warn('Squashing gene annotation to fit within .5 of plot area')
+                    fy <- 0.5
                   }
                 }
-                yd1 = ymax/(0.9-fy) * 0.1
-                yd2 = ymax/(0.9-fy) * fy
-                yline <- c(-(yd1 + yd2), -yd1, 0, ymax)
+                yd1 = ymax/(0.8-fy) * 0.1
+                yd2 = ymax/(0.8-fy) * fy
+                yline <- c(-(yd1 + yd2), -yd1, 0, ymax, ymax + yd1)
                 y <- numeric(0)
                 if (length(iline) > 0) {
                   y <- -(iline/max(iline + 1)*yd2 + yd1)
@@ -553,7 +560,7 @@ regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5,
 		uniq = FALSE, zrok = TRUE),
        {
          abline(h = yoff, col = "grey")
-         yscale <- (par("usr")[4] - yoff)*.9/max(recombination_rate)
+         yscale <- (par("usr")[4] - yoff)*.75/max(recombination_rate)
          lines(c(pos_start, pos_end[length(pos_end)]),
                yoff + c(recombination_rate, recombination_rate[length(recombination_rate)])*yscale,
                type = "s", col = "cyan3")
