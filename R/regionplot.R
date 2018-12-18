@@ -4,7 +4,8 @@
 #' @export
 regionplot <- function(analysis, # what analysis (entity should be next)
                        chrom, pos_start, pos_end, pos,  
-                       hgncid, ensemblid, rs, surround = 500000, # where
+                       hgncid, ensemblid, rs, signal, 
+                       surround = 500000, # where
                        entity, 
                        maf_ge, rsq_ge, emac_ge, case_emac_ge, # which variants to include
                        priorsd = 1, priorc = 1e-5, cs_size = 0.95, # parameters for finemapping
@@ -24,7 +25,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
   ## Obtain pvals by passing arguments through to regionplot.data()
   pvals <- regionplot.data(analysis = analysis,
                            chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                           hgncid = hgncid, ensemblid = ensemblid, rs = rs,
+                           hgncid = hgncid, ensemblid = ensemblid, rs = rs, signal = signal, 
                            surround = surround, 
                            entity = entity,
                            style = style,
@@ -67,7 +68,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 
   ## set par to ensure large enough margins, internal xaxs, regular yaxs,
   ## should apply for all plots generated
-  oldpar <- par(mar = pmin(c(4, 4, 4, 4) + 0.1, par('mar')), 
+  oldpar <- par(mar = pmax(c(4, 4, 4, 4) + 0.1, par('mar')), 
                 xaxs = 'i', yaxs = 'r') # xaxs='i' stops R expanding x axis
 
   if ('classic' %in% style) {
@@ -139,23 +140,29 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
   if ('signals' %in% style) {
-    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+    gl <- regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
 
-    signals <- unique(na.omit(pvals$signal))
-    if (length(signals) == 0L) {
-        flog.debug('No CLEO results, using single signal results instead')
-        ## no signals, so use single signal results as if they were the CLEO results
-        pvals <- within(pvals, {
-            cs_cleo <- cs_signal
-            pp_cleo <- pp_signal
-            signal <- ifelse(cs_signal, 'default', NA)
-        })
-        signals <- 'default'
+    ## catch situation where CLEO results are present but no signals
+    if ('signal' %in% names(pvals)) {
+      signals <- sort(unique(na.omit(pvals$signal)))
+    } else {
+      signals <- NULL
     }
+    if (length(signals) == 0L) {
+      futile.logger::flog.warn('No CLEO results, using single signal results instead')
+      ## no signals, so use single signal results as if they were the CLEO results
+      pvals <- within(pvals, {
+        cs_cleo <- cs_signal
+        pp_cleo <- pp_signal
+        signal <- ifelse(cs_signal, 'default', NA)
+      })
+      signals <- 'default'
+    }
+    
     ## best order for plotting
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
     pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_cleo), ]
@@ -187,9 +194,33 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
 
     ## legend indicating signals
-    legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5),
-           pt.bg = colvec, legend=paste0('#', signals),
-           horiz=T, bty="n", cex=.5)
+    ## ssi = summary stats for index variants
+    ssi <- attr(pvals, 'index_cleo')
+    if (!is.null(ssi) && nrow(ssi) > 1) {
+      ssi <- ssi[match(signals, ssi$signal), ] # order to match signals and colvec
+      ssi$keypos <- seq(from = xregion$pos_start, to = xregion$pos_end, length.out = nrow(ssi) + 2)[rank(ssi$pos) + 1]
+      arrows(x0 = ssi$keypos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
+             y1 = .5*gl$yline[5] + .5*gl$yline[4], 
+             length = 0, lty = 'dotted')
+      arrows(x0 = ssi$keypos, y0 = .5*gl$yline[5] + .5*gl$yline[4],
+             x1 = ssi$pos, y1 = .25*gl$yline[5] + .75*gl$yline[4],
+             length = 0, lty = 'dotted')
+      arrows(x0 = ssi$pos, y0 = .25*gl$yline[5] + .75*gl$yline[4],
+             y1 = -log10(ssi$pval),
+             length = 0, lty = 'dotted')
+      points(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+             pch = 21, col = rgb(.33, .33, .33, .5), bg = colvec, cex = 1)
+      text(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+           labels = paste0('#', signals), pos = 4, cex = 0.75)
+      text(mean(ssi$keypos), .75*gl$yline[5] + .25*gl$yline[4],
+           labels = 'CLEO index variants', pos = 3, cex = 0.75)
+      #legend("bottomleft", pch = 21, ,
+      #       pt.bg = colvec, legend=paste0('#', signals),
+      #       horiz=T, bty="n", cex=.5)
+    } else {
+      text((xregion$pos_start + xregion$pos_end)/2., .75*gl$yline[5] + .25*gl$yline[4],
+           labels = 'No CLEO index variants', pos = 3, cex = 0.75)
+    }
     regionplot.highlight(gp, highlight_style = highlight_style)
   } 
 
@@ -204,7 +235,8 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 #' @export
 regionplot.data <- function(analysis,
                             chrom, pos_start, pos_end, pos, 
-                            hgncid, ensemblid, rs, surround = 500000,
+                            hgncid, ensemblid, rs, signal, 
+                            surround = 500000,
                             entity, 
                             style = 'signals',
                             priorsd = 1, priorc = 1e-5, cs_size = 0.95, 
@@ -218,7 +250,9 @@ regionplot.data <- function(analysis,
     
     ## Determine x-axis range from arguments
     xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, 
+                         signal = signal, analysis = analysis, entity = entity, 
+                         surround = surround,
                          dbc = dbc)
     chrom = xregion$chrom # note, overwriting command line arguments
     pos_start = xregion$pos_start
@@ -270,6 +304,8 @@ regionplot.data <- function(analysis,
             ## but then cbind with the *marginal* pp's from aggregating over signals
             pvals$pp_cleo[is.na(pvals$pp_cleo)] <- 0. # make zero to be safe with sorting/plotting
             pvals$cs_cleo[is.na(pvals$cs_cleo)] <- FALSE # make FALSE to be safe with tables/plotting
+            ## Propagate CLEO index variants as attr()ibute
+            attr(pvals, 'index_cleo') <- attr(fmres, 'index_cleo')
         } else {
             # do nothing
         }
@@ -432,7 +468,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   ## Draw box last to overdraw any edge marks
   box()
 
-  return(invisible(NULL))
+  return(invisible(gl))
 }
 
 #' @export
@@ -447,6 +483,13 @@ regionplot.genedraw <- function(gl) {
   return(invisible(NULL))
 }
 
+# each gene is assigned to a line (iline) such that the horizontal line
+# and label will not overlap neighboring genes.  The y positions are
+# then evenly distributed [add more explanation]
+#
+# returns a list with elements:
+# cex:  value of cex used when computing the layout
+# yline:  vector of length 5
 #' @export
 regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
 				   protein_coding_only = TRUE, 
@@ -482,17 +525,17 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
                     }
                   }
                 }
-                fy <- 0
+                fy <- 0 # fraction of total figure y space needed
                 if (length(iline) > 0) {
                   fy <- max(iline + 1)*2*strheight("M", units = "figure", cex = cex)/yplt # fraction of total figure region needed
-                  if (fy > 0.6) {
-                    warning('Squashing gene annotation to fit within .6 of plot area')
-                    fy <- 0.6
+                  if (fy > 0.5) {
+                    futile.logger::flog.warn('Squashing gene annotation to fit within .5 of plot area')
+                    fy <- 0.5
                   }
                 }
-                yd1 = ymax/(0.9-fy) * 0.1
-                yd2 = ymax/(0.9-fy) * fy
-                yline <- c(-(yd1 + yd2), -yd1, 0, ymax)
+                yd1 = ymax/(0.8-fy) * 0.1
+                yd2 = ymax/(0.8-fy) * fy
+                yline <- c(-(yd1 + yd2), -yd1, 0, ymax, ymax + yd1)
                 y <- numeric(0)
                 if (length(iline) > 0) {
                   y <- -(iline/max(iline + 1)*yd2 + yd1)
@@ -551,7 +594,7 @@ regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5,
 		uniq = FALSE, zrok = TRUE),
        {
          abline(h = yoff, col = "grey")
-         yscale <- (par("usr")[4] - yoff)*.9/max(recombination_rate)
+         yscale <- (par("usr")[4] - yoff)*.75/max(recombination_rate)
          lines(c(pos_start, pos_end[length(pos_end)]),
                yoff + c(recombination_rate, recombination_rate[length(recombination_rate)])*yscale,
                type = "s", col = "cyan3")

@@ -72,7 +72,9 @@ fm_cleo.data <- function(analysis,
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
                          dbc = dbc)
     
-    gtxlog('Querying distinct signals from CLEO analyses')
+    futile.logger::flog.info('Querying distinct signals from CLEO analyses')
+    ## FIXME this could be made much more efficient by finding the pos_start and pos_end
+    ## from gwas_results_cond and attaching these as extra columns in gwas_results_joint
     t0 <- as.double(Sys.time())
     ds <- sqlWrapper(dbc,
                      sprintf('SELECT DISTINCT signal FROM %sgwas_results_cond WHERE %s AND %s;', 
@@ -81,22 +83,33 @@ fm_cleo.data <- function(analysis,
                              gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end)),
                      uniq = FALSE, zrok = TRUE)$signal
     t1 <- as.double(Sys.time())
-    gtxlog('Query returned ', length(ds), ' signal(s) overlapping query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
+    futile.logger::flog.info(paste0('Query returned ', length(ds), ' signal(s) overlapping query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.'))
     if (length(ds) > 0) {
-        gtxlog('Querying summary statistics from CLEO analyses')
+        futile.logger::flog.info('Querying summary statistics from CLEO analyses')
+        # First get summary statistics for index variants (ssi)
+        t0 <- as.double(Sys.time())
+        ssi <- sqlWrapper(dbc,
+                       sprintf('SELECT t1.chrom, t1.pos, t1.ref, t1.alt, signal, beta_joint, se_joint, beta, se, pval FROM %sgwas_results AS t1 JOIN %sgwas_results_joint AS t2 USING (chrom, pos, ref, alt) WHERE %s AND %s;', 
+                               gtxanalysisdb(analysis),
+                               gtxanalysisdb(analysis), 
+                               where_from(analysisu = analysis, chrom = xregion$chrom, tablename = 't1'),
+                               where_from(analysisu = analysis, chrom = xregion$chrom, signal = ds, tablename = 't2')),
+                       uniq = FALSE, zrok = TRUE)
+        t1 <- as.double(Sys.time())
+        futile.logger::flog.info(paste0('Index variant query returned ', nrow(ssi), ' summary statistics in ', round(t1 - t0, 3), 's.'))
         t0 <- as.double(Sys.time())
         ss <- sqlWrapper(dbc,
-                         sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %sgwas_results_cond WHERE %s AND %s AND (%s);', 
+                         sprintf('SELECT chrom,pos,ref,alt,signal,beta_cond,se_cond FROM %sgwas_results_cond WHERE %s;', 
                                  gtxanalysisdb(analysis), 
-                                 gtxwhat(analysis1 = analysis),
-                                 gtxwhere(chrom = xregion$chrom),
-                                 paste0('signal=', sanitize(ds, type = 'int'), collapse = ' OR ')),
+                                 where_from(analysisu = analysis, chrom = xregion$chrom, signal = ds)),
                            uniq = FALSE, zrok = TRUE)
         t1 <- as.double(Sys.time())
-        gtxlog('Query returned ', nrow(ss), ' summary statistics in ', round(t1 - t0, 3), 's.')
+        futile.logger::flog.info(paste0('CLEO query returned ', nrow(ss), ' summary statistics in ', round(t1 - t0, 3), 's.'))
         ## modify xregion, extend to include the range of positions actually spanned by these signals
         xregion$pos_start <- min(ss$pos)
         xregion$pos_end <- max(ss$pos)
+        ## Add index variant stats as attr()ibute        
+        attr(ss, 'index_cleo') <- ssi
     } else {
         ## FIXME db query with LIMIT 0 is an expensive way to generate a df with 0 rows
         ss <- sqlWrapper(dbc,
@@ -164,7 +177,8 @@ fm_cleo <- function(analysis,
         attr(data, 'nullpp_cleo') <- nullpp
 
         ## return either the cs only, or the complete data
-        if (cs_only) return(subset(data, cs_cleo))
+        ## Note that subset() strips attributes, and is not recommended for programming
+        if (cs_only) return(data[data$cs_cleo, ])
         return(data)
         
     } else {
