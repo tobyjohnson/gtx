@@ -633,7 +633,9 @@ gtxanalyses <- function(analysis, analysis_not,
 
 #' @export
 gtxregion <- function(chrom, pos_start, pos_end, 
-                      hgncid, ensemblid, pos, rs, surround = 500000, 
+                      hgncid, ensemblid, pos, rs, 
+                      signal, analysis, entity, 
+                      surround = 500000, 
                       dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
   if (!missing(chrom) && !missing(pos_start) && !missing(pos_end)) {
@@ -673,6 +675,17 @@ gtxregion <- function(chrom, pos_start, pos_end,
     chrom <- gp$chrom
     pos_start <- gp$pos - surround
     pos_end <- gp$pos + surround
+  } else if (!missing(signal) && !missing(chrom) && !missing(analysis)) {
+    xentity <- gtxentity(analysis, entity = entity)
+    sp <- sqlWrapper(dbc,
+                sprintf('SELECT chrom, pos FROM %sgwas_results_joint WHERE %s AND %s', 
+                        gtxanalysisdb(analysis), 
+                        where_from(analysisu = analysis, chrom = chrom, signalu = signal),
+                        xentity$entity_where),
+                uniq = TRUE, zrok = FALSE)
+    chrom <- sp$chrom
+    pos_start <- sp$pos - surround
+    pos_end <- sp$pos + surround
   } else {
     stop('gtxregion() failed due to inadequate arguments')
   }

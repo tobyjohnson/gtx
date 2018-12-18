@@ -4,7 +4,8 @@
 #' @export
 regionplot <- function(analysis, # what analysis (entity should be next)
                        chrom, pos_start, pos_end, pos,  
-                       hgncid, ensemblid, rs, surround = 500000, # where
+                       hgncid, ensemblid, rs, signal, 
+                       surround = 500000, # where
                        entity, 
                        maf_ge, rsq_ge, emac_ge, case_emac_ge, # which variants to include
                        priorsd = 1, priorc = 1e-5, cs_size = 0.95, # parameters for finemapping
@@ -24,7 +25,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
   ## Obtain pvals by passing arguments through to regionplot.data()
   pvals <- regionplot.data(analysis = analysis,
                            chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                           hgncid = hgncid, ensemblid = ensemblid, rs = rs,
+                           hgncid = hgncid, ensemblid = ensemblid, rs = rs, signal = signal, 
                            surround = surround, 
                            entity = entity,
                            style = style,
@@ -234,7 +235,8 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 #' @export
 regionplot.data <- function(analysis,
                             chrom, pos_start, pos_end, pos, 
-                            hgncid, ensemblid, rs, surround = 500000,
+                            hgncid, ensemblid, rs, signal, 
+                            surround = 500000,
                             entity, 
                             style = 'signals',
                             priorsd = 1, priorc = 1e-5, cs_size = 0.95, 
@@ -248,7 +250,9 @@ regionplot.data <- function(analysis,
     
     ## Determine x-axis range from arguments
     xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, 
+                         signal = signal, analysis = analysis, entity = entity, 
+                         surround = surround,
                          dbc = dbc)
     chrom = xregion$chrom # note, overwriting command line arguments
     pos_start = xregion$pos_start
