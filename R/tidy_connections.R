@@ -254,7 +254,8 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
 #' @param dest Impala implyr connection
 #' @param database Name of the database
 #' @param table_name Name of the table within the database. 
-#' @param chrom_as_string Convert "chrom" col's to character instead of integers
+#' @param chrom_as_string [Default = TRUE] TRUE = Override "chrom" cols as character instead of integers
+#' @param compute_stats [Default = FALSE] TRUE = SQL execute COMPUTE STATS
 #' @import readr
 #' @import glue
 #' @import implyr
@@ -263,7 +264,8 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
 #' @import purrr
 ############################################
 big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
-                        chrom_as_string = TRUE, database = NULL, table_name = NULL){
+                        chrom_as_string = TRUE, database = NULL, 
+                        table_name = NULL, compute_stats = FALSE){
   safely_dbExecute  <- purrr::safely(implyr::dbExecute)
   safely_dbGetQuery <- purrr::safely(implyr::dbGetQuery)
   safely_system     <- purrr::safely(system)
@@ -385,6 +387,18 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   if (!is.null(exec$error)){
     flog.error(glue("tidy_connections::big_copy_to | Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}"))
     stop()
+  }
+  ############################################
+  # COMPUTE STATS on the new table
+  if(isTRUE(compute_stats)){
+    flog.debug(glue("tidy_connections::big_copy_to | COMPUTE STATS on: {database}.{table_name}"))
+    sql_statement <- glue("COMPUTE STATS {`database`}.{`table_name`}")
+    
+    exec <- safely_dbExecute(dest, sql_statement)
+    if (!is.null(exec$error)){
+      flog.error(glue("tidy_connections::big_copy_to | Unable to COMPUTE STATS on: {database}.{table_name} because:\n{exec$error}"))
+      stop()
+    }
   }
   ############################################
   # Return table to data in RDIP

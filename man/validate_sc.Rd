@@ -5,7 +5,7 @@
 \title{Validate and/or establish a spark connection}
 \usage{
 validate_sc(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0",
-  app_name = "sparklyr")
+  app_name = "sparklyr", sc_config = spark_config())
 }
 \arguments{
 \item{sc}{Spark connection to validate. Defaults to checking options(gtx.sc).}
