@@ -220,7 +220,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   }
   ############################################
   # If we have a small data frame, copy the data directly to RDIP
-  if(nrow(df) < 250){
+  if(nrow(df) < 250 & ncol(df) < 50){
     input_tbl <- 
       copy_to(
         dest = impala, 
