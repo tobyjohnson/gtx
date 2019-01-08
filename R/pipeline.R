@@ -1,3 +1,5 @@
+#' @import data.table
+
 ## FIXME Using contrasts as a variable name shadows a base function !!
 
 ## option namespace should all be
@@ -591,7 +593,7 @@ gtxpipe <- function(gtxpipe.models = getOption("gtxpipe.models"),
       stopifnot(all(c("#CHROM", "SNP", "pvalue", "beta", "SE") %in% names(res1)))
       #names(res1) <- gsub("X.", "", names(res1), fixed = T)
       ## Convert to data table to improve efficiency retaining only needed columns and rows with non-missing pvalue
-      res1 <- data.table(res1[!is.na(res1$pvalue), ])
+      res1 <- data.table::data.table(res1[!is.na(res1$pvalue), ])
       ## Sort by SNP
       setkey(res1, SNP)
       ## Makes sense to apply GC and not store redundant (non-GCed) results here

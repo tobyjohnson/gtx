@@ -8,9 +8,9 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
              person("Andrew", "Slater", role = c("ctb")),
              person("Li", "Li", role = c("ctb")))
 Imports:
-    beeswarm,survival,meta,rmeta,dplyr,futile.logger,glue,tidyr,stringr,purrr,ggplot2,readr,implyr,rlang,tibble
+    data.table,beeswarm,survival,meta,rmeta,dplyr,futile.logger,glue,tidyr,stringr,purrr,ggplot2,readr,implyr,rlang,tibble
 Depends:
-    DBI,odbc,RSQLite,data.table
+    DBI,odbc,RSQLite
 Suggests:
     knitr,testthat,sparklyr
 VignetteBuilder: knitr
