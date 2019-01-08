@@ -536,7 +536,6 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
                                  "Not Sig."  = "grey")) +
     ggplot2::scale_radius(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.00),
                  range  = c(1, max_dot_size)) + 
-<<<<<<< HEAD
     guides(fill  = guide_legend(title = "Change in gene expression\nwith increased GWAS trait")) + 
     theme_bw() + 
     theme(legend.position  = "bottom",
@@ -594,31 +593,8 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
     fig <- fig + ggplot2::theme(strip.text.x = ggplot2::element_text(angle = 90, size = 12))
   }
   ############################################
-  flog.debug("aba.plot | return plot")
-=======
-    ggplot2::guides(fill  = ggplot2::guide_legend(title = "Change in gene expression\nwith increased GWAS trait")) + 
-    ggplot2::theme_bw() + 
-    ggplot2::theme(legend.position  = "bottom",
-          legend.text      = ggplot2::element_text(size = 8),
-          legend.title     = ggplot2::element_text(face = "bold"),
-          axis.text.x      = ggplot2::element_text(size = 6, angle = 35, hjust = 1),
-          axis.text.y      = ggplot2::element_text(size = 6, angle = 0 ),
-          axis.line        = ggplot2::element_line(color = "black"),
-          axis.title.x     = ggplot2::element_blank(),
-          axis.title.y     = ggplot2::element_blank(),
-          panel.grid.major = ggplot2::element_line(size = 0.25),
-          panel.grid.minor = ggplot2::element_line(size = 0.25),
-          strip.text.x     = ggplot2::element_text(face = "bold.italic"),
-          strip.text.y     = ggplot2::element_text(size = 5, angle = 0),
-          plot.title       = ggplot2::element_text(hjust = 0.5)) +
-    ggplot2::guides(size  = ggplot2::guide_legend(title = "Posterior probability\nof colocalization"))
-  
-  if(!is.null(title)){
-    fig <- fig + ggplot2::ggtitle(title)
-  }
-  
   futile.logger::flog.debug("aba.plot | return plot")
->>>>>>> UB-199_extract_pckgs_2_IMPORT_only
+
   return(fig)
 }
 
