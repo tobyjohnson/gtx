@@ -4,8 +4,8 @@
 \alias{coloc}
 \title{Colocalization analysis.}
 \usage{
-coloc(analysis1, analysis2, chrom, pos_start, pos_end, pos, hgncid,
-  ensemblid, rs, surround = 5e+05, entity, entity1, entity2,
+coloc(analysis1, analysis2, signal1, signal2, chrom, pos_start, pos_end, pos,
+  hgncid, ensemblid, rs, surround = 5e+05, entity, entity1, entity2,
   style = "Z", priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-04,
   priorc2 = 1e-04, priorc12 = 1e-05, join_type = "inner",
   dbc = getOption("gtx.dbConnection", NULL))
@@ -39,7 +39,7 @@ coloc(analysis1, analysis2, chrom, pos_start, pos_end, pos, hgncid,
 }
 \value{
 a data frame containing the result of the
- colocalization analysis, see \code{\link{coloc.fast}} for details.
+ colocalization analysis, see \code{\link{coloc.compute}} for details.
  The plot is generated as a side effect.
 }
 \description{
@@ -48,9 +48,10 @@ Colocalization analysis using summary statistics from database.
 \details{
 This high level function conducts a colocalization analysis, using
 summary statistics for association with two traits, across a region of
-the genome.  The two sets of summary statistics are specified using
-the \code{analysis1} and \code{analysis2} arguments.  Where one or
-both contain summary statistics for multiple entities (e.g. from eQTL or
+the genome.  The \code{analysis1} and \code{analysis2} arguments specify
+which analyses to use summary statistics from.
+Where one or both analyses 
+have summary statistics for multiple entities (e.g. from eQTL or
 pQTL analyses), the desired entities must be specified (see below).
 
 The \code{style} argument can be set to \code{'Z'} to plot Z
@@ -58,7 +59,15 @@ statistics for the two analyses, and/or \code{'beta'} to plot beta (effect
 size) statistics for the two analyses.  \dQuote{One-sided} plots, where
 the ref/alt alleles are flipped so that beta is always positive for
 \code{analysis1}, are provided as styles \code{'Z1'} and \code{'beta1'}.
-The style \code{'none'} suppresses plotting altogether.
+The style \code{'none'} suppresses plotting altogether.  In all plots,
+the x and y axes are used for analysis1 and analysis2 respectively.
+
+To help interpretation, 95% credible sets are calculated
+separately for each analysis.  Variants in both credible sets are plotted
+as diamonds, and variants only in one credible set are plotted as triangles
+(down for the x axis analysis1; up for the y axis analysis 2).  Additionally,
+two channel shading is used to indicate posterior probability of
+causality for analysis1 (red), analysis2 (green), or both (yellow).
 
 Note that when using a \code{hgncid} or \code{ensemblid} gene
 identifier to specify the region from which to use summary statistics,

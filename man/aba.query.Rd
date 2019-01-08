@@ -4,8 +4,8 @@
 \alias{aba.query}
 \title{aba.query() - Query aba results for all positive results}
 \usage{
-aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
-  pos_end, p12_ge = 0.8, minpval1_le = 1e-04, minpval2_le = 5e-08,
+aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start, pos_end,
+  p12_ge = 0.8, minpval1_le = 1e-04, minpval2_le = 5e-08,
   surround = 1e+06, ncase_ge = 200, ncohort_ge = 200,
   protein_coding_only = FALSE, neale_only = FALSE, gsk_only = FALSE,
   db = gtx::config_db(), impala = getOption("gtx.impala", NULL))

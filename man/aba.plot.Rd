@@ -40,8 +40,8 @@ ggsave(filename = "coloc_aba.pdf",
        
 Advanced use: query data, remove death related traits, filter, and then plot
 colocs <- aba.wrapper(hgncid = "HMGCR")
-colocs \%>\% filter(input == "HMGCR") \%>\% pluck("figures", 1) + ggtitle("Best plot ever")
-colocs \%>\% filter(input == "HMGCR") \%>\% pluck("data", 1) \%>\% filter(hgncid != "bad_gene") \%>\% aba.plot()
+colocs \%>\% dplyr::filter(input == "HMGCR") \%>\% pluck("figures", 1) + ggtitle("Best plot ever")
+colocs \%>\% dplyr::filter(input == "HMGCR") \%>\% pluck("data", 1) \%>\% dplyr::filter(hgncid != "bad_gene") \%>\% aba.plot()
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
