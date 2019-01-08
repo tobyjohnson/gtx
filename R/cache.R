@@ -8,6 +8,9 @@
 #' @param	dbc_from	DB to be cached (e.g. gwases)
 #' @param 	dbc_to		If there is already a gtxcache database available, use this instead of creating a new one
 #' 
+#' @import DBI
+#' @import RSQLite
+#' 
 #' @export
 gtxcache <- function(cache_analyses = TRUE, 
                      cache_genes = TRUE,  

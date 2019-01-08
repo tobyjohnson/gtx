@@ -1,3 +1,5 @@
+#' @import DBI
+
 ##' @export
 ## FIXME, change to required(?) argument odbc=...
 gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
@@ -21,7 +23,7 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
   tmp <- gtxdbcheck(check_databases = use_database, do_stop = do_stop) # overwrite previous value of tmp
   if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
   if (do_stop || tmp$check) { # if do_stop, would have stopped previously instead of setting tmp$check=FALSE
-    invisible(dbExecute(getOption('gtx.dbConnection'), 
+    invisible(DBI::dbExecute(getOption('gtx.dbConnection'), 
                         sprintf('USE %s;', sanitize1(use_database, type = 'alphanum'))))
     tmp <- gtxdbcheck(do_stop = do_stop) # overwrite previous value of tmp
     if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
@@ -52,6 +54,9 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
 ## checking a connection to a cache
 ##                                       
 ## added verbose option otherwise more useful logging messages get swamped
+
+#' @import DBI
+#' @import RSQLite
 
 ##' @export
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
@@ -86,7 +91,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   if (!missing(check_databases)) {
       if ('Impala' %in% class(dbc)) {
           if (verbose) gtxlog('Trying query: SHOW DATABASES;')
-          dbs <- try(dbGetQuery(dbc, 'SHOW DATABASES;'))
+          dbs <- try(DBI::dbGetQuery(dbc, 'SHOW DATABASES;'))
 	  if (identical('try-error', class(dbs))) {
 	      # FIXME grepl the content of dbs for 'Ticket expired' to help user
               if (do_stop) {
@@ -128,7 +133,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## Update string describing current database connection to include db name or SQLite path
   if ('Impala' %in% class(dbc)) {
       if (verbose) gtxlog('Trying query: SELECT current_database();')
-      scdb <- try(dbGetQuery(dbc, 'SELECT current_database();'))
+      scdb <- try(DBI::dbGetQuery(dbc, 'SELECT current_database();'))
       if (identical('try-error', class(scdb))) {
 	# FIXME grepl the content of scdb for 'Ticket expired' to help user
         if (do_stop) {
@@ -151,7 +156,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## db connection is working and pointing to the expected content
   if ('Impala' %in% class(dbc)) {
       if (verbose) gtxlog('Trying query: SHOW TABLES;')
-      tables <- try(dbGetQuery(dbc, 'SHOW TABLES;'))
+      tables <- try(DBI::dbGetQuery(dbc, 'SHOW TABLES;'))
       if (identical('try-error', class(tables))) {
 	# FIXME grepl the content of tables for 'Ticket expired' to help user
         if (do_stop) {
@@ -171,7 +176,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
       }
       tables <- tables$name
   } else if ('SQLiteConnection' %in% class(dbc)) {
-      tables <- dbListTables(dbc)
+      tables <- RSQLite::dbListTables(dbc)
   }
 
   if (!is.null(tables_required) && !all(tables_required %in% tables)) {
@@ -408,6 +413,8 @@ sanitize1 <- function(x, values, type) {
 ## [or at least] one row (if uniq is TRUE [or FALSE])
 ## -- allow zero rows is zrok=TRUE
 ##
+#' @import DBI
+#' 
 #' @export
 sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL usage
@@ -417,7 +424,7 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     }
     flog.debug(paste0(class(dbc), ' query: ', sql))
     t0 <- as.double(Sys.time())
-    res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
+    res <- DBI::dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
     t1 <- as.double(Sys.time())
     flog.debug(paste0(class(dbc), ' query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
     if (is.data.frame(res)) {

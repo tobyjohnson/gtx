@@ -3,6 +3,7 @@
 ## pval_significance determines the threshold used to declare significance
 ## pval_plot determines the threshold for true plotting
 
+#' @import data.table
 #' @export
 gwas <- function(analysis,
                  style = c('manhattan', 'qqplot'), 
@@ -37,12 +38,12 @@ gwas <- function(analysis,
                                         dbc = dbc)),
                       uniq = FALSE,
                       zrok = zrok)
-    res <- data.table(res) # in future, sqlWrapper will return data.table objects always
+    res <- data.table::data.table(res) # in future, sqlWrapper will return data.table objects always
     t1 <- as.double(Sys.time())
     gtxlog('Significant results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
     
     if(nrow(res) == 0){
-      res <- data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
+      res <- data.table::data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
                         pos_end    = NA, num_variants = NA, min_pval   = NA, 
                         pos_index  = NA, ref_index    = NA, alt_index  = NA, 
                         pval_index = NA, rsq_index    = NA, freq_index = NA, 
@@ -53,7 +54,7 @@ gwas <- function(analysis,
         res_sigs <- prune.distance(res, surround = prune_dist, sorted = TRUE)
         ## sort by match(chrom, c(as.character(1:22), 'X'))
         rescols <- c('pos', 'ref', 'alt', 'pval', 'rsq', 'freq', 'beta', 'se') # columns from original res to include
-        res <- data.table(cbind(res_sigs, res[res_sigs$row, rescols, with = FALSE]))
+        res <- data.table::data.table(cbind(res_sigs, res[res_sigs$row, rescols, with = FALSE]))
         setnames(res, rescols, paste0(rescols, '_index'))
         res[ , row := NULL]
         t1 <- as.double(Sys.time())

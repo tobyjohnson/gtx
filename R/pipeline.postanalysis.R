@@ -1,3 +1,5 @@
+#' @import data.table
+
 #' @export
 postanalysis.pipeline<- function(configFile){
   #load config
@@ -170,7 +172,7 @@ postanalysis.pipeline<- function(configFile){
         curr <- read.table(gzfile(file.curr), quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
         #SNP	pvalue.GC_LOSIR3005_vs_HISIR3005
         curr<-curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ]
-        #curr<- data.table(curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ])
+        #curr<- data.table::data.table(curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ])
         #Need to solve the issue with data.table handling duplicated snps
         #setkey(curr, SNP)
         #curr<- curr[assoc$SNP, ] 
@@ -391,7 +393,7 @@ getResults<- function(retFile, varlist, flanking, GC = T ){
   stopifnot(all(c("CHROM", "POS", "SNP", "pvalue", "beta", "SE", "Al1", "Al2", "analysed.Freq1", "analysed.Rsq") %in% names(res1)))
   
   ## Convert to data table to improve efficiency retaining only needed columns and rows with non-missing pvalue
-  res1 <- data.table(res1[!is.na(res1$pvalue), ])
+  res1 <- data.table::data.table(res1[!is.na(res1$pvalue), ])
   res1[, chrpos:=paste(CHROM, POS, sep =":")]
   ## Sort by 
   setkey(res1, chrpos)

@@ -618,6 +618,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   return(res)
 }
 
+#' @import data.table
 #' @export
 multicoloc <- function(analysis1, analysis2, signal2, 
                        chrom, pos_start, pos_end, pos, 
@@ -645,7 +646,7 @@ multicoloc <- function(analysis1, analysis2, signal2,
   
   ## do colocalization analyses using data.table fast grouping
   t0 <- as.double(Sys.time())
-  ss <- data.table(ss) # could inline
+  ss <- data.table::data.table(ss) # could inline
   if (missing(signal2)) {
     # query was marginal statistics for analysis2
     # FIXME handle this better in multicoloc.data, 
@@ -779,6 +780,7 @@ multicoloc.plot <- function(zmat,
 
 ## We aim to deprecate multicoloc.kbs by fixing multicoloc
 ## to return results as a long list
+#' @import data.table
 #' @export
 multicoloc.kbs <- function(analysis1, analysis2,
                        chrom, pos_start, pos_end, pos, 
@@ -794,7 +796,7 @@ multicoloc.kbs <- function(analysis1, analysis2,
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround, hard_clip = hard_clip, 
                          dbc = dbc) %>% 
-          as.data.table()
+        data.table::as.data.table()
   
   res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                     sprintf('SELECT ensemblid AS entity1, hgncid FROM genes WHERE %s ORDER BY pos_start;',
@@ -806,9 +808,9 @@ multicoloc.kbs <- function(analysis1, analysis2,
               coloc.fast(beta1, se1, beta2, se2),
               by = .(analysis1, entity1)] %>% 
          left_join(., res, by = "entity1") %>% 
-         rename(tissue = analysis1) %>%
-         rename(ensembl_id = entity1) %>%
-         rename(hgnc_id = hgncid)
+         dplyr::rename(tissue = analysis1) %>%
+         dplyr::rename(ensembl_id = entity1) %>%
+         dplyr::rename(hgnc_id = hgncid)
       # FIXME you may want to rename P1, P2, P12 etc.
   
   return(ret)
