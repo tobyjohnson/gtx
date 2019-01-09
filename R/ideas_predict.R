@@ -13,7 +13,7 @@
 #' @return  Table of GWAS loci with posteriors for \code{ideas_predict}
 #' @import dplyr
 ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) {
-  flog_debug("ideas_make | Calculating GWAS top hits.")
+  flog_debug("ideas_make | Calculating GWAS top hits for: {analysis}.")
   # 
   my_gwas <- gwas(analysis, case_emac_ge = 25, pval_thresh = pval_le, 
                   style = FALSE, gene_annotate = FALSE)
@@ -75,7 +75,7 @@ ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) 
 #' @param CI [0.95]
 #' @param seed [NULL]
 #' @return TBD
-ideas_predict <- function(.data,  states_data,
+ideas_predict <- function(.data,  states_data = NULL,
                           states = NULL, permute = FALSE, inter = 5, binsz = 200, 
                           pcut = 6, CI = 0.95, seed = NULL) {
   BB = inter
@@ -105,130 +105,35 @@ ideas_predict <- function(.data,  states_data,
                    permute = permute, 
                    inter = inter)
   rt$sel = t
+  flog_debug("ideas_predict | complete.")
   return(rt)
 }
 
-#' ideas_plot
-#' 
-#' Plot \code{ideas_predict}
-#' 
-#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @author Karl Guo \email{karl.x.guo@@gsk.com} 
-#' @export
-#' @param .data \code{ideas_predict} output
-#' @param path Path for output PDF. 
-#' @param cutoff_gt [0.001] Plotting "Minimum proportion of genetic signal" predicted in cell types. Range = o:1.
-#' @param group [FALSE] TRUE = Group similar cell types. 
-#' @param relaxed [3] Numeric value, 1:10, rank cutoff_gt for inclusion. e.g. 3 = Must be in top 3 cell types. 
-#' @param legend [TRUE]
-#' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
-#' @param db [config_db()] Database to use for queries. 
-#' @return TBD
-ideas_plot <- function(.data, path, cutoff_gt = 0.001, group = FALSE, relaxed = 3, legend = TRUE, 
-                       impala = getOption("gtx.impala", NULL), db = config_db()) {
-  if(relaxed == 0){
-    flog_error("ideas_plot | relaxed must be numeric, 1:10.")
-  }
-  if (!missing(path)) {
-    if(is_character(path)){
-      out_file <- paste(path, ".pdf", sep = "")
-      flog_debug("ideas_plot | output file:{out_file}")
-      pdf(out_file, width = 16, height = 8) 
-    } else {
-      flog_error("ideas_plot | supplied path is not valid characters:{path}");
-      stop();
-    }
-  }
-  
-  cell_info <- .data$ideas_metadata
-  
-  a = t(.data$n)
-  manual_colnames <- c("first", "second", "third", "fourth", "fifth", 
-                       "sixth", "seventh", "eigth", "ninth", "tenth")
-  colnames(a) <- manual_colnames
-  results <- cbind(cell_info, a)
-  
-  if (is.numeric(relaxed) == TRUE & relaxed != 1){
-    results$first <- rowSums(results[, manual_colnames[1:relaxed]])
-    results$first <- results$first/sum(results$first)
-  }
-  results <- results[order(results$first), ]
-  
-  if (group == TRUE) {
-    groups = unique(dplyr::select(results, group, color))
-    first = c()
-    for (i in 1:dim(groups)[1]) {
-      sum = filter(results, group == groups[i, 1])$first %>% sum()
-      first = c(first, sum)
-    }
-    z = matrix(0, nrow = dim(groups)[1], ncol = 1)
-    results = cbind.data.frame(z, z, z, z, groups, first)
-    colnames(results) = c("a", "b", "c", "d", "group", "Coloc", "first")
-    results = results[order(results$first), ]
-  }
-  
-  if (is.numeric(cutoff_gt) == TRUE) {
-    results = dplyr::filter(results, first > cutoff_gt)
-  } else {
-    flog_error("ideas_plot | cutoff_gt parameters is not numeric. must be 0:1.")
-    stop();
-  }
-  
-  if (group == FALSE) {
-    labels = results$epigenome_mnemonic
-    labels2 = unique(dplyr::select(results, group, color))[, 1]
-    cc2 = unique(dplyr::select(results, group, color))[, 2]
-  }
-  if (group == TRUE) {
-    labels = results$group
-  }
-  
-  cclr = col2rgb(as.matrix(results[, 6]))
-  hclr = apply(cclr, 2, function(x) {
-    rgb2hsv(x[1], x[2], x[3])
-  })
-  cc = c(apply(hclr, 2, function(x) {
-    hsv(x[1], x[2], x[3])
-  }))
-  par(mar = c(7, 4, 3, 3))
-  x = barplot(results$first, col = cc, cex.names = 0.6, ylab = "Proportion of genetic signal")
-  if (legend == TRUE & group == FALSE) {
-    legend("topleft", inset = 0.02, cex = 0.7, fill = cc2, labels2, ncol = 2)
-  }
-  text(x, labels = labels, srt = 45, par("usr")[3], adj = c(1, 1.1), xpd = TRUE, cex = 0.7)
-  results_tbl = cbind.data.frame(labels, results$first)
-  colnames(results_tbl) = c("cell", "proportion")
-  return(results_tbl)
-  if (!missing(path)){
-    dev.off()
-  }
-}
-
-#' ideas_loci
+#' ideas_loci_summarize
 #' 
 #' IDEAS predict data for a locus. 
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @author Karl Guo \email{karl.x.guo@@gsk.com}
 #' @export
-#' @param ideas_make_obj \code{ideas_make} object
-#' @param ideas_predict_obj \code{ideas_predict} object
+#' @param ideas_make_dat \code{ideas_make} object
+#' @param ideas_predict_dat \code{ideas_predict} object
 #' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
 #' @param db [config_db()] Database to use for queries.
 #' @return TBD
-ideas_loci = function(ideas_make_obj, ideas_predict_obj) {
-  if(missing(ideas_make_obj)){
-    flog_error("ideas_loci | param 'ideas_make_obj' must be supplied.")
+ideas_loci_summarize = function(ideas_make_dat, ideas_predict_dat) {
+  if(missing(ideas_make_dat)){
+    flog_error("ideas_loci_summarize | param 'ideas_make_dat' must be supplied.")
     stop();
   }
-  if(missing(ideas_predict_obj)){
-    flog_error("ideas_loci | param 'ideas_predict_obj' must be supplied.")
+  if(missing(ideas_predict_dat)){
+    flog_error("ideas_loci_summarize | param 'ideas_predict_dat' must be supplied.")
     stop();
   }
-  tissues <- ideas_predict_obj$ideas_metadata
-  ind = sort(ideas_predict_obj$sel)
-  input_subset = ideas_make_obj[ind, ]
-  scores = t(t(ideas_predict_obj$score) * ideas_predict_obj$cellscore)
+  tissues <- ideas_predict_dat$ideas_metadata
+  ind = sort(ideas_predict_dat$sel)
+  input_subset = ideas_make_dat[ind, ]
+  scores = t(t(ideas_predict_dat$score) * ideas_predict_dat$cellscore)
   colnames(scores) = tissues$epigenome_mnemonic
   scores = (input_subset$pp_signal * scores)
   SNP_scores = cbind.data.frame(input_subset, scores)
@@ -253,6 +158,8 @@ ideas_loci = function(ideas_make_obj, ideas_predict_obj) {
   }
   colnames(locus_scores)[1:2] = c("chr", "pos")
 
+  flog_debug("ideas_loci_summarize | complete.")
+  
   return(locus_scores)
 }
 
@@ -274,8 +181,6 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
                              impala = getOption("gtx.impala", NULL), db = config_db()) {
   # If we didn't pass states_data, load all the data based on the input chrom
   if(missing(states_data) | is_null(states_data)){
-    impala <- validate_impala(impala = impala)
-    
     flog_debug("ideas_get_states | Querying states from: {db}.ideas_states")
     sql_statement <- 
       glue::glue_collapse(
@@ -442,7 +347,7 @@ ideas_sum_pp_cross_cell_types <- function(prior, prob, cellweight,
 #' @import gglasso
 #' @import dplyr
 #' @return TBD
-ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_data,
+ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_data = NULL,
                         usegenomebackground = TRUE, inter = 5, alpha = 0.99, 
                         layer = 10, permute = FALSE, impala = getOption("gtx.impala", NULL)){
   BB = inter
@@ -609,6 +514,8 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_d
   rt$auc = tt$auc
   rt$ideas_metadata = ideas_metadata
   
+  flog_debug("ideas_lasso | complete.")
+  
   return(rt)
 }
 
@@ -660,11 +567,14 @@ ideas_preload_states <- function(impala = getOption("gtx.impala", NULL), db = co
 #' @param analysis A string or vector of analysis ids.
 #' @param ht_load [FALSE] TRUE = Load the IDEAS states for high throughput.
 #' @param states_data Pass \code{ideas_preload_states} data instead of loading it. 
+#' @param relaxed [3] TBD
+#' @param group [FALSE] TRUE = group cell types together.
 #' @export
 #' @import dplyr
 #' @import purrr
 #' @import 
-ideas_wrapper <- function(analysis, ht_load = FALSE, 
+ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
+                          relaxed = 3, group = FALSE,
                           impala = getOption("gtx.impala", NULL)){
   # Confirm we have input
   if(missing(analysis)){
@@ -694,11 +604,161 @@ ideas_wrapper <- function(analysis, ht_load = FALSE,
     group_by(analysis) %>% 
     mutate(ideas_make_dat    = map(analysis,          ideas_make)) %>% 
     mutate(ideas_predict_dat = map(ideas_make_dat,    ideas_predict, states_data = states_data)) %>% 
-    mutate(ideas_loci_dat    = map2(ideas_make_dat,   ideas_predict_dat, ideas_loci)) %>% 
-    mutate(ideas_plot_dat    = map(ideas_predict_dat, ideas_plot));
+    mutate(ideas_gwas_dat    = map(ideas_predict_dat, ideas_gwas_summarize, group = group, relaxed = relaxed)) %>% 
+    mutate(ideas_loci_dat    = map2(ideas_make_dat,   ideas_predict_dat, ideas_loci_summarize));
   
   return(ret);
 }
 
+#' ideas_gwas_summarize
+#' 
+#' Summarize most likely cell type per GWAS analysis id.
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param .data \code{ideas_predict} output
+#' @param relaxed [3] Numeric value, 1:10, rank cutoff_gt for inclusion. e.g. 3 = Must be in top 3 cell types. 
+#' @param group [FALSE] TRUE = Group similar cell types. 
+#' @export
+#' @import dplyr
+ideas_gwas_summarize <- function(.data, relaxed = 3, group = FALSE,
+                          impala = getOption("gtx.impala", NULL)){
+  if(missing(.data) | is_null(.data)){
+    # TODO remove error with NULL ideas_predict data
+    # Remove 10 limited for ideas_predict line# = 95-97.
+    # gracefully return NULL appropriate results when # cred sets < 10
+    # nrow(ideas_predict$auc) = # of cred sets
+    flog_error("ideas_gwas_summarize | no input .data specified.");
+    stop();
+  }
+  if(relaxed == 0){
+    flog_error("ideas_gwas_summarize | relaxed must be numeric, 1:10.")
+  }
+  if(!is_logical(group)){
+    flog_error("ideas_gwas_summarize | group must be TRUE or FALSE.");
+    stop();
+  }
+  
+  cell_info <- .data$ideas_metadata
+  
+  a = t(.data$n)
+  manual_colnames <- c("first", "second", "third", "fourth", "fifth", 
+                       "sixth", "seventh", "eigth", "ninth", "tenth")
+  colnames(a) <- manual_colnames
+  results <- cbind(cell_info, a)
 
+  if (is.numeric(relaxed) == TRUE & relaxed != 1) {
+    results$first = rowSums(results[, manual_colnames[1:relaxed]])
+    results$first = results$first/sum(results$first)
+  }
+  results <- results[order(results$first), ]
+  
+  if (group == TRUE) {
+    groups = unique(dplyr::select(results, group, color))
+    first = c()
+    for (i in 1:dim(groups)[1]) {
+      sum = filter(results, group == groups[i, 1])$first %>% sum()
+      first = c(first, sum)
+    }
+    z = matrix(0, nrow = dim(groups)[1], ncol = 1)
+    results = cbind.data.frame(z, z, z, z, groups, first)
+    colnames(results) = c("a", "b", "c", "d", "group", "Coloc", "first")
+    results = results[order(results$first), ]
+  }
+  
+  if (group == FALSE) {
+    labels = results$epigenome_mnemonic
+  } else {
+    labels = results$group
+  }
+  
+  results_tbl = cbind.data.frame(labels, results$first)
+  colnames(results_tbl) = c("cell", "proportion")
+  results_tbl <- results_tbl %>% 
+    dplyr::arrange(desc(proportion)) %>% 
+    mutate(cell = as.character(cell))
+  
+  # Attach cell_info aka ideas_metadata to ret obj
+  attr(results_tbl, "ideas_metadata") <- cell_info
+  attr(results_tbl, "group") <- group
+  
+  flog_debug("ideas_gwas_summarize | complete.")
+  
+  return(results_tbl)
+}
 
+#' ideas_gwas_plot
+#' 
+#' TBD
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @author Karl Guo \email{karl.x.guo@@gsk.com}
+#' @param .data \code{ideas_gwas_summarize} output
+#' @param path Path for output PDF. 
+#' @param cutoff_gt [0.001] Plotting "Minimum proportion of genetic signal" predicted in cell types. Range = o:1.
+#' @param legend [TRUE] TRUE = display cell type legend 
+#' @export
+#' @import dplyr
+#' @import purrr
+#' @import 
+ideas_gwas_plot <- function(.data, path, cutoff_gt = 0.001, legend = TRUE){
+  if(missing(.data) | is_null(.data)){
+    flog_error("ideas_gwas_summarize | no input .data specified.");
+    stop();
+  } else {
+    results = .data %>% arrange(proportion);
+  }
+  if (!missing(path)) {
+    if(is_character(path)){
+      out_file <- paste(path, ".pdf", sep = "")
+      flog_debug("ideas_plot | output file:{out_file}")
+      pdf(out_file, width = 16, height = 8) 
+    } else {
+      flog_error("ideas_plot | supplied path is not valid characters:{path}");
+      stop();
+    }
+  }
+  # Load ideas_metadata from attr
+  ideas_metadata <- attr(results, "ideas_metadata", exact = TRUE)
+  group <- attr(results, "group", exact = TRUE)
+
+  if (is.numeric(cutoff_gt) == TRUE) {
+    results = dplyr::filter(results, proportion > cutoff_gt)
+  } else {
+    flog_error("ideas_plot | cutoff_gt parameters is not numeric. must be 0:1.")
+    stop();
+  }
+  
+  if (group == FALSE) {
+    results <- 
+      inner_join(results, 
+                 ideas_metadata, 
+                 by = c("cell" = "epigenome_mnemonic"));
+    labels2 = results %>% distinct(group, color) %>% pull(group)
+    cc2     = results %>% distinct(group, color) %>% pull(color)
+  }
+  if (group == TRUE) {
+    results <- 
+      inner_join(results, 
+                 distinct(ideas_metadata, group, color), 
+                 by = c("cell" = "group"));
+  }   
+  labels  = results$cell;
+  
+  cclr = col2rgb(as.matrix(results$color))
+  hclr = apply(cclr, 2, function(x) {
+    rgb2hsv(x[1], x[2], x[3])
+  })
+  cc = c(apply(hclr, 2, function(x) {
+    hsv(x[1], x[2], x[3])
+  }))
+  par(mar = c(7, 4, 3, 3))
+  x = barplot(results$proportion, col = cc, cex.names = 0.6, ylab = "Proportion of genetic signal")
+  if (legend == TRUE & group == FALSE) {
+    legend("topleft", inset = 0.02, cex = 0.7, fill = cc2, labels2, ncol = 2)
+  }
+  text(x, labels = labels, srt = 45, par("usr")[3], adj = c(1, 1.1), xpd = TRUE, cex = 0.7)
+  
+  if (!missing(path)){
+    dev.off()
+  }
+}
