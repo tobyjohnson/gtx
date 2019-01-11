@@ -8,14 +8,19 @@ ideas_sum_pp_cross_cell_types(prior, prob, cellweight, snpindex,
   confidence = 0.95, cut = 0, layer = 10)
 }
 \arguments{
-\item{confidence}{[Default = 0.95]}
+\item{prior}{TBD}
 
-\item{cut}{[Default = 0]}
+\item{prob}{TBD}
 
-\item{layer}{[Default = 10]}
-}
-\value{
-TBD
+\item{cellweight}{TBD}
+
+\item{snpindex}{TBD}
+
+\item{confidence}{[0.95]}
+
+\item{cut}{[0]}
+
+\item{layer}{[10]}
 }
 \description{
 Sum posterior probabilities across cell types

@@ -6,6 +6,9 @@
 \usage{
 flog_error(.msg)
 }
+\arguments{
+\item{.msg}{msg to glue and flog}
+}
 \description{
 Simple wrapper around futile.logger::flog.error(glue::glue(.msg)).
 For full control over flog or glue opts use full explicit code.

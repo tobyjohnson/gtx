@@ -92,7 +92,7 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0",
 #' @import odbc
 #' @import futile.logger
 validate_impala <- function(impala = getOption("gtx.impala", NULL)){
-  # Check we have a spark connection
+  # Check we have an implyr connection
   flog.debug("tidy_connections::validate_impala | Validating impala connection.")
   if(is.null(impala) | !any(str_detect(class(impala), "src_impala"))){ 
     flog.debug("tidy_connections::validate_impala | impala connection is not valid, will try to establish a connection.")
@@ -125,7 +125,7 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
   }
   return(impala)
 }
-############################################
+ 
 #' Copy data to user's home database for joins with impala tables.
 #' 
 #' \strong{impala_copy_to() - copy data to RDIP}
@@ -145,7 +145,7 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @import implyr
 #' @import readr
 #' @import futile.logger
-############################################
+ 
 impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
                            database = NULL, table_name = "tmp_data4join", random_name = FALSE ){
   safely_dbExecute  <- purrr::safely(implyr::dbExecute)
@@ -218,7 +218,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     flog.error(glue("tidy_connections::impala_copy_to | Unable to determine appropriate table_name."))
     stop();
   }
-  ############################################
+   
   # If we have a small data frame, copy the data directly to RDIP
   if(nrow(df) < 250 & ncol(df) < 50){
     input_tbl <- 
@@ -228,7 +228,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
         name = glue("{`database`}.{`table_name`}"), 
         temporary = FALSE)
   }
-  ############################################
+   
   # If we have a big table, need to more complicated copy
   else {
     input_tbl <- big_copy_to(df = df, dest = impala, database = database, table_name = table_name)
@@ -241,7 +241,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   return(input_tbl)
 }
 
-############################################
+ 
 #' Copy large data to RDIP tables.
 #' 
 #' \strong{big_copy_to() - copy data to RDIP}
@@ -262,7 +262,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
 #' @import dplyr
 #' @import futile.logger
 #' @import purrr
-############################################
+ 
 big_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
                         chrom_as_string = TRUE, database = NULL, 
                         table_name = NULL, compute_stats = FALSE){
@@ -293,7 +293,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     stop();
   }
   
-  ############################################
+   
   # Write the data 4 join to a tmp file on the edge node
   
   
@@ -337,7 +337,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   }
   # Data is now ready to be read into a table
   
-  ############################################
+   
   # Make a list for conversion of R class to SQL class
   sql_types <- tibble(r_class   = c("character", "integer", "double", "logical"),
                       sql_class = c("STRING",    "INT",     "DOUBLE", "BOOLEAN"))
@@ -359,7 +359,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     flog.error(glue("Could not match {bad_cols}"))
     stop()
   }
-  ############################################
+   
   # Create new table based on correct col types
   flog.debug(glue("tidy_connections::big_copy_to | create new table: {database}.{table_name}"))
   sql_statement <- 
@@ -376,7 +376,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     flog.error(glue("tidy_connections::big_copy_to | unable to create table: {database}.{table_name} because:\n{exec$error}"))
     stop()
   }
-  ############################################
+   
   # Load data from tmp HDFS file into table
   flog.debug(glue("tidy_connections::big_copy_to | Load data into new table: {database}.{table_name}"))
   sql_statement <- 
@@ -388,7 +388,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     flog.error(glue("tidy_connections::big_copy_to | Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}"))
     stop()
   }
-  ############################################
+   
   # COMPUTE STATS on the new table
   if(isTRUE(compute_stats)){
     flog.debug(glue("tidy_connections::big_copy_to | COMPUTE STATS on: {database}.{table_name}"))
@@ -400,12 +400,12 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
       stop()
     }
   }
-  ############################################
+  
   # Return table to data in RDIP
   input_tbl <- tbl(dest, glue("{database}.{table_name}"))
   return(input_tbl)
 }
-#############################################
+
 #' Close connections they were internally created
 #' 
 #' \strong{close_int_conn() - Close internally created connections}
@@ -443,7 +443,7 @@ close_int_conn <- function(conn){
   }
 }
 
-#############################################
+ 
 #' whoami - Determine user name/id for working with CDH. 
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
@@ -479,7 +479,7 @@ whoami <- function(){
 }
 
 # TODO: Add debug comments
-############################################
+
 #' Drop (tmp) impala_copy_to tables.
 #' 
 #' \strong{drop_impala_copy() - drop tmp tables}

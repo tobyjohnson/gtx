@@ -5,7 +5,7 @@
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param .msg
+#' @param .msg msg to glue and flog
 #' @import glue
 #' @import futile.logger
 flog_error <- function(.msg){
@@ -19,7 +19,7 @@ flog_error <- function(.msg){
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param .msg
+#' @param .msg msg to glue and flog
 #' @import glue
 #' @import futile.logger
 flog_debug <- function(.msg){
@@ -33,7 +33,7 @@ flog_debug <- function(.msg){
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param .msg
+#' @param .msg msg to glue and flog
 #' @import glue
 #' @import futile.logger
 flog_info <- function(.msg){
@@ -47,7 +47,7 @@ flog_info <- function(.msg){
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param .msg
+#' @param .msg msg to glue and flog
 #' @import glue
 #' @import futile.logger
 flog_warn <- function(.msg){

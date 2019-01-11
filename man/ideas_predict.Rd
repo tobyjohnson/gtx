@@ -4,28 +4,36 @@
 \alias{ideas_predict}
 \title{ideas_predict}
 \usage{
-ideas_predict(.data, states = NULL, permute = FALSE, inter = 5,
-  binsz = 200, pcut = 6, CI = 0.95, seed = NULL)
+ideas_predict(.data, states_data = NULL, states = NULL,
+  permute = FALSE, inter = 5, binsz = 200, pcut = 6, CI = 0.95,
+  seed = NULL)
 }
 \arguments{
-\item{permute}{[Default = FALSE]}
+\item{.data}{\code{ideas_make} input data}
 
-\item{inter}{[Default = 5]}
+\item{states}{TBD}
 
-\item{binsz}{[Default = 200]}
+\item{permute}{TBD}
 
-\item{pcut}{[Default = 6]}
+\item{inter}{[5]}
 
-\item{CI}{[Default = 0.95]}
+\item{binsz}{[200] Padding around each cred set SNP.}
 
-\item{seed}{[Default = NULL]}
+\item{pcut}{[6]}
 
-\item{alpha}{[Default = 0.99]}
+\item{CI}{[0.95] Cred set confidence interval.}
 
-\item{layer}{[Default = 10]}
-}
-\value{
-TBD
+\item{seed}{[NULL] Set seed for RNG number generator.}
+
+\item{vlp}{TBD}
+
+\item{alpha}{[0.99]}
+
+\item{layer}{[10]}
+
+\item{permute}{[FALSE]}
+
+\item{states}{Select subset of states. Not currently used as of 2019-01-11.}
 }
 \description{
 Predict IDEAS states from input GWAS data supplied by \code{ideas_make}

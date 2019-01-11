@@ -8,7 +8,7 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
              person("Andrew", "Slater", role = c("ctb")),
              person("Li", "Li", role = c("ctb")))
 Imports:
-    beeswarm,survival,meta,rmeta
+    beeswarm,survival,meta,rmeta,gglasso
 Depends:
     DBI,odbc,RSQLite,data.table,dplyr,tidyr,stringr,purrr,ggplot2,sparklyr,glue,futile.logger,tibble,readr,implyr
 Suggests:

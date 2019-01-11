@@ -12,11 +12,25 @@
 #' @param case_emac_ge [25]
 #' @return  Table of GWAS loci with posteriors for \code{ideas_predict}
 #' @import dplyr
+#' @import purrr
 ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) {
   flog_debug("ideas_make | Calculating GWAS top hits for: {analysis}.")
   # 
-  my_gwas <- gwas(analysis, case_emac_ge = 25, pval_thresh = pval_le, 
-                  style = FALSE, gene_annotate = FALSE)
+  if(!is_character(analysis)){
+    flog_error("ideas_make | analysis must be of type 'character'.");
+    stop();
+  }
+  safely_gwas <- purrr::safely(gtx::gwas)
+  exec <- safely_gwas(analysis, case_emac_ge = 25, pval_thresh = pval_le, 
+                      style = FALSE, gene_annotate = FALSE)
+  
+  if(is_null(exec$result)){
+    flog_warn("ideas_make | gwas() returned zero results for analysis: {analysis} at pval_thresh: {pval_le}.")
+    return(NULL);
+  } else {
+    my_gwas <- exec$result
+  }
+  
   if (!missing(chrom) & !missing(pos)) {
     flog_debug("ideas_make | Filtering top hits for input chrom & pos.")
     if(!is_character(chrom)){
@@ -25,7 +39,7 @@ ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) 
     if(!is.numeric(pos)){
       flog_error("ideas_make | param 'pos' is not numeric.")
     }
-    my_gwas = my_gwas %>% filter(chrom == chrom, pos_index == pos)
+    my_gwas = my_gwas %>% dplyr::filter(chrom == chrom, pos_index == pos)
     if(nrow(my_gwas) == 0){
       flog_error("ideas_make | No GWAS results after filtering for chrom:{chrom} & pos:{pos}.")
     }
@@ -62,7 +76,6 @@ ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) 
 #' @author Karl Guo \email{karl.x.guo@@gsk.com}
 #' @export
 #' @param .data \code{ideas_make} input data
-#' @param states TBD
 #' @param permute TBD
 #' @param vlp TBD
 #' @param states TBD
@@ -70,17 +83,26 @@ ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) 
 #' @param alpha [0.99]
 #' @param layer [10]
 #' @param permute [FALSE]
-#' @param binsz [200]
-#' @param pcut [6]
-#' @param CI [0.95]
-#' @param seed [NULL]
-#' @return TBD
+#' @param binsz [200] Padding around each cred set SNP.
+#' @param pcut [6] 
+#' @param CI [0.95] Cred set confidence interval.
+#' @param seed [NULL] Set seed for RNG number generator.
+#' @param states Select subset of states. Not currently used as of 2019-01-11.
 ideas_predict <- function(.data,  states_data = NULL,
                           states = NULL, permute = FALSE, inter = 5, binsz = 200, 
                           pcut = 6, CI = 0.95, seed = NULL) {
+  if(missing(.data)){
+    flog_error("ideas_predict | no input .data.");
+    stop();
+  } else if(is_null(.data)){
+    flog_warn("ideas_predict | .data is NULL.");
+    return(NULL);
+  } else {
+    x = as.data.frame(.data);
+  }
+  
   BB = inter
   set.seed(seed)
-  x = as.data.frame(.data)
   t = NULL
   for (i in unique(x[, 1])) {
     tt = which(x[, 1] == i & x[, 9] > 0 & x[, 6] > 0 & x[, 7] > pcut)
@@ -92,20 +114,19 @@ ideas_predict <- function(.data,  states_data = NULL,
   }
   flog_info("ideas_predict | Number of cred sets: {length(unique(x[t, 1]))}")
   flog_info("ideas_predict | Number of snps across cred sets: {length(t)}")
-  if (length(t) < 10) {
-    return(NULL)
-  }
+  
+  flog_debug("ideas_predict | Starting ideas_lasso . . .");
   rt = ideas_lasso(chrom  = as.matrix(x[t, 8]), 
                    pos    = cbind(as.numeric(x[t, 9]) - binsz, as.numeric(x[t, 9]) + binsz), 
                    vindex = x[t, 1], 
                    vprior = x[t, 6], 
                    vlp    = x[t, 7], 
                    states_data = states_data,
-                   states, 
                    permute = permute, 
-                   inter = inter)
+                   inter = inter,
+                   states = states)
   rt$sel = t
-  flog_debug("ideas_predict | complete.")
+  flog_info("ideas_predict | Prediction complete.")
   return(rt)
 }
 
@@ -120,8 +141,9 @@ ideas_predict <- function(.data,  states_data = NULL,
 #' @param ideas_predict_dat \code{ideas_predict} object
 #' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
 #' @param db [config_db()] Database to use for queries.
-#' @return TBD
 ideas_loci_summarize = function(ideas_make_dat, ideas_predict_dat) {
+  flog_debug("ideas_loci_summarize | Staring ideas_loci_summarize.")
+  # Verify input
   if(missing(ideas_make_dat)){
     flog_error("ideas_loci_summarize | param 'ideas_make_dat' must be supplied.")
     stop();
@@ -130,6 +152,16 @@ ideas_loci_summarize = function(ideas_make_dat, ideas_predict_dat) {
     flog_error("ideas_loci_summarize | param 'ideas_predict_dat' must be supplied.")
     stop();
   }
+  if(is_null(ideas_make_dat) | is_null(ideas_predict_dat)){
+    if(is_null(ideas_make_dat)){
+      flog_warn("ideas_loci_summarize | ideas_make_dat is NULL. Skipping.");
+      return(NULL);
+    } else {
+      flog_warn("ideas_loci_summarize | ideas_predict_dat is NULL. Skipping.");
+      return(NULL);
+    }
+  }
+  
   tissues <- ideas_predict_dat$ideas_metadata
   ind = sort(ideas_predict_dat$sel)
   input_subset = ideas_make_dat[ind, ]
@@ -156,7 +188,7 @@ ideas_loci_summarize = function(ideas_make_dat, ideas_predict_dat) {
     x = cbind.data.frame(chr, index, rank_1, rank_2, rank_3, rank_4, rank_5, rank_6, rank_7, rank_8, rank_9, rank_10)
     locus_scores = rbind.data.frame(locus_scores, x)
   }
-  colnames(locus_scores)[1:2] = c("chr", "pos")
+  colnames(locus_scores)[1:2] = c("chrom", "pos")
 
   flog_debug("ideas_loci_summarize | complete.")
   
@@ -172,15 +204,14 @@ ideas_loci_summarize = function(ideas_make_dat, ideas_predict_dat) {
 #' @author Karl Guo \email{karl.x.guo@@gsk.com}
 #' @param chrom Chromosome to query
 #' @param pos Position
-#' @param staten
+#' @param staten Number of states. 
 #' @param states [NULL]
 #' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
 #' @param db [config_db()] Database to use for queries.
-#' @return TBD
 ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
                              impala = getOption("gtx.impala", NULL), db = config_db()) {
   # If we didn't pass states_data, load all the data based on the input chrom
-  if(missing(states_data) | is_null(states_data)){
+  if(missing(states_data)){
     flog_debug("ideas_get_states | Querying states from: {db}.ideas_states")
     sql_statement <- 
       glue::glue_collapse(
@@ -191,14 +222,32 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
     safely_get_query <- purrr::safely(implyr::dbGetQuery)
     states_data <- safely_get_query(impala, sql_statement)
     if (!is.null(states_data$error)){
-      flog_error("ideas_get_states | unable to query states, error:\n{states_data$error}")
+      flog_error("ideas_get_states | unable to query states, error:\n{states_data$error}");
       stop()
     } else {
-      flog_debug("ideas_get_states | states collected.")
+      flog_debug("ideas_get_states | states collected.");
       states_data <- states_data$result
     }
-  } else {
-    flog_debug("ideas_get_states | Using states_data that was used as a parameter.")
+  } else if (is_null(states_data)){
+    flog_debug("ideas_get_states | Querying states from: {db}.ideas_states")
+    sql_statement <- 
+      glue::glue_collapse(
+        c(glue::glue("SELECT * FROM {db}.ideas_states WHERE"), 
+          glue::glue_collapse(glue::glue("chrom = \"{unique(chrom)}\""), sep = " OR ")), 
+        sep = " ")
+    
+    safely_get_query <- purrr::safely(implyr::dbGetQuery)
+    states_data <- safely_get_query(impala, sql_statement)
+    if (!is.null(states_data$error)){
+      flog_error("ideas_get_states | unable to query states, error:\n{states_data$error}");
+      stop()
+    } else {
+      flog_debug("ideas_get_states | states collected.");
+      states_data <- states_data$result
+    }
+  }
+  else {
+    flog_debug("ideas_get_states | Using states_data from 'states_data' parameter.");
   }
   
   rt = NULL
@@ -225,7 +274,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
     flog_debug("ideas_get_states | Cross reference GWAS and states.")
     mst = match(vpst, gp)
     med = match(vped, gp)
-    tt = which(is.na(mst) == T)
+    tt = which(is_null(mst) == T)
     if (length(tt) > 0) {
       for (j in tt) {
         tttt = which(gp > vpst[j])
@@ -236,7 +285,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
         }
       }
     }
-    tt = which(is.na(med) == T)
+    tt = which(is_null(med) == T)
     if (length(tt) > 0) {
       for (j in tt) {
         tttt = which(gp < vped[j])
@@ -247,7 +296,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
         }
       }
     }
-    tt = which(is.na(mst) == F & is.na(med) == F & mst <= med & mst >= 0 & med >= 0)
+    tt = which(is_null(mst) == F & is_null(med) == F & mst <= med & mst >= 0 & med >= 0)
     A = array(0, dim = c(length(vpst), celln * staten))
     if (length(tt) > 0) {
       for (l in 0:max(med[tt] - mst[tt])) {
@@ -280,7 +329,6 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
 #' @param confidence [0.95]
 #' @param cut [0]
 #' @param layer [10]
-#' @return TBD
 ideas_sum_pp_cross_cell_types <- function(prior, prob, cellweight, 
                                           snpindex, confidence = 0.95, cut = 0, layer = 10) {
   celln = dim(cellweight)[2]
@@ -338,7 +386,7 @@ ideas_sum_pp_cross_cell_types <- function(prior, prob, cellweight,
 #' @param vprior TBD
 #' @param vlp TBD
 #' @param states TBD
-#' @param usegenomebackground [TRUE]
+#' @param use_genome_background [TRUE]
 #' @param inter [5]
 #' @param alpha [0.99]
 #' @param layer [10]
@@ -347,15 +395,32 @@ ideas_sum_pp_cross_cell_types <- function(prior, prob, cellweight,
 #' @import gglasso
 #' @import dplyr
 #' @return TBD
-ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_data = NULL,
-                        usegenomebackground = TRUE, inter = 5, alpha = 0.99, 
-                        layer = 10, permute = FALSE, impala = getOption("gtx.impala", NULL)){
+ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states_data = NULL, 
+                        use_genome_background = TRUE, inter = 5, alpha = 0.99, 
+                        layer = 10, permute = FALSE, states = NULL, 
+                        impala = getOption("gtx.impala", NULL), db = config_db()){
+  
+  flog_debug("ideas_lasso | Starting ideas_lasso.");
+  flog_debug("ideas_lasso | Validate inputs - starting.");
+  if(any(map_lgl(c(chrom, pos, vindex, vprior, vlp), missing))){
+    flog_error("ideas_lasso | Validate inputs - failure. Check: chrom, pos, vindex, vprior, vlp");
+    stop("ideas_lasso failure.");
+  }
+  flog_debug("ideas_lasso | Validate inputs - success.");  
+  
   BB = inter
   
   impala <- validate_impala(impala = impala)
-  para_tbl <- tbl(impala, "gene_gwas.ideas_para")
-  staten <- para_tbl %>% tally() %>% pull() %>% as.numeric()
-  ideas_metadata <- implyr::dbGetQuery(impala, glue::glue("SELECT * FROM {db}.ideas_metadata"))
+  para_tbl <- dplyr::tbl(impala, "gene_gwas.ideas_para")
+  staten <- para_tbl %>% dplyr::tally() %>% dplyr::pull() %>% as.numeric()
+  flog_debug("ideas_lasso | Number of states = {staten}.");
+  
+  flog_debug("ideas_lasso | Querying ideas_metadata.");
+  ideas_metadata <- implyr::dbGetQuery(impala, glue::glue("SELECT * FROM {db}.ideas_metadata"));
+  # Hard code number of rows in metadata temporarily for debug
+  if(nrow(ideas_metadata) == 127){
+    flog_debug("ideas_lasso | ideas_metadata collected.");  
+  }
   
   L = nrow(pos)
   oindex = vindex
@@ -366,7 +431,9 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_d
   } else {
     pos = as.matrix(pos)
   }
-  if (usegenomebackground) {
+  
+  if (isTRUE(use_genome_background)) {
+    flog_debug("ideas_lasso | Create genome background.");
     oi = vindex
     ov = chrom
     op = pos
@@ -384,15 +451,18 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_d
         tpos[tt, 1] = as.integer(runif(length(tt), rg[1], rg[2]))
         tpos[tt, 2] = tpos[tt, 1] + tsz
       }
+      
       chrom = c(chrom, ov)
       pos = rbind(pos, tpos)
       vindex = c(vindex, paste("null", B, "_", oi, sep = ""))
       vprior = c(vprior, rep(0, dim(tpos)[1]))
       vlp = c(vlp, ol)
     }
+    flog_debug("ideas_lasso | Create genome background - complete.");
   }
   
-  flog_info("ideas_lasso | Preprocessing...")
+  flog_info("ideas_predict | Preprocessing states.");
+  flog_debug("ideas_predict | ideas_lasso | Preprocessing with ideas_get_states()");
   trt = ideas_get_states(chrom  = chrom, 
                          pos    = pos, 
                          staten = staten, 
@@ -426,7 +496,7 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_d
   t = which(vprior <= 0)
   
   flog_info("ideas_lasso | Predicting states")
-  if (usegenomebackground == FALSE && length(t) > 10) {
+  if (use_genome_background == FALSE && length(t) > 10) {
     p0 = apply(x[t, ], 2, sum)
   } else {
     p0 = apply(array(p0, dim = c(length(p0)/dim(x)[2], dim(x)[2])), 2, sum)
@@ -448,7 +518,7 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_d
     mm = which(substr(vindex, 1, 4) != "null")
     mm = c(mm, which(vindex == paste("null", B, sep = "")))
     t = 1:dim(score)[2]
-    rt = cv.gglasso(cbind(xm[mm], score[mm, t]), 
+    rt = gglasso::cv.gglasso(cbind(xm[mm], score[mm, t]), 
                     y[mm], 
                     group = c(1, rep(1 + 1:celln, each = dim(score)[2]/celln)), 
                     pred.loss = "L2", 
@@ -532,7 +602,7 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states = NULL, states_d
 #' @export
 #' @import implyr
 #' @import dplyr
-#' @importFrom safely purrr
+#' @import purrr
 ideas_preload_states <- function(impala = getOption("gtx.impala", NULL), db = config_db(), 
                                  chrom = c(1:22, "X", "Y")) {
   impala <- validate_impala(impala = impala)
@@ -567,24 +637,18 @@ ideas_preload_states <- function(impala = getOption("gtx.impala", NULL), db = co
 #' @param analysis A string or vector of analysis ids.
 #' @param ht_load [FALSE] TRUE = Load the IDEAS states for high throughput.
 #' @param states_data Pass \code{ideas_preload_states} data instead of loading it. 
-#' @param relaxed [3] TBD
+#' @param relaxed [3] Cell types count toward total if they are in the top # of 'relaxed' cell types. e.g., 3 = The top 3 cell types count.
 #' @param group [FALSE] TRUE = group cell types together.
 #' @export
 #' @import dplyr
 #' @import purrr
-#' @import 
 ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
                           relaxed = 3, group = FALSE,
                           impala = getOption("gtx.impala", NULL)){
   # Confirm we have input
   if(missing(analysis)){
-    flog_error("ideas_wrapper | parameter analysis is required but is missing.");
+    flog_error("ideas_wrapper | parameter 'analysis' is required but is missing.");
     stop();
-  }
-  # If global gtx.impala isn't set, do that now so all fxn use the global connection
-  if(is_null(impala)){
-    options("gtx.impala" = NULL);
-    options("gtx.impala" = validate_impala());
   }
   
   # Check/do if we need to do high throughput loading states loading. 
@@ -597,15 +661,15 @@ ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
   }
   
   # Setup input tibble
-  input <- tibble("analysis" = analysis);
+  input <- dplyr::tibble("analysis" = analysis);
   
   # Runs ideas predict for each analysis id. 
   ret <- input %>% 
-    group_by(analysis) %>% 
-    mutate(ideas_make_dat    = map(analysis,          ideas_make)) %>% 
-    mutate(ideas_predict_dat = map(ideas_make_dat,    ideas_predict, states_data = states_data)) %>% 
-    mutate(ideas_gwas_dat    = map(ideas_predict_dat, ideas_gwas_summarize, group = group, relaxed = relaxed)) %>% 
-    mutate(ideas_loci_dat    = map2(ideas_make_dat,   ideas_predict_dat, ideas_loci_summarize));
+    dplyr::group_by(analysis) %>% 
+    dplyr::mutate(ideas_make_dat    = purrr::map(analysis,          ideas_make)) %>% 
+    dplyr::mutate(ideas_predict_dat = purrr::map(ideas_make_dat,    ideas_predict, states_data = states_data)) %>% 
+    dplyr::mutate(ideas_gwas_dat    = purrr::map(ideas_predict_dat, ideas_gwas_summarize, group = group, relaxed = relaxed)) %>% 
+    dplyr::mutate(ideas_loci_dat    = purrr::map2(ideas_make_dat,   ideas_predict_dat, ideas_loci_summarize));
   
   return(ret);
 }
@@ -618,18 +682,34 @@ ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
 #' @param .data \code{ideas_predict} output
 #' @param relaxed [3] Numeric value, 1:10, rank cutoff_gt for inclusion. e.g. 3 = Must be in top 3 cell types. 
 #' @param group [FALSE] TRUE = Group similar cell types. 
+#' @param n_cs_ge [10] min # (>=) of cred sets to GWAS summarize
+#' @param n_snps_ge [10] min # (>=) of snps across all cred sets
 #' @export
 #' @import dplyr
 ideas_gwas_summarize <- function(.data, relaxed = 3, group = FALSE,
-                          impala = getOption("gtx.impala", NULL)){
-  if(missing(.data) | is_null(.data)){
-    # TODO remove error with NULL ideas_predict data
-    # Remove 10 limited for ideas_predict line# = 95-97.
-    # gracefully return NULL appropriate results when # cred sets < 10
-    # nrow(ideas_predict$auc) = # of cred sets
+                                 n_cs_ge = 10, n_snps_ge = 10,
+                                 impala = getOption("gtx.impala", NULL)){
+  # Confirm data input exist
+  if(missing(.data)){
     flog_error("ideas_gwas_summarize | no input .data specified.");
     stop();
+  } else if(is_null(.data)){
+    flog_error("ideas_gwas_summarize |ideas_predict input .data is NULL.");
+    stop();
   }
+  
+  # Confirm we have enough data to summarize
+  n_credsets <- .data %>% pluck("auc") %>% nrow()
+  n_cs_snps  <- .data %>% pluck("sel") %>% length()
+  if(n_credsets < n_cs_ge){
+    flog_warn("ideas_gwas_summarize | Skipping ... GWAS contains {n_credsets} cred sets but min for ideas_gwas_summarize() is {n_cs_ge}.");
+    return(NULL);
+  }
+  if(n_cs_snps < n_snps_ge){
+    flog_warn("ideas_gwas_summarize | Skipping ... GWAS contains {n_cs_snps} snps but min for ideas_gwas_summarize() is {n_snps_ge}.");
+    return(NULL);
+  }
+  # Confirm params look correct
   if(relaxed == 0){
     flog_error("ideas_gwas_summarize | relaxed must be numeric, 1:10.")
   }
@@ -656,7 +736,7 @@ ideas_gwas_summarize <- function(.data, relaxed = 3, group = FALSE,
     groups = unique(dplyr::select(results, group, color))
     first = c()
     for (i in 1:dim(groups)[1]) {
-      sum = filter(results, group == groups[i, 1])$first %>% sum()
+      sum = dplyr::filter(results, group == groups[i, 1])$first %>% sum()
       first = c(first, sum)
     }
     z = matrix(0, nrow = dim(groups)[1], ncol = 1)
@@ -675,7 +755,7 @@ ideas_gwas_summarize <- function(.data, relaxed = 3, group = FALSE,
   colnames(results_tbl) = c("cell", "proportion")
   results_tbl <- results_tbl %>% 
     dplyr::arrange(desc(proportion)) %>% 
-    mutate(cell = as.character(cell))
+    dplyr::mutate(cell = as.character(cell))
   
   # Attach cell_info aka ideas_metadata to ret obj
   attr(results_tbl, "ideas_metadata") <- cell_info
@@ -688,7 +768,7 @@ ideas_gwas_summarize <- function(.data, relaxed = 3, group = FALSE,
 
 #' ideas_gwas_plot
 #' 
-#' TBD
+#' Create a plot of the \code{ideas_gwas_summarize} data.
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @author Karl Guo \email{karl.x.guo@@gsk.com}
@@ -698,12 +778,13 @@ ideas_gwas_summarize <- function(.data, relaxed = 3, group = FALSE,
 #' @param legend [TRUE] TRUE = display cell type legend 
 #' @export
 #' @import dplyr
-#' @import purrr
-#' @import 
 ideas_gwas_plot <- function(.data, path, cutoff_gt = 0.001, legend = TRUE){
-  if(missing(.data) | is_null(.data)){
-    flog_error("ideas_gwas_summarize | no input .data specified.");
+  if(missing(.data)){
+    flog_error("ideas_gwas_plot | no input ideas_gwas_dat '.data' specified.");
     stop();
+  } else if(is_null(.data)){
+    flog_warn("ideas_gwas_plot | Skipping because input ideas_gwas_dat '.data' is NULL.");
+    return();
   } else {
     results = .data %>% arrange(proportion);
   }
@@ -733,13 +814,13 @@ ideas_gwas_plot <- function(.data, path, cutoff_gt = 0.001, legend = TRUE){
       inner_join(results, 
                  ideas_metadata, 
                  by = c("cell" = "epigenome_mnemonic"));
-    labels2 = results %>% distinct(group, color) %>% pull(group)
-    cc2     = results %>% distinct(group, color) %>% pull(color)
+    labels2 = results %>% dplyr::distinct(group, color) %>% dplyr::pull(group)
+    cc2     = results %>% dplyr::distinct(group, color) %>% dplyr::pull(color)
   }
   if (group == TRUE) {
     results <- 
       inner_join(results, 
-                 distinct(ideas_metadata, group, color), 
+                 dplyr::distinct(ideas_metadata, group, color), 
                  by = c("cell" = "group"));
   }   
   labels  = results$cell;

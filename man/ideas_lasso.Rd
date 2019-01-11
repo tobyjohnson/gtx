@@ -4,20 +4,33 @@
 \alias{ideas_lasso}
 \title{ideas_lasso}
 \usage{
-ideas_lasso(chrom, pos, vindex, vprior, vlp, states = NULL,
-  usegenomebackground = TRUE, inter = 5, alpha = 0.99, layer = 10,
-  permute = FALSE, impala = getOption("gtx.impala", NULL))
+ideas_lasso(chrom, pos, vindex, vprior, vlp, states_data = NULL,
+  use_genome_background = TRUE, inter = 5, alpha = 0.99,
+  layer = 10, permute = FALSE, states = NULL,
+  impala = getOption("gtx.impala", NULL), db = config_db())
 }
 \arguments{
-\item{usegenomebackground}{[Default = TRUE]}
+\item{chrom}{Chromosomes}
 
-\item{inter}{[Default = 5]}
+\item{pos}{Positions}
 
-\item{alpha}{[Default = 0.99]}
+\item{vindex}{TBD}
 
-\item{layer}{[Default = 10]}
+\item{vprior}{TBD}
 
-\item{permute}{[Default = FALSE]}
+\item{vlp}{TBD}
+
+\item{use_genome_background}{[TRUE]}
+
+\item{inter}{[5]}
+
+\item{alpha}{[0.99]}
+
+\item{layer}{[10]}
+
+\item{permute}{[FALSE]}
+
+\item{states}{TBD}
 
 \item{impala}{[getOption("gtx.impala", NULL)] Implyr impala connection}
 }

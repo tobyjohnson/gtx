@@ -9,13 +9,13 @@ ideas_make(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25)
 \arguments{
 \item{analysis}{GWAS analysis id.}
 
-\item{pval_le}{[Default = 5e-8] Max pval for GWAS}
+\item{pval_le}{[5e-8] Max pval for GWAS}
 
 \item{chrom}{Chromosome to query}
 
 \item{pos}{Position}
 
-\item{case_emac_ge}{[Default = 25]}
+\item{case_emac_ge}{[25]}
 }
 \value{
 Table of GWAS loci with posteriors for \code{ideas_predict}

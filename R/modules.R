@@ -121,8 +121,6 @@ config_db <- function(file = "~/.gtx_config.csv"){
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
 #' @param known_host A host to search for and add as known host. e.g. "github.com"
-#' @example
-#' add_ssh_known_host(known_host = "github.com")
 #' @import futile.logger
 #' @import glue
 #' @import dplyr
