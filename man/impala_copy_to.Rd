@@ -4,8 +4,8 @@
 \alias{impala_copy_to}
 \title{Copy data to user's home database for joins with impala tables.}
 \usage{
-impala_copy_to(df, dest = getOption("gtx.impala", NULL), database = NULL,
-  table_name = "tmp_data4join", random_name = FALSE)
+impala_copy_to(df, dest = getOption("gtx.impala", NULL),
+  database = NULL, table_name = "tmp_data4join", random_name = FALSE)
 }
 \arguments{
 \item{df}{Data to copy to RDIP}

@@ -51,7 +51,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                       gsk_only    = FALSE,
                       db     = gtx::config_db(),
                       impala = getOption("gtx.impala", NULL)){
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | validating input.")
   if(missing(hgncid) & 
      missing(ensemblid) & 
@@ -61,11 +61,11 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     futile.logger::flog.error("aba.query | must specify either: analysis_ids, hgncid, ensemblid, or rsid. Skipping.")
     return()
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | validating impala connection.")
   impala <- validate_impala(impala = impala)
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | establishing connection to database tables.")
   aba_tbl      <- dplyr::tbl(impala, glue::glue("{db}.coloc_results"))
   gwas_th_tbl  <- dplyr::tbl(impala, glue::glue("{db}.gwas_results_top_hits"))
@@ -73,7 +73,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   analyses_tbl <- dplyr::tbl(impala, glue::glue("{db}.analyses"))
   sites_tbl    <- dplyr::tbl(impala, glue::glue("{db}.sites_ukb_500kv3"))
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | set input")
   if(!missing(analysis_ids)){
     futile.logger::flog.debug("aba.query | processing analysis_ids input.")
@@ -110,11 +110,11 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     return()
   }
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | copy input to RDIP")
   input_tbl <- impala_copy_to(df = input, dest = impala)
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | harmonizing input")
   if(!missing(hgncid)){
     futile.logger::flog.debug("aba.query | harmonizing hgncid input.")
@@ -169,7 +169,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     input_tbl <- impala_copy_to(df = input_tbl, dest = impala)
   }
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | prelim filter colocs")
   colocs_tbl <- 
     aba_tbl %>% 
@@ -187,7 +187,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       dplyr::filter(genetype == "protein_coding")
   }
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | append GWAS top hits & gene info")
   # Join GWAS top hits for each GWAS trait
   colocs_th_tbl <- 
@@ -218,7 +218,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   # we should then filter ncase
   dplyr::filter(ncase >= ncase_ge | ncohort >= ncohort_ge)
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | filter colocs based on input")
   # If we gave a gene/region input filter based on that
   colocs_final_tbl <- 
@@ -230,7 +230,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     dplyr::filter((in_start < th_start) & (in_end > th_end)) 
     
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | collect results")
   colocs_final <- 
     colocs_final_tbl %>% 
@@ -257,11 +257,11 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       dplyr::filter(stringr::str_detect(analysis2, "GSK"))
   }
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | clean up conn")
   close_int_conn(impala)
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.query | complete")
   return(colocs_final)
 }
@@ -285,7 +285,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
 #' @import dplyr
 aba.flatten <- function(.data){
   input = .data
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.flatten | verify input")
   mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
   if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
@@ -293,7 +293,7 @@ aba.flatten <- function(.data){
     return()
   }
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.flatten | flatten data")
   input_filtered <-
     input %>%
@@ -340,30 +340,30 @@ aba.flatten <- function(.data){
 #' @import dplyr
 aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impala", NULL)){
   input = .data
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | verify input")
   mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
   if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
     futile.logger::flog.error("aba.fill | missing input column.")
     return()
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | verify impala")
   impala <- validate_impala(impala = impala)
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | establishing connection to db.tables")
   aba_tbl <- dplyr::tbl(impala, glue::glue("{db}.coloc_results"))
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | expand matrix")
   data2pull <- 
     input %>% 
     dplyr::group_by(input) %>% 
     tidyr::expand(analysis2, analysis1, entity) %>% 
     dplyr::ungroup()
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | copy input to RDIP for join")
   data2pull_tbl <- impala_copy_to(df = data2pull, dest = impala)
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | query expanded matrix from aba results")
   expanded_dat <- 
     dplyr::inner_join(
@@ -389,11 +389,11 @@ aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impal
     # Make sure the gene cis-windows are in the gwas TH window
     dplyr::filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) 
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | clean up conn")
   close_int_conn(impala)
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.fill | complete")
   return(expanded_dat)
   
@@ -491,7 +491,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   if(!is.null(title) & !is.character(title)){
     futile.logger::flog.warn("aba.plot | title is neither NULL or character string.")
   }
-  ############################################
+  # ---
   # Clean data (e.g. tissue & description), add simple direction of effect
   futile.logger::flog.debug("aba.plot | cleaing data for plotting")
   fig_dat <- 
@@ -536,23 +536,23 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
                                  "Not Sig."  = "grey")) +
     ggplot2::scale_radius(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.00),
                  range  = c(1, max_dot_size)) + 
-    guides(fill  = guide_legend(title = "Change in gene expression\nwith increased GWAS trait")) + 
-    theme_bw() + 
-    theme(legend.position  = "bottom",
-          legend.text      = element_text(size = 8),
-          legend.title     = element_text(face = "bold"),
-          axis.text.x      = element_text(size = 6, angle = 35, hjust = 1),
-          axis.text.y      = element_text(size = 6, angle = 0 ),
-          axis.line        = element_line(color = "black"),
-          axis.title.x     = element_blank(),
-          axis.title.y     = element_blank(),
-          panel.grid.major = element_line(size = 0.25),
-          panel.grid.minor = element_line(size = 0.25),
-          strip.text.x     = element_text(face = "bold.italic"),
-          strip.text.y     = element_text(size = 5, angle = 0),
-          plot.title       = element_text(hjust = 0.5)) +
-    guides(size  = guide_legend(title = "Posterior probability\nof colocalization"))
-  ############################################
+    ggplot2::guides(fill  = ggplot2::guide_legend(title = "Change in gene expression\nwith increased GWAS trait")) + 
+    ggplot2::theme_bw() + 
+    ggplot2::theme(legend.position  = "bottom",
+          legend.text      = ggplot2::element_text(size = 8),
+          legend.title     = ggplot2::element_text(face = "bold"),
+          axis.text.x      = ggplot2::element_text(size = 6, angle = 35, hjust = 1),
+          axis.text.y      = ggplot2::element_text(size = 6, angle = 0 ),
+          axis.line        = ggplot2::element_line(color = "black"),
+          axis.title.x     = ggplot2::element_blank(),
+          axis.title.y     = ggplot2::element_blank(),
+          panel.grid.major = ggplot2::element_line(size = 0.25),
+          panel.grid.minor = ggplot2::element_line(size = 0.25),
+          strip.text.x     = ggplot2::element_text(face = "bold.italic"),
+          strip.text.y     = ggplot2::element_text(size = 5, angle = 0),
+          plot.title       = ggplot2::element_text(hjust = 0.5)) +
+    ggplot2::guides(size  = ggplot2::guide_legend(title = "Posterior probability\nof colocalization"))
+  # ---
   # Add a title for T2 zoom
   if("tier2_zoom" %in% names(fig_dat)){
     t2_title <- 
@@ -587,12 +587,12 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   else if(!is.null(title)){
     fig <- fig + ggplot2::ggtitle(title)
   }
-  ############################################
+  # ---
   # If we have >4 genes, flip gene names vertical
   if(fig_dat %>% dplyr::filter(p12 > 0.80) %>% dplyr::distinct(hgncid) %>% nrow() > 4){
     fig <- fig + ggplot2::theme(strip.text.x = ggplot2::element_text(angle = 90, size = 12))
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.plot | return plot")
 
   return(fig)
@@ -631,7 +631,7 @@ aba.wrapper <-
   function(analysis_ids, hgncid, ensemblid, rsid,
            chrom, pos, pos_start, pos_end, 
            impala = getOption("gtx.impala", NULL), ...){
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.wrapper | validating input.")
   if(missing(hgncid) & 
      missing(ensemblid) & 
@@ -641,13 +641,13 @@ aba.wrapper <-
     futile.logger::flog.error("aba.wrapper | must specify either: analysis_ids, hgncid, ensemblid, or rsid. Skipping.")
     return()
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.wrapper | validating impala connection.")
   close_conn_later <- dplyr::case_when(is.null(impala) ~ TRUE, !is.null(impala) ~ FALSE)
   conn <- validate_impala(impala = impala)
   attr(conn, "internal_conn") <- FALSE
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.wrapper | aba.query")
   if(!missing(analysis_ids)){
     futile.logger::flog.debug("aba.wrapper | processing analysis_ids input.")
@@ -682,21 +682,21 @@ aba.wrapper <-
     futile.logger::flog.error("aba.wrapper | unable to properly handle input.")
     return()
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.wrapper | aba.fill")
   colocs <- aba.fill(colocs, impala = conn)
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.wrapper | aba.plots")
   colocs <- aba.plot(colocs)
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.wrapper | clean up conn")
   if(close_conn_later == TRUE){
     implyr::dbDisconnect(conn)
   }
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.wrapper | complete")
   return(colocs)
   }
@@ -724,7 +724,7 @@ aba.wrapper <-
 #' @import dplyr
 #' @import ggplot2
 aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.save | validate input")
   if(missing(.data)){futile.logger::flog.error("aba.save | missing input .data")}
   
@@ -734,7 +734,7 @@ aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
     futile.logger::flog.error("aba.save | missing input column.")
     return()
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.save | validate path")
   safe_system <- purrr::safely(base::system)
   
@@ -744,7 +744,7 @@ aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
     stop()
   }
   
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.save | saving figures . . .")
   purrr::walk2(glue::glue("{path}/{input$input}_{suffix}.pdf"), input$figures, ggsave, ...)
   futile.logger::flog.debug("aba.save | saving figures complete")
@@ -784,13 +784,13 @@ aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
 #' colocs %>% pluck("data", 1) %>% aba.zoom(hgncid = "HMGCR") %>% aba.zoom(hgncid = "HMGCR") %>% aba.plot()
 aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
   input <- .data
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.zoom | validating args.")
   if(missing(hgncid) & missing(entity) & missing(analysis2)){
     futile.logger::flog.error("aba.zoom | must specify either:hgncid, entity, analysis2.")
     stop()
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.zoom | validating input.")
   required_cols <- c("analysis1", "analysis2", "hgncid", "entity", "p12")
   if(!all(required_cols %in% (names(input)))){
@@ -815,7 +815,7 @@ aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
       stop()
     }
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.zoom | Determining how to process data.")
   if("zoom2" %in% names(input)){
     futile.logger::flog.error("aba.zoom | previous zoom2 found, cannot further process.")
@@ -831,7 +831,7 @@ aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
     ret <- aba.int_zoom1(input, hgncid = hgncid, entity = entity, 
                          analysis2 = analysis2, p12_ge = p12_ge)
   }
-  ############################################
+  # ---
   futile.logger::flog.debug("aba.zoom | processing complete.")
   return(ret)
 }
@@ -841,7 +841,7 @@ aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
 #' Tier 1 zoom
 #' @import dplyr
 aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
-  ############################################
+  # ---
   if(!missing(hgncid)){
     futile.logger::flog.debug(glue::glue("aba.zoom1 | Filtering using input hgncid: {hgncid}."))
     ret <- 
@@ -869,7 +869,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(zoom1_pos_gwas = (analysis2 == !!analysis2))
       
   }
-  ############################################
+  # ---
   ret <- 
     ret %>% 
     dplyr::group_by(hgncid) %>% 
@@ -882,7 +882,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
     dplyr::mutate(zoom1 = (zoom1_proxy_genes & zoom1_proxy_gwas & zoom1_proxy_tissues)) %>% 
     dplyr::filter(zoom1) %>%
     dplyr::select(-dplyr::matches("zoom1_"))
-  ############################################
+  # ---
   
   return(ret)
 }
@@ -892,7 +892,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
 #' Tier 2 zoom
 #' @import dplyr
 aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
-  ############################################
+  # ---
   if(!missing(hgncid)){
     futile.logger::flog.debug(glue::glue("aba.zoom2 | Filtering using input hgncid: {hgncid}."))
     ret <- 
@@ -921,7 +921,7 @@ aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(zoom2_pos_gwas = (analysis2 == !!analysis2))
       
   }
-  ############################################
+  # ---
   ret <- 
     ret %>% 
     dplyr::group_by(hgncid) %>% 
@@ -933,7 +933,7 @@ aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
     dplyr::ungroup() %>% 
     dplyr::filter(zoom2) %>% 
     dplyr::select(-dplyr::matches("zoom2_"))
-  ############################################
+  # ---
   
   return(ret)
 }
