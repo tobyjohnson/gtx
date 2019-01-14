@@ -7,7 +7,7 @@
 ideas_gwas_plot(.data, path, cutoff_gt = 0.001, legend = TRUE)
 }
 \arguments{
-\item{.data}{\code{ideas_gwas_summarize} output}
+\item{.data}{\code{\link{ideas_gwas_summarize}} output}
 
 \item{path}{Path for output PDF.}
 
@@ -16,10 +16,18 @@ ideas_gwas_plot(.data, path, cutoff_gt = 0.001, legend = TRUE)
 \item{legend}{[TRUE] TRUE = display cell type legend}
 }
 \description{
-Create a plot of the \code{ideas_gwas_summarize} data.
+Create a plot of the \code{\link{ideas_gwas_summarize}} data.
+}
+\seealso{
+Other ideas_predict: \code{\link{ideas_gwas_summarize}},
+  \code{\link{ideas_loci_summarize}},
+  \code{\link{ideas_make}}, \code{\link{ideas_predict}},
+  \code{\link{ideas_preload_states}},
+  \code{\link{ideas_wrapper}}
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 
 Karl Guo \email{karl.x.guo@gsk.com}
 }
+\concept{ideas_predict}

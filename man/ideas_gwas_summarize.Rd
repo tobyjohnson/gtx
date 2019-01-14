@@ -8,7 +8,7 @@ ideas_gwas_summarize(.data, relaxed = 3, group = FALSE, n_cs_ge = 10,
   n_snps_ge = 10, impala = getOption("gtx.impala", NULL))
 }
 \arguments{
-\item{.data}{\code{ideas_predict} output}
+\item{.data}{\code{\link{ideas_predict}} output}
 
 \item{relaxed}{[3] Numeric value, 1:10, rank cutoff_gt for inclusion. e.g. 3 = Must be in top 3 cell types.}
 
@@ -21,6 +21,14 @@ ideas_gwas_summarize(.data, relaxed = 3, group = FALSE, n_cs_ge = 10,
 \description{
 Summarize most likely cell type per GWAS analysis id.
 }
+\seealso{
+Other ideas_predict: \code{\link{ideas_gwas_plot}},
+  \code{\link{ideas_loci_summarize}},
+  \code{\link{ideas_make}}, \code{\link{ideas_predict}},
+  \code{\link{ideas_preload_states}},
+  \code{\link{ideas_wrapper}}
+}
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 }
+\concept{ideas_predict}

@@ -12,7 +12,7 @@ ideas_wrapper(analysis, ht_load = FALSE, states_data, relaxed = 3,
 
 \item{ht_load}{[FALSE] TRUE = Load the IDEAS states for high throughput.}
 
-\item{states_data}{Pass \code{ideas_preload_states} data instead of loading it.}
+\item{states_data}{Pass \code{\link{ideas_preload_states}} data instead of loading it.}
 
 \item{relaxed}{[3] Cell types count toward total if they are in the top # of 'relaxed' cell types. e.g., 3 = The top 3 cell types count.}
 
@@ -22,6 +22,14 @@ ideas_wrapper(analysis, ht_load = FALSE, states_data, relaxed = 3,
 Preload all IDEA states across "all" chrom. This is ideal for when running ideas_predict across multiple GWAS;
 however, it would be slower for single GWAS.
 }
+\seealso{
+Other ideas_predict: \code{\link{ideas_gwas_plot}},
+  \code{\link{ideas_gwas_summarize}},
+  \code{\link{ideas_loci_summarize}},
+  \code{\link{ideas_make}}, \code{\link{ideas_predict}},
+  \code{\link{ideas_preload_states}}
+}
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 }
+\concept{ideas_predict}

@@ -7,9 +7,9 @@
 ideas_loci_summarize(ideas_make_dat, ideas_predict_dat)
 }
 \arguments{
-\item{ideas_make_dat}{\code{ideas_make} object}
+\item{ideas_make_dat}{\code{\link{ideas_make}} object}
 
-\item{ideas_predict_dat}{\code{ideas_predict} object}
+\item{ideas_predict_dat}{\code{\link{ideas_predict}} object}
 
 \item{impala}{[getOption("gtx.impala", NULL)] Implyr impala connection}
 
@@ -18,8 +18,16 @@ ideas_loci_summarize(ideas_make_dat, ideas_predict_dat)
 \description{
 IDEAS predict data for a locus.
 }
+\seealso{
+Other ideas_predict: \code{\link{ideas_gwas_plot}},
+  \code{\link{ideas_gwas_summarize}},
+  \code{\link{ideas_make}}, \code{\link{ideas_predict}},
+  \code{\link{ideas_preload_states}},
+  \code{\link{ideas_wrapper}}
+}
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 
 Karl Guo \email{karl.x.guo@gsk.com}
 }
+\concept{ideas_predict}

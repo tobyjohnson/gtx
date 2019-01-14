@@ -18,13 +18,22 @@ ideas_make(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25)
 \item{case_emac_ge}{[25]}
 }
 \value{
-Table of GWAS loci with posteriors for \code{ideas_predict}
+Table of GWAS loci with posteriors for \code{\link{ideas_predict}}
 }
 \description{
 Convert GWAS summary stats into posterior probabilities that can be used by IDEAS predict.
+}
+\seealso{
+Other ideas_predict: \code{\link{ideas_gwas_plot}},
+  \code{\link{ideas_gwas_summarize}},
+  \code{\link{ideas_loci_summarize}},
+  \code{\link{ideas_predict}},
+  \code{\link{ideas_preload_states}},
+  \code{\link{ideas_wrapper}}
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 
 Karl Guo \email{karl.x.guo@gsk.com}
 }
+\concept{ideas_predict}

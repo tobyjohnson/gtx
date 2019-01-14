@@ -9,7 +9,7 @@ ideas_predict(.data, states_data = NULL, states = NULL,
   seed = NULL)
 }
 \arguments{
-\item{.data}{\code{ideas_make} input data}
+\item{.data}{\code{\link{ideas_make}} input data}
 
 \item{states}{TBD}
 
@@ -36,10 +36,19 @@ ideas_predict(.data, states_data = NULL, states = NULL,
 \item{states}{Select subset of states. Not currently used as of 2019-01-11.}
 }
 \description{
-Predict IDEAS states from input GWAS data supplied by \code{ideas_make}
+Predict IDEAS states from input GWAS data supplied by \code{\link{ideas_make}}
+}
+\seealso{
+Other ideas_predict: \code{\link{ideas_gwas_plot}},
+  \code{\link{ideas_gwas_summarize}},
+  \code{\link{ideas_loci_summarize}},
+  \code{\link{ideas_make}},
+  \code{\link{ideas_preload_states}},
+  \code{\link{ideas_wrapper}}
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 
 Karl Guo \email{karl.x.guo@gsk.com}
 }
+\concept{ideas_predict}

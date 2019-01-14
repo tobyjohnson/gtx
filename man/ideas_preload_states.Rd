@@ -15,12 +15,20 @@ ideas_preload_states(impala = getOption("gtx.impala", NULL),
 \item{chrom}{[c(1:22, "X", "Y")] Specify which chromosomes to load.}
 }
 \value{
-states_data to be used with \code{ideas_predict}
+states_data to be used with \code{\link{ideas_predict}}
 }
 \description{
 Preload all IDEA states across "all" chrom. This is ideal for when running ideas_predict across multiple GWAS;
 however, it would be slower for single GWAS.
 }
+\seealso{
+Other ideas_predict: \code{\link{ideas_gwas_plot}},
+  \code{\link{ideas_gwas_summarize}},
+  \code{\link{ideas_loci_summarize}},
+  \code{\link{ideas_make}}, \code{\link{ideas_predict}},
+  \code{\link{ideas_wrapper}}
+}
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 }
+\concept{ideas_predict}
