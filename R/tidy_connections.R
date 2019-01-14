@@ -92,10 +92,10 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0",
 #' @import odbc
 #' @import futile.logger
 validate_impala <- function(impala = getOption("gtx.impala", NULL)){
-  # Check we have a spark connection
-  futile.logger::flog.debug("tidy_connections::validate_impala | Validating impala connection.")
-  if(is.null(impala) | !any(stringr::str_detect(class(impala), "src_impala"))){ 
-    futile.logger::flog.debug("tidy_connections::validate_impala | impala connection is not valid, will try to establish a connection.")
+  # Check we have an implyr connection
+  flog.debug("tidy_connections::validate_impala | Validating impala connection.")
+  if(is.null(impala) | !any(str_detect(class(impala), "src_impala"))){ 
+    flog.debug("tidy_connections::validate_impala | impala connection is not valid, will try to establish a connection.")
     # Try to establish an impala connection 
     safe_connect <- purrr::safely(implyr::src_impala)
     safe_con     <- safe_connect(drv = odbc::odbc(), dsn = "impaladsn")
@@ -145,7 +145,6 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @import implyr
 #' @import readr
 #' @import futile.logger
-
 impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
                            database = NULL, table_name = "tmp_data4join", random_name = FALSE ){
   safely_dbExecute  <- purrr::safely(implyr::dbExecute)
@@ -218,9 +217,9 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | Unable to determine appropriate table_name."))
     stop();
   }
-  
+
   # If we have a small data frame, copy the data directly to RDIP
-  if(nrow(df) < 250){
+  if(nrow(df) < 250 & ncol(df) < 50){
     input_tbl <- 
       dplyr::copy_to(
         dest = impala, 
@@ -228,7 +227,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
         name = glue::glue("{`database`}.{`table_name`}"), 
         temporary = FALSE)
   }
-  
+
   # If we have a big table, need to more complicated copy
   else {
     input_tbl <- big_copy_to(df = df, dest = impala, database = database, table_name = table_name)
@@ -240,7 +239,6 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   # Return final table
   return(input_tbl)
 }
-
 
 #' Copy large data to RDIP tables.
 #' 
@@ -294,8 +292,6 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   
   # --
   # Write the data 4 join to a tmp file on the edge node
-  
-  
   futile.logger::flog.debug("tidy_connections::big_copy_to | create tmp dir")
   exec <- safely_system("mkdir -p ~/tmp")
   if(!is.null(exec$error)){
@@ -375,7 +371,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | unable to create table: {database}.{table_name} because:\n{exec$error}"))
     stop()
   }
-  
+
   # Load data from tmp HDFS file into table
   futile.logger::flog.debug(glue::glue("tidy_connections::big_copy_to | Load data into new table: {database}.{table_name}"))
   sql_statement <- 
@@ -387,7 +383,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}"))
     stop()
   }
-  
+
   # COMPUTE STATS on the new table
   if(isTRUE(compute_stats)){
     flog.debug(glue("tidy_connections::big_copy_to | COMPUTE STATS on: {database}.{table_name}"))

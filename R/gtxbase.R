@@ -15,16 +15,18 @@ gtxversion <- function() {
   return(paste0(names(desc), ': ', desc, collapse = '|'))
 }
 
+## DEPREACTED
 ## for debugging, we have an internal function to print messages depending on a global option gtx.debug
-## FIXME, deprecate this by flog.warn'ing the message, and then
-##        change all calling instances to flog.<level>
 gtxlog <- function(...) {
-    #flog.warn(paste0('legacy gtxlog: ', ...))
-    if (getOption('gtx.debug', FALSE)) return(message(...))
+    .Deprecated("gtx_debug")
+    # Deprecated version on line below.
+    # if (getOption('gtx.debug', FALSE)) return(message(...))
+    # Slightly updated version with flog_debug.
+    if (getOption('gtx.debug', FALSE)) futile.logger::flog.debug(...)
     return(invisible(NULL))
 }
 
-##
+
 ## convenience function to construct WHERE
 ## part of SQL for genomic data tables
 ##
