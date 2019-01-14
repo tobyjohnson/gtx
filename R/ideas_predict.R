@@ -213,6 +213,7 @@ ideas_loci_summarize = function(ideas_make_dat, ideas_predict_dat) {
 #' @param db [config_db()] Database to use for queries.
 ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
                              impala = getOption("gtx.impala", NULL), db = config_db()) {
+  impala <- validate_impala(impala = impala);
   # If we didn't pass states_data, load all the data based on the input chrom
   if(missing(states_data)){
     gtx_debug("ideas_get_states | Querying states from: {db}.ideas_states")
@@ -223,13 +224,14 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
         sep = " ")
     
     safely_get_query <- purrr::safely(implyr::dbGetQuery)
-    states_data <- safely_get_query(impala, sql_statement)
-    if (!is.null(states_data$error)){
-      gtx_error("ideas_get_states | unable to query states, error:\n{states_data$error}");
+    exec <- safely_get_query(impala, sql_statement)
+    if (!is_null(exec$error)){
+      gtx_error("ideas_get_states | unable to query states (1), error:\n{exec$error}");
+      gtx_error("Failed SQL query:\n {sql_statement}");
       stop()
     } else {
       gtx_debug("ideas_get_states | states collected.");
-      states_data <- states_data$result
+      states_data <- exec$result
     }
   } else if (is_null(states_data)){
     gtx_debug("ideas_get_states | Querying states from: {db}.ideas_states")
@@ -240,13 +242,14 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
         sep = " ")
     
     safely_get_query <- purrr::safely(implyr::dbGetQuery)
-    states_data <- safely_get_query(impala, sql_statement)
-    if (!is.null(states_data$error)){
-      gtx_error("ideas_get_states | unable to query states, error:\n{states_data$error}");
-      stop()
+    exec <- safely_get_query(impala, sql_statement)
+    if (!is_null(exec$error)){
+      gtx_error("ideas_get_states | unable to query states (2), error:\n{exec$error}");
+      gtx_error("Failed SQL query:\n {sql_statement}");
+      stop();
     } else {
       gtx_debug("ideas_get_states | states collected.");
-      states_data <- states_data$result
+      states_data <- exec$result
     }
   }
   else {
@@ -622,7 +625,7 @@ ideas_preload_states <- function(impala = getOption("gtx.impala", NULL), db = co
   states_data <- safely_get_query(impala, sql_statement)
   # Check if we had an error
   if (!is.null(states_data$error)){
-    gtx_error("ideas_preload_states | unable to query states, error:\n{states_data$error}")
+    gtx_error("ideas_preload_states | unable to query states (0), error:\n{states_data$error}")
     stop()
   } else {
     # Without an error, keep the results to return
@@ -657,13 +660,11 @@ ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
   }
   
   # Check/do if we need to do high throughput loading states loading. 
-  if(!missing(states_data) & !is_null(states_data)){
-    states_data = states_data;
-  } else if(ht_load == TRUE){
+  if(missing(states_data) & ht_load == TRUE){
     states_data <- ideas_preload_states();
-  } else {
+  } else if(missing(states_data) & ht_load == FALSE){
     states_data = NULL;
-  }
+  } 
   
   # Setup input tibble
   input <- dplyr::tibble("analysis" = analysis);
@@ -700,8 +701,8 @@ ideas_gwas_summarize <- function(.data, relaxed = 3, group = FALSE,
     gtx_error("ideas_gwas_summarize | no input .data specified.");
     stop();
   } else if(is_null(.data)){
-    gtx_error("ideas_gwas_summarize |ideas_predict input .data is NULL.");
-    stop();
+    gtx_warn("ideas_gwas_summarize | ideas_predict input .data is NULL.");
+    return(NULL);
   }
   
   # Confirm we have enough data to summarize
@@ -807,8 +808,15 @@ ideas_gwas_plot <- function(.data, path, cutoff_gt = 0.001, legend = TRUE){
   }
   # Load ideas_metadata from attr
   ideas_metadata <- attr(results, "ideas_metadata", exact = TRUE)
+  if(length(ideas_metadata) == 0){
+    gtx_error("ideas_gwas_plot | input `.data` missing attribute 'ideas_metadata'")
+  }
+  
   group <- attr(results, "group", exact = TRUE)
-
+  if(length(group) == 0){
+    gtx_error("ideas_gwas_plot | input `.data` missing attribute 'group'")
+  }
+  
   if (is.numeric(cutoff_gt) == TRUE) {
     results = dplyr::filter(results, proportion > cutoff_gt)
   } else {
