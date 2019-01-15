@@ -14,8 +14,10 @@
 #' @return Table of GWAS loci with posteriors for \code{\link{ideas_predict}}
 #' @import dplyr
 #' @import purrr
-ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) {
-  gtx_debug("ideas_make | Calculating GWAS top hits for: {analysis}.")
+ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
+                      dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+  gtx_info("ideas_make | Calculating GWAS top hits for: {analysis}.")
   # 
   if(!is_character(analysis)){
     gtx_error("ideas_make | analysis must be of type 'character'.");
@@ -46,7 +48,7 @@ ideas_make = function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25) 
     }
   }
   
-  gtx_debug("ideas_make | Calculating cred sets for each GWAS top hit.")
+  gtx_info("ideas_make | Calculating cred sets for each GWAS top hit.")
   all_significant_regions <- 
     my_gwas %>% 
     dplyr::group_by(chrom, pos_index, pval_index) %>% 
@@ -652,7 +654,9 @@ ideas_preload_states <- function(impala = getOption("gtx.impala", NULL), db = co
 #' @import purrr
 ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
                           relaxed = 3, group = FALSE,
-                          impala = getOption("gtx.impala", NULL)){
+                          impala = getOption("gtx.impala", NULL),
+                          dbc    = getOption("gtx.dbConnection", NULL)){
+  gtxdbcheck(dbc);
   # Confirm we have input
   if(missing(analysis)){
     gtx_error("ideas_wrapper | parameter 'analysis' is required but is missing.");
@@ -670,11 +674,11 @@ ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
   input <- dplyr::tibble("analysis" = analysis);
   
   # Runs ideas predict for each analysis id. 
-  ret <- input %>% 
-    dplyr::group_by(analysis) %>% 
-    dplyr::mutate(ideas_make_dat    = purrr::map(analysis,          ideas_make)) %>% 
-    dplyr::mutate(ideas_predict_dat = purrr::map(ideas_make_dat,    ideas_predict, states_data = states_data)) %>% 
-    dplyr::mutate(ideas_gwas_dat    = purrr::map(ideas_predict_dat, ideas_gwas_summarize, group = group, relaxed = relaxed)) %>% 
+  ret <- input %>%
+    dplyr::group_by(analysis) %>%
+    dplyr::mutate(ideas_make_dat    = purrr::map(analysis,          ideas_make)) %>%
+    dplyr::mutate(ideas_predict_dat = purrr::map(ideas_make_dat,    ideas_predict, states_data = states_data)) %>%
+    dplyr::mutate(ideas_gwas_dat    = purrr::map(ideas_predict_dat, ideas_gwas_summarize, group = group, relaxed = relaxed)) %>%
     dplyr::mutate(ideas_loci_dat    = purrr::map2(ideas_make_dat,   ideas_predict_dat, ideas_loci_summarize));
   
   return(ret);
