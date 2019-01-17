@@ -159,7 +159,8 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   if(is.null(database)){
     database <- whoami()
     if(is.null(database)){ 
-      futile.logger::flog.error("tidy_connections::impala_copy_to | Unable to determine user name for database.") 
+      futile.logger::flog.error("tidy_connections::impala_copy_to | \\
+                                Unable to determine user name for database.") 
       stop()
     }
   }
@@ -170,14 +171,16 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (is.null(exec$error) & nrow(exec$result) >= 1){
-      futile.logger::flog.debug(glue::glue("tidy_connections::impala_copy_to | overwriting {database}.{table_name}"))
+      futile.logger::flog.debug(glue::glue("tidy_connections::impala_copy_to | \\
+                                           overwriting {database}.{table_name}"))
     }
     
     sql_statement <- glue::glue("DROP TABLE IF EXISTS {`database`}.tmp_data4join PURGE")
     exec <- safely_dbExecute(impala, sql_statement)
     
     if (!is.null(exec$error)){
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | unable to remove {database}.tmp_data4join because:\n{exec$error}"))
+      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
+                                           unable to remove {database}.tmp_data4join because:\n{exec$error}"))
       stop()
     }
   }
@@ -187,12 +190,14 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (!is.null(exec$error)){ 
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | failed to determine if {database}.{table_name} exist because:\n{exec$error}"))
+      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
+                                           failed to determine if {database}.{table_name} exist because:\n{exec$error}"))
       stop()
     }
     # If we have rows here, we found tables that have conflicting names
     else if (nrow(exec$result) >=1){
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | {database}.{table_name} already exists."))
+      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
+                                           {database}.{table_name} already exists."))
       stop();
     }
   }
@@ -204,7 +209,8 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (!is.null(exec$error)){ 
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | unable to query if random_name table exists because:\n{exec$error}"))
+      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
+                                           unable to query if random_name table exists because:\n{exec$error}"))
       stop();
     }
     # If we have rows here, we found tables that have conflicting names
@@ -219,7 +225,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   }
 
   # If we have a small data frame, copy the data directly to RDIP
-  if(nrow(df) < 250 & ncol(df) < 50){
+  if(nrow(df) < 150 & ncol(df) < 50){
     input_tbl <- 
       dplyr::copy_to(
         dest = impala, 
