@@ -120,7 +120,7 @@ coloc.fast <- function(beta1, se1, beta2, se2,
   inc1 <- if (join_type == 'inner' | join_type == 'left') !is.na(lnabf1) else TRUE
   inc2 <- if (join_type == 'inner' | join_type == 'right') !is.na(lnabf2) else TRUE
   inc <- inc1 & inc2
-  nv <- sum(inc)
+  nv <- as.double(sum(inc))
   if (nv > 0) {
     ## compute colocalization model probabilities
     abf1 <- norm1(c(0, lnabf1[inc]), log = TRUE)

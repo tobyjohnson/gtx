@@ -367,9 +367,9 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     glue::glue(
       glue::glue("CREATE TABLE {`database`}.{`table_name`} ("), 
       glue_collapse(glue::glue("`{col_info$col_names}` {col_info$sql_class}"), sep = ", ", last = ""),
-      glue::glue(") 
-           ROW FORMAT DELIMITED FIELDS TERMINATED BY \",\"
-           STORED AS TEXTFILE
+      glue::glue(") \\
+           ROW FORMAT DELIMITED FIELDS TERMINATED BY \",\" \\
+           STORED AS TEXTFILE \\
            TBLPROPERTIES(\"skip.header.line.count\"=\"1\")"))
   
   exec <- safely_dbExecute(dest, sql_statement)
@@ -381,8 +381,8 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   # Load data from tmp HDFS file into table
   futile.logger::flog.debug(glue::glue("tidy_connections::big_copy_to | Load data into new table: {database}.{table_name}"))
   sql_statement <- 
-    glue::glue("LOAD DATA INPATH '/user/{`user_name`}/staging/{table_name}.csv' 
-         INTO TABLE {`database`}.{`table_name`}")
+    glue::glue("LOAD DATA INPATH '/user/{`user_name`}/staging/{table_name}.csv' \\
+                INTO TABLE {`database`}.{`table_name`}")
   
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
