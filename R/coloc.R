@@ -114,7 +114,8 @@ coloc.compute <- function(data,
 ##
 coloc.fast <- function(beta1, se1, beta2, se2,
                        join_type = 'inner', 
-                       priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5) {
+                       priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
+                       epsilon = 1e-6) {
 
   stopifnot(join_type %in% c('inner', 'left', 'right', 'outer'))
   lnabf1 <- abf.Wakefield(beta1, se1, priorsd1, log = TRUE)
@@ -137,8 +138,9 @@ coloc.fast <- function(beta1, se1, beta2, se2,
                          priorc12 * sum(abf1[-1]*abf2[-1])))
     ## compute model averaged effect size ratios
     mw <- abf1[-1]*abf2[-1] # model weights
-    alpha12 <- sum(beta1[inc]/beta2[inc]*mw)/sum(mw)
-    alpha21 <- sum(beta2[inc]/beta1[inc]*mw)/sum(mw)
+    mwi <- which(mw >= max(mw)*epsilon) # epsilon=1e-6 are model weights to drop terms for
+    alpha12 <- sum((beta1[inc]/beta2[inc]*mw)[mwi])/sum(mw[mwi])
+    alpha21 <- sum((beta2[inc]/beta1[inc]*mw)[mwi])/sum(mw[mwi])
   } else {
     posterior <- rep(NA, 5)
     alpha12 <- NA
