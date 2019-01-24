@@ -80,21 +80,21 @@ ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
 #' @export
 #' @family ideas_predict
 #' @param .data \code{\link{ideas_make}} input data
-#' @param permute TBD
-#' @param vlp TBD
-#' @param states TBD
-#' @param inter [5]
-#' @param alpha [0.99]
-#' @param layer [10]
-#' @param permute [FALSE]
+#' @param db = [`gtx::config_db()`] Database contained IDEAS states data.
+#' @param permute [FALSE] TODO
+#' @param states [NULL] TODO
+#' @param inter [5] TODO
+#' @param alpha [0.99] TODO
+#' @param layer [10] TODO
+#' @param permute [FALSE] TODO
 #' @param binsz [200] Padding around each cred set SNP.
-#' @param pcut [6] 
+#' @param pcut [6] TODO
 #' @param CI [0.95] Cred set confidence interval.
 #' @param seed [NULL] Set seed for RNG number generator.
 #' @param states Select subset of states. Not currently used as of 2019-01-11.
 ideas_predict <- function(.data,  states_data = NULL,
                           states = NULL, permute = FALSE, inter = 5, binsz = 200, 
-                          pcut = 6, CI = 0.95, seed = NULL) {
+                          pcut = 6, CI = 0.95, seed = NULL, db = config_db()) {
   if(missing(.data)){
     gtx_error("ideas_predict | no input .data.");
     stop();
@@ -419,7 +419,7 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states_data = NULL,
   BB = inter
   
   impala <- validate_impala(impala = impala)
-  para_tbl <- dplyr::tbl(impala, "gene_gwas.ideas_para")
+  para_tbl <- dplyr::tbl(impala, "{db}.ideas_para")
   staten <- para_tbl %>% dplyr::tally() %>% dplyr::pull() %>% as.numeric()
   gtx_debug("ideas_lasso | Number of states = {staten}.");
   

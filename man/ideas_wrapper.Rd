@@ -5,7 +5,8 @@
 \title{ideas_preload_states}
 \usage{
 ideas_wrapper(analysis, ht_load = FALSE, states_data, relaxed = 3,
-  group = FALSE, impala = getOption("gtx.impala", NULL))
+  group = FALSE, impala = getOption("gtx.impala", NULL),
+  dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
 \item{analysis}{A string or vector of analysis ids.}

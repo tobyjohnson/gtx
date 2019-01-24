@@ -6,32 +6,32 @@
 \usage{
 ideas_predict(.data, states_data = NULL, states = NULL,
   permute = FALSE, inter = 5, binsz = 200, pcut = 6, CI = 0.95,
-  seed = NULL)
+  seed = NULL, db = config_db())
 }
 \arguments{
 \item{.data}{\code{\link{ideas_make}} input data}
 
-\item{states}{TBD}
+\item{states}{[NULL] TODO}
 
-\item{permute}{TBD}
+\item{permute}{[FALSE] TODO}
 
-\item{inter}{[5]}
+\item{inter}{[5] TODO}
 
 \item{binsz}{[200] Padding around each cred set SNP.}
 
-\item{pcut}{[6]}
+\item{pcut}{[6] TODO}
 
 \item{CI}{[0.95] Cred set confidence interval.}
 
 \item{seed}{[NULL] Set seed for RNG number generator.}
 
-\item{vlp}{TBD}
+\item{db}{= [`gtx::config_db()`] Database contained IDEAS states data.}
 
-\item{alpha}{[0.99]}
+\item{alpha}{[0.99] TODO}
 
-\item{layer}{[10]}
+\item{layer}{[10] TODO}
 
-\item{permute}{[FALSE]}
+\item{permute}{[FALSE] TODO}
 
 \item{states}{Select subset of states. Not currently used as of 2019-01-11.}
 }

@@ -4,7 +4,8 @@
 \alias{ideas_make}
 \title{Ideas make}
 \usage{
-ideas_make(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25)
+ideas_make(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
+  dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
 \item{analysis}{GWAS analysis id.}
