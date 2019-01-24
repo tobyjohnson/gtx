@@ -128,7 +128,8 @@ ideas_predict <- function(.data,  states_data = NULL,
                    states_data = states_data,
                    permute = permute, 
                    inter = inter,
-                   states = states)
+                   states = states, 
+                   db = db)
   rt$sel = t
   gtx_info("ideas_predict | Prediction complete.")
   return(rt)
