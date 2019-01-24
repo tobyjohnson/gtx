@@ -648,6 +648,9 @@ ideas_preload_states <- function(impala = getOption("gtx.impala", NULL), db = co
 #' @param states_data Pass \code{\link{ideas_preload_states}} data instead of loading it. 
 #' @param relaxed [3] Cell types count toward total if they are in the top # of 'relaxed' cell types. e.g., 3 = The top 3 cell types count.
 #' @param group [FALSE] TRUE = group cell types together.
+#' @param dbc [getOption("gtx.dbConnection", NULL)]
+#' @param impala [getOption("gtx.impala", NULL)]
+#' @param db [`gtx::config_db()`]
 #' @export
 #' @family ideas_predict
 #' @import dplyr
@@ -655,7 +658,8 @@ ideas_preload_states <- function(impala = getOption("gtx.impala", NULL), db = co
 ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
                           relaxed = 3, group = FALSE,
                           impala = getOption("gtx.impala", NULL),
-                          dbc    = getOption("gtx.dbConnection", NULL)){
+                          dbc    = getOption("gtx.dbConnection", NULL), 
+                          db     = config_db()){
   gtxdbcheck(dbc);
   # Confirm we have input
   if(missing(analysis)){
@@ -665,7 +669,7 @@ ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
   
   # Check/do if we need to do high throughput loading states loading. 
   if(missing(states_data) & ht_load == TRUE){
-    states_data <- ideas_preload_states();
+    states_data <- ideas_preload_states(db = db);
   } else if(missing(states_data) & ht_load == FALSE){
     states_data = NULL;
   } 
@@ -677,7 +681,7 @@ ideas_wrapper <- function(analysis, ht_load = FALSE, states_data,
   ret <- input %>%
     dplyr::group_by(analysis) %>%
     dplyr::mutate(ideas_make_dat    = purrr::map(analysis,          ideas_make)) %>%
-    dplyr::mutate(ideas_predict_dat = purrr::map(ideas_make_dat,    ideas_predict, states_data = states_data)) %>%
+    dplyr::mutate(ideas_predict_dat = purrr::map(ideas_make_dat,    ideas_predict, states_data = states_data, db = db)) %>%
     dplyr::mutate(ideas_gwas_dat    = purrr::map(ideas_predict_dat, ideas_gwas_summarize, group = group, relaxed = relaxed)) %>%
     dplyr::mutate(ideas_loci_dat    = purrr::map2(ideas_make_dat,   ideas_predict_dat, ideas_loci_summarize));
   

@@ -6,7 +6,7 @@
 \usage{
 ideas_wrapper(analysis, ht_load = FALSE, states_data, relaxed = 3,
   group = FALSE, impala = getOption("gtx.impala", NULL),
-  dbc = getOption("gtx.dbConnection", NULL))
+  dbc = getOption("gtx.dbConnection", NULL), db = config_db())
 }
 \arguments{
 \item{analysis}{A string or vector of analysis ids.}
@@ -18,6 +18,12 @@ ideas_wrapper(analysis, ht_load = FALSE, states_data, relaxed = 3,
 \item{relaxed}{[3] Cell types count toward total if they are in the top # of 'relaxed' cell types. e.g., 3 = The top 3 cell types count.}
 
 \item{group}{[FALSE] TRUE = group cell types together.}
+
+\item{impala}{[getOption("gtx.impala", NULL)]}
+
+\item{dbc}{[getOption("gtx.dbConnection", NULL)]}
+
+\item{db}{[`gtx::config_db()`]}
 }
 \description{
 Preload all IDEA states across "all" chrom. This is ideal for when running ideas_predict across multiple GWAS;
