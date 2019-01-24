@@ -419,7 +419,7 @@ ideas_lasso <- function(chrom, pos, vindex, vprior, vlp, states_data = NULL,
   BB = inter
   
   impala <- validate_impala(impala = impala)
-  para_tbl <- dplyr::tbl(impala, "{db}.ideas_para")
+  para_tbl <- dplyr::tbl(impala, glue::glue("{db}.ideas_para"))
   staten <- para_tbl %>% dplyr::tally() %>% dplyr::pull() %>% as.numeric()
   gtx_debug("ideas_lasso | Number of states = {staten}.");
   
