@@ -64,6 +64,7 @@ ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
   
   if(nrow(all_significant_regions) == 0){
     gtx_error("ideas_make | No cred sets returned for analysis:{analysis}.")
+    return(NULL);
   }
   
   all_significant_regions$pval = -log10(all_significant_regions$pval)
