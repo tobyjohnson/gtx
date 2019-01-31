@@ -206,13 +206,11 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     # Make sure the TH are in cis-windows of the coloc genes
     dplyr::filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) %>%   
     # Join GWAS trait info - e.g. description & ncase
-    dplyr::inner_join(
-      .,
+    dplyr::inner_join(.,
       analyses_tbl %>% dplyr::select(analysis, description, phenotype, ncase, ncohort),
       by = c("analysis2" = "analysis")) %>% 
     # Append RSID to each TH index
-    left_join(
-      .,
+    dplyr::left_join(.,
       sites_tbl %>% dplyr::select(rs_chrom = "chrom", rs_pos = "pos", rs),
       by = c("chrom" = "rs_chrom", "th_pos" = "rs_pos")) %>% 
   # we should then filter ncase

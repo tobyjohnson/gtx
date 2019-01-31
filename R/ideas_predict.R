@@ -102,6 +102,9 @@ ideas_predict <- function(.data,  states_data = NULL,
   } else if(is_null(.data)){
     gtx_warn("ideas_predict | .data is NULL.");
     return(NULL);
+  } else if(nrow(.data) <= 1){
+    gtx_warn("ideas_predict | Not enough data to ideas_predict.");
+    return(NULL);
   } else {
     x = as.data.frame(.data);
   }
