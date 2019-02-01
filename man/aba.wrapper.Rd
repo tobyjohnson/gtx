@@ -18,37 +18,19 @@ aba.wrapper(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
 
 \item{chrom}{chromosome - Used to define a specific region}
 
+\item{pos}{position that will have +/- \code{surround} for bounds to pull in colocs.}
+
 \item{pos_start}{start position - Used to define a specific region, overrides surround}
 
 \item{pos_end}{end position - Used to define a specific region, overrides surround}
 
-\item{surround}{[Default = 1e6] Distance from input gene/rsid to GWAS top hits.}
-
-\item{p12_ge}{[Default >= 0.80] This is the "H4" posterior probability cutoff}
-
-\item{minpval1_le}{[Default <= 1e-4] Min pval seen in the eQTL}
-
-\item{minpval2_le}{[Default <= 5e-8] Min pval seen in the GWAS data}
-
-\item{ncase_ge}{[Default >= 200] Minimum ncases for traits.}
-
-\item{ncohort_ge}{[Default >= 200] Minimum ncohort for traits.}
-
-\item{protein_coding_only}{[Default = TRUE] Filter only for protein coding transcripts}
-
-\item{neale_only}{[Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.}
-
-\item{gsk_only}{[Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.}
+\item{impala}{[getOption("gtx.impala", NULL)] Implyr impala connection}
 }
 \value{
 data.frame with the inputs used, all the data for each input, and default plots
 }
 \description{
 aba.wrapper - single function to query and plot the aba colocs
-}
-\examples{
-Query aba colocs:
-colocs <- aba.wrapper(hgncid = "HMGCR")
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

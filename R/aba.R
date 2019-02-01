@@ -25,9 +25,10 @@
 #' @param minpval2_le [Default <= 5e-8] Min pval seen in the GWAS data           
 #' @param ncase_ge [Default >= 200] Minimum ncases for traits.                   
 #' @param ncohort_ge [Default >= 200] Minimum ncohort for traits.
-#' @param protein_coding_only [Default = TRUE] Filter only for protein coding transcripts
-#' @param neale_only [Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.
+#' @param protein_coding_only [Default = FALSE] Filter only for protein coding transcripts
+#' @param ttam_only [Default = FALSE] Filter only for 23andMe (TTAM) traits.
 #' @param gsk_only [Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.
+#' @param neale_only [Default = FALSE] Filter only for Neale traits, reduces redundancy b/w GSK & Neale data.
 #' @param db [Defalt = gtx::config_db()] Database to pull data from. 
 #' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
 #' @return data.frame with all coloc results in the region
@@ -49,6 +50,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                       protein_coding_only = FALSE, 
                       neale_only  = FALSE, 
                       gsk_only    = FALSE,
+                      ttam_only   = FALSE,
                       db     = gtx::config_db(),
                       impala = getOption("gtx.impala", NULL)){
   # ---
@@ -253,6 +255,11 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     colocs_final <-
       colocs_final %>% 
       dplyr::filter(stringr::str_detect(analysis2, "GSK"))
+  }
+  else if(isTRUE(ttam_only)){
+    colocs_final <-
+      colocs_final %>% 
+      dplyr::filter(stringr::str_detect(analysis2, "^ttam_"))
   }
   
   # ---
@@ -599,25 +606,9 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
 #' aba.wrapper - single function to query and plot the aba colocs
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @param analysis_ids ukbiobank analysis id(s), single string or vector.
-#' @param hgncid HGNC symbol. Single string or vector. 
-#' @param ensemblid Ensembl gene ID. Single string or vector.
-#' @param rsid SNP rsid. Single string or vector.
-#' @param surround [Default = 1e6] Distance from input gene/rsid to GWAS top hits. 
-#' @param chrom chromosome - Used to define a specific region
-#' @param pos_start start position - Used to define a specific region, overrides surround
-#' @param pos_end end position - Used to define a specific region, overrides surround
-#' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
-#' @param minpval1_le [Default <= 1e-4] Min pval seen in the eQTL                
-#' @param minpval2_le [Default <= 5e-8] Min pval seen in the GWAS data           
-#' @param ncase_ge [Default >= 200] Minimum ncases for traits.                   
-#' @param ncohort_ge [Default >= 200] Minimum ncohort for traits.
-#' @param protein_coding_only [Default = TRUE] Filter only for protein coding transcripts
-#' @param neale_only [Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.
-#' @param gsk_only [Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.
+#' @inheritParams aba.query
 #' @return data.frame with the inputs used, all the data for each input, and default plots
-#' @examples 
-#' Query aba colocs:
+#' @example 
 #' colocs <- aba.wrapper(hgncid = "HMGCR")
 #' @export
 #' @import tidyr
