@@ -532,6 +532,33 @@ gtxanalysis_label <- function(analysis, entity, signal, nlabel = TRUE,
     return(alabel)
 }
 
+#' Find GWAS analyses
+#'
+#' Find GWAS analyses matching specified criteria.
+#'
+#' In the near future, a better high level interface will be 
+#' provided to find GWAS analyses of interest.  The \code{gtxanalyses()} 
+#' and \code{gtxwhat()} functions were originally intended as internal
+#' functions, to abstract part of the functionality required within the
+#' \code{phewas()} family of functions.  However, in the absence of a
+#' better interface, these functions are currently exported for users to
+#' use.
+#'
+#' @param analysis Key value(s) for GWAS analysis/es required
+#' @param analysis_not Key value(s) for GWAS analysis/es not required
+#' @param phenotype_contains String to search for in phenotype metadata
+#' @param description_contains String to search for in description metadata
+#' @param has_tag Tag key value(s) for GWAS analysis/es required
+#' @param ncase_ge Numeric to select number of cases greater-or-equal
+#' @param ncohort_ge Numeric to select number in cohort greater-or-equal
+#' @param has_cleo Logical, select only analyses with \link{CLEO} results
+#' @param analysis_fields Names of columns/fields to return
+#' @param tag_is Internal use only
+#' @param with_tags Internal use only
+#' @param has_access_only Deprecated
+#' @param dbc Database connection
+#' @return A data frame of selected rows and columns from \code{TABLE analyses}.
+#' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
 #' @export
 gtxanalyses <- function(analysis, analysis_not, 
                         phenotype_contains,
@@ -539,11 +566,11 @@ gtxanalyses <- function(analysis, analysis_not,
                         has_tag,
                         ncase_ge,
                         ncohort_ge,
+                        has_cleo = FALSE,                        
                         ## if extra filters are added, be sure to update definition of all_analyses below
                         analysis_fields = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
                         tag_is, with_tags = FALSE,
-                        has_cleo = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
 
