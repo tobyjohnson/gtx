@@ -64,6 +64,7 @@ ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
   
   if(nrow(all_significant_regions) == 0){
     gtx_error("ideas_make | No cred sets returned for analysis:{analysis}.")
+    return(NULL);
   }
   
   all_significant_regions$pval = -log10(all_significant_regions$pval)
@@ -100,6 +101,9 @@ ideas_predict <- function(.data,  states_data = NULL,
     stop();
   } else if(is_null(.data)){
     gtx_warn("ideas_predict | .data is NULL.");
+    return(NULL);
+  } else if(nrow(.data) <= 1){
+    gtx_warn("ideas_predict | Not enough data to ideas_predict.");
     return(NULL);
   } else {
     x = as.data.frame(.data);
