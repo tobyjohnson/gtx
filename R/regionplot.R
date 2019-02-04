@@ -45,7 +45,13 @@ regionplot <- function(analysis, # what analysis (entity should be next)
   xentity <- attr(pvals, 'entity')
 
   pvals <- within(pvals, impact[impact == ''] <- NA)
-  pmin <- max(min(pvals$pval), 10^-plot_ymax)
+  ## Use na.rm in min, even though these should not be present,
+  ##   because we want regionplot() to have robust behaviour
+  ## Note, regionplot.data SQL includes pval IS NOT NULL clause
+  ##   (whcih removes NULL but not NaN)
+  ## Also, regionplot.data removes and warns if there are
+  ##   non-finite pval
+  pmin <- max(min(pvals$pval, na.rm = TRUE), 10^-plot_ymax)
 
   main <- gtxanalysis_label(analysis = analysis, entity = xentity, nlabel = TRUE, dbc = dbc)
   ## in future we may need to pass maf_lt and rsq_lt as well  
@@ -275,8 +281,14 @@ regionplot.data <- function(analysis,
                                 gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
                         uniq = FALSE)
     t1 <- as.double(Sys.time())
-    futile.logger::flog.debug(paste0('Query returned ', nrow(pvals), ' variants in query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.'))
+    gtx_debug('Query returned {nrow(pvals)} variants in query region {xregion$label} in {round(t1 - t0, 3)}s.')
 
+    if (any(!is.finite(pvals$pval))) {
+      gtx_warn('Removing {sum(!is.finite(pvals$pval))} variants with non-finite P-values')
+      pvals <- pvals[is.finite(pvals$pval), ]      
+      gtx_debug('After non-finite P-values removed, {nrow(pvals)} variants in query region {xregion$label}')
+    }
+    
     if (any(c('signal', 'signals') %in% style)) {
         futile.logger::flog.debug('Finemapping under single signal assumption')
         ## cs_only = FALSE since we still want to plot/return variants not in the credible set
