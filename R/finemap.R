@@ -207,21 +207,21 @@ cleo <- function(analysis,
     xregion <- attr(data, 'region')
 
     ## annotate data by signals
-    gtxlog('Merging with protein coding annotation')
+    gtx_debug('Merging with protein coding annotation')
     t0 <- as.double(Sys.time())
     vep <- sqlWrapper(dbc,
                       sprintf('SELECT chrom, pos, ref, alt, impact FROM vep WHERE %s;',
                               gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end)),
                       uniq = FALSE, zrok = TRUE)    
     t1 <- as.double(Sys.time())
-    gtxlog('Query returned ', nrow(vep), ' annotations within query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.')
+    gtx_debug('Query returned {nrow(vep)} annotations within query region {xregion$label} in {round(t1 - t0, 3)}s.')
     t0 <- as.double(Sys.time())
     ## note, merge does not preserve attr()ibutes
     datas <- merge(data, vep, by = c('chrom', 'pos', 'ref', 'alt'), all.x = TRUE, all.y = FALSE) 
     ## FIXME there's an interesting possibility to use all.y=TRUE to capture impactful variants that are not in the FM analysis
     ## and potentially flag this to the user
     t1 <- as.double(Sys.time())
-    gtxlog('Merged with CLEO results in ', round(t1 - t0, 3), 's.')
+    gtx_debug('Merged with CLEO results in {round(t1 - t0, 3)}s.')
 
     ## PCI is probability of causal impact
     datai <- subset(datas, !is.na(impact), drop = FALSE) # FIXME when content of impact changes
@@ -239,7 +239,7 @@ cleo <- function(analysis,
 
     ## aggregate over signals
     ## FIXME, this throws error if data has no rows
-    gtxlog('Aggregating over signals')
+    gtx_debug('Aggregating over signals')
     t0 <- as.double(Sys.time())
     dsumpp <- aggregate(data[ , 'pp_cleo', drop = FALSE], 
                          by = with(data, list(chrom = chrom, pos = pos, ref = ref, alt = alt)),
@@ -251,7 +251,7 @@ cleo <- function(analysis,
                    vep, by = c('chrom', 'pos', 'ref', 'alt'), all.x = TRUE, all.y = FALSE)
     dataa <- dataa[with(dataa, order(chrom, pos, ref, alt)), ]
     t1 <- as.double(Sys.time())
-    gtxlog('Aggregated in ', round(t1 - t0, 3), 's.')
+    gtx_debug('Aggregated in {round(t1 - t0, 3)}s.')
 
     datas = subset(datas, cs_cleo) # drop to signalwise CS
     
