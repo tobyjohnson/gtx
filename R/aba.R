@@ -196,15 +196,16 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     dplyr::inner_join(
       colocs_tbl,
       gwas_th_tbl %>% 
-        dplyr::select(-signal, -num_variants, -ref_index, 
-               -alt_index, -rsq_index, -min_pval, 
-               -freq_index, -beta_index, -se_index),
+        dplyr::select(-signal, -num_variants, -rsq_index, -min_pval, 
+                      -freq_index, -beta_index, -se_index),
       by = c("analysis2" = "analysis", "chrom")) %>% 
     dplyr::select(dplyr::everything(), 
                   th_pos   = pos_index, 
                   th_pval  = pval_index, 
                   th_start = pos_start, 
-                  th_end   = pos_end) %>% 
+                  th_end   = pos_end,
+                  th_ref   = ref_index,
+                  th_alt   = alt_index) %>% 
     # Make sure the TH are in cis-windows of the coloc genes
     dplyr::filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) %>%   
     # Join GWAS trait info - e.g. description & ncase
@@ -213,8 +214,8 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       by = c("analysis2" = "analysis")) %>% 
     # Append RSID to each TH index
     dplyr::left_join(.,
-      sites_tbl %>% dplyr::select(rs_chrom = "chrom", rs_pos = "pos", rs),
-      by = c("chrom" = "rs_chrom", "th_pos" = "rs_pos")) %>% 
+      sites_tbl %>% dplyr::select("rs_chrom" = "chrom", "rs_pos" = "pos", "rs_ref" = "ref", "rs_alt" = "alt", "rs"),
+      by = c("chrom" = "rs_chrom", "th_pos" = "rs_pos", "th_ref" = "rs_ref", "th_alt" = "rs_alt")) %>% 
   # we should then filter ncase
   dplyr::filter(ncase >= ncase_ge | ncohort >= ncohort_ge)
   
@@ -259,7 +260,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   else if(isTRUE(ttam_only)){
     colocs_final <-
       colocs_final %>% 
-      dplyr::filter(stringr::str_detect(analysis2, "^ttam_"))
+      dplyr::filter(stringr::str_detect(analysis2, "ttam_"))
   }
   
   # ---
@@ -376,17 +377,15 @@ aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impal
       data2pull_tbl,
       by = c("analysis2", "analysis1", "entity")) %>% 
     dplyr::collect() %>% 
-    dplyr::inner_join(
-      ., 
+    dplyr::inner_join(., 
       input %>% 
-        dplyr::select(input, analysis2, rsid, th_start, th_end, th_pos, th_pval, 
-               description, phenotype, ncase, ncohort, in_start, in_end) %>% 
+        dplyr::select(input, analysis2, rsid, th_start, th_end, th_pos, th_ref, th_alt, th_pval, 
+                      description, phenotype, ncase, ncohort, in_start, in_end) %>% 
         dplyr::distinct(), 
       by = c("input", "analysis2")) %>% 
     # Make sure the TH are in the desired input window
     dplyr::filter((in_start < th_start) & (in_end > th_end)) %>% 
-    dplyr::inner_join(
-      .,
+    dplyr::inner_join(.,
       input %>% 
         dplyr::select(input, entity, hgncid, chrom, gene_start, genetype) %>% 
         dplyr::distinct(), 
