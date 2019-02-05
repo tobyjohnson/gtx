@@ -316,7 +316,7 @@ coloc <- function(analysis1, analysis2, signal1, signal2,
                     hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
                     entity = entity, entity1 = entity1, entity2 = entity2,
                     dbc = dbc)  
-  gtxlog('coloc.data query returned ', nrow(res), ' rows')
+  gtx_debug('coloc.data query returned {nrow(res)} rows')
 
   pdesc1 <- gtxanalysis_label(analysis = analysis1, entity = attr(res, 'entity1'), signal = signal1, nlabel = FALSE, dbc = dbc)
   pdesc2 <- gtxanalysis_label(analysis = analysis2, entity = attr(res, 'entity2'), signal = signal2, nlabel = FALSE, dbc = dbc)

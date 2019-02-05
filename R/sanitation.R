@@ -21,12 +21,12 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
   }
   options(gtx.dbConnection = tmp)
   tmp <- gtxdbcheck(check_databases = use_database, do_stop = do_stop) # overwrite previous value of tmp
-  if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
+  if (!do_stop) gtx_debug(tmp$status) # FIXME this was a temporary workaround
   if (do_stop || tmp$check) { # if do_stop, would have stopped previously instead of setting tmp$check=FALSE
     invisible(DBI::dbExecute(getOption('gtx.dbConnection'), 
                         sprintf('USE %s;', sanitize1(use_database, type = 'alphanum'))))
     tmp <- gtxdbcheck(do_stop = do_stop) # overwrite previous value of tmp
-    if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
+    if (!do_stop) gtx_debug(tmp$status) # FIXME this was a temporary workaround
   }
   
   if (cache) gtxcache(cache_analyses = cache_analyses, cache_genes = cache_genes)
@@ -90,7 +90,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## (i.e. check whether a later USE statement should be successful)
   if (!missing(check_databases)) {
       if ('Impala' %in% class(dbc)) {
-          if (verbose) gtxlog('Trying query: SHOW DATABASES;')
+          if (verbose) gtx_debug('Trying query: SHOW DATABASES;')
           dbs <- try(DBI::dbGetQuery(dbc, 'SHOW DATABASES;'))
 	  if (identical('try-error', class(dbs))) {
 	      # FIXME grepl the content of dbs for 'Ticket expired' to help user
@@ -132,7 +132,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   
   ## Update string describing current database connection to include db name or SQLite path
   if ('Impala' %in% class(dbc)) {
-      if (verbose) gtxlog('Trying query: SELECT current_database();')
+      if (verbose) gtx_debug('Trying query: SELECT current_database();')
       scdb <- try(DBI::dbGetQuery(dbc, 'SELECT current_database();'))
       if (identical('try-error', class(scdb))) {
 	# FIXME grepl the content of scdb for 'Ticket expired' to help user
@@ -155,7 +155,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## Always check tables since this is cheapest way we know to check
   ## db connection is working and pointing to the expected content
   if ('Impala' %in% class(dbc)) {
-      if (verbose) gtxlog('Trying query: SHOW TABLES;')
+      if (verbose) gtx_debug('Trying query: SHOW TABLES;')
       tables <- try(DBI::dbGetQuery(dbc, 'SHOW TABLES;'))
       if (identical('try-error', class(tables))) {
 	# FIXME grepl the content of tables for 'Ticket expired' to help user

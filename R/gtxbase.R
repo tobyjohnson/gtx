@@ -734,7 +734,7 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid, tablename,
                                       gtxwhat(analysis1 = analysis))
                               )$entity_type
     ## FIXME this logging message could be improved when entity_type is null or empty string
-    gtxlog('analysis [ ', analysis, ' ] requires entity type [ ', entity_type, ' ]')
+    gtx_debug('analysis [ {analysis} ] requires entity type [ {entity_type} ]')
 
     if (!missing(tablename)) {
       tablename <- paste0(sanitize1(tablename, type = 'alphanum'), '.')
@@ -748,17 +748,17 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid, tablename,
             ## entity argument supplied, infer whether Ensembl gene id or HGNC id
             entity <- sanitize1(entity, type = 'alphanum')
             if (grepl('^ENSG[0-9]+$', entity)) {
-                gtxlog('Recognized entity [ ', entity, ' ] as Ensembl gene id')
+                gtx_debug('Recognized entity [ {entity} ] as Ensembl gene id')
                 ## do nothing
             } else {
                 ## attempt to convert assumed HGNC id to Ensembl gene id
-                gtxlog('Looking for Ensembl gene id for entity [ ', entity, ' ]')
+                gtx_debug('Looking for Ensembl gene id for entity [ {entity} ]')
                 ## Check the db connections we will actually use
                 entity <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
                                      sprintf('SELECT ensemblid FROM genes WHERE %s;', 
                                              gtxwhere(hgncid = entity))
                                      )$ensemblid
-                gtxlog('Converted entity to Ensembl gene id [ ', entity, ' ]')
+                gtx_debug('Converted entity to Ensembl gene id [ {entity} ]')
             }
         } else {
             ## infer entity from other arguments if supplied
@@ -767,10 +767,10 @@ gtxentity <- function(analysis, entity, hgncid, ensemblid, tablename,
                                      sprintf('SELECT ensemblid FROM genes WHERE %s;', 
                                              gtxwhere(hgncid = hgncid))
                                      )$ensemblid
-                gtxlog('Inferred entity [ ', entity, ' ] from HGNC id [ ', hgncid, ' ]')
+                gtx_debug('Inferred entity [ {entity} ] from HGNC id [ {hgncid} ]')
             } else if (!missing(ensemblid)) {
                 entity <- sanitize1(ensemblid, type = 'ENSG')
-                gtxlog('Inferred entity [ ', entity, ' ] from Ensembl gene id [ ', ensemblid, ' ]')
+                gtx_debug('Inferred entity [ {entity} ] from Ensembl gene id [ {ensemblid} ]')
             } else {
                 stop('Analysis [ ', analysis, ' ] requires an Ensembl gene id entity but none could be inferred')
             }
