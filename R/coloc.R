@@ -109,9 +109,13 @@ coloc.compute <- function(data,
 ## intended to be an internal function, for use inside
 ## data table grouped operations (such inside multicoloc)
 ##
+## FIXME this returns NA for alpha12/alpha21 when join type is not inner
+## because some of the beta are NA - important for multicoloc(signal2=...)
+##
 coloc.fast <- function(beta1, se1, beta2, se2,
                        join_type = 'inner', 
-                       priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5) {
+                       priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-4, priorc2 = 1e-4, priorc12 = 1e-5,
+                       epsilon = 1e-6) {
 
   stopifnot(join_type %in% c('inner', 'left', 'right', 'outer'))
   lnabf1 <- abf.Wakefield(beta1, se1, priorsd1, log = TRUE)
@@ -134,8 +138,9 @@ coloc.fast <- function(beta1, se1, beta2, se2,
                          priorc12 * sum(abf1[-1]*abf2[-1])))
     ## compute model averaged effect size ratios
     mw <- abf1[-1]*abf2[-1] # model weights
-    alpha12 <- sum(beta1[inc]/beta2[inc]*mw)/sum(mw)
-    alpha21 <- sum(beta2[inc]/beta1[inc]*mw)/sum(mw)
+    mwi <- which(mw >= max(mw)*epsilon) # epsilon=1e-6 are model weights to drop terms for
+    alpha12 <- sum((beta1[inc]/beta2[inc]*mw)[mwi])/sum(mw[mwi])
+    alpha21 <- sum((beta2[inc]/beta1[inc]*mw)[mwi])/sum(mw[mwi])
   } else {
     posterior <- rep(NA, 5)
     alpha12 <- NA
@@ -628,23 +633,15 @@ multicoloc <- function(analysis1, analysis2, signal2,
                        dbc = getOption("gtx.dbConnection", NULL), ...) {
   gtxdbcheck(dbc)
 
-  ## get summary stats
+  ## get summary stats (ss)
   ss <- multicoloc.data(analysis1 = analysis1, analysis2 = analysis2, signal2 = signal2, 
                          chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                          hgncid = hgncid, ensemblid = ensemblid, rs = rs,
                          surround = surround, hard_clip = hard_clip, 
                          dbc = dbc)
 
-  ## analysis2 is not allowed an entity currently
-  pdesc2 <- gtxanalysis_label(analysis = analysis2, signal = signal2, nlabel = FALSE, dbc = dbc)
-  
-  ## get gene data for entities, FIXME not guaranteed entity_type is ensg
-  res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
-                    sprintf('SELECT ensemblid AS entity1, hgncid FROM genes WHERE %s ORDER BY pos_start;',
-                            gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
-                    uniq = FALSE)
-  
   ## do colocalization analyses using data.table fast grouping
+  ## storing in data.table res (= multicoloc RESults)
   t0 <- as.double(Sys.time())
   ss <- data.table::data.table(ss) # could inline
   if (missing(signal2)) {
@@ -652,8 +649,8 @@ multicoloc <- function(analysis1, analysis2, signal2,
     # FIXME handle this better in multicoloc.data, 
     # always return signal2, but 'default' if a marginal lookup
     
-    setkey(ss, analysis1, entity1)
-    resc1 <- ss[ ,
+    data.table::setkey(ss, analysis1, entity1)
+    res <- ss[ ,
                 coloc.fast(beta1, se1, beta2, se2), # FIXME explicitly pass priors
                 by = .(analysis1, entity1)]
   } else {
@@ -674,63 +671,78 @@ multicoloc <- function(analysis1, analysis2, signal2,
     
     # could make logic on this, with set to empty vector if missing(signals2)
       
-    setkey(ss, analysis1, entity1)
-    resc1 <- ss[ ,
+    data.table::setkey(ss, analysis1, entity1)
+    res <- ss[ ,
               coloc.fast(beta1, se1, beta2, se2, join_type = 'left'), # FIXME explicitly pass priors
               by = .(analysis1, entity1, signal2)]
     
   }  
   t1 <- as.double(Sys.time())
-  flog.info(paste0('Colocalization analyzed for ', sum(!is.na(resc1$P12)), ' pairs in ', round(t1 - t0, 3), 's'))
+  gtx_info('Colocalization analyzed for {sum(!is.na(res$P12))} pairs in {round(t1 - t0, 3)}s.')
 
-  if (identical(style, 'none')) {
-      ## do nothing
-  } else if (identical(style, 'heatplot')) {
-      ## All of the following should be moved inside multicoloc.plot()
-      analyses <- unique(ss$analysis1)
-      resc1[ , z := P12] # to replace by next line
-      #resc1[ , z := P12*sign(alpha21)] # H4 probability * sign of effect of 1 on 2
-      # from multicoloc
-      resc <- reshape(resc1[ , list(analysis1, entity1, z)],
-                      direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
-      # joining onto res, note preserve order of res because sorted by pos_start,
-      # MUST BE preserved if replaced by a merge or left join
-      res <- cbind(res, resc[match(res$entity1, resc$entity1), paste0('z', '.', analyses), with  = FALSE])
-      zmat <- as.matrix(res[ , paste0('z', '.', analyses)])
-      colnames(zmat) <- analyses
-      rownames(zmat) <- with(res, ifelse(hgncid != '', as.character(hgncid), as.character(entity1))) # FIXME will this work for all entity types
-      ## thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold could be relative instead of absolute
-      ## thresh_entity <- thresh_entity*max(zmat, na.rm = TRUE) # threshold, ditto
-      ## FIXME, if nothing passes thresholds, should adapt more gracefully
-      zmat.rsel <- apply(zmat, 1, function(x) return(any(x >= thresh_entity, na.rm = TRUE) && any(!is.na(x))))
-      if (all(!zmat.rsel)) message('No entities to plot, because no Hxy >= thresh_entity=', thresh_entity)    
-      zmat.cord <- order(apply(zmat, 2, function(x) if (any(x >= thresh_analysis, na.rm = TRUE)) max(x, na.rm = TRUE) else NA), na.last = NA)
-      if (identical(length(zmat.cord), 0L)) message('No analyses to plot, because no Hxy >= thresh_analysis=', thresh_analysis)
-      zmat <- zmat[zmat.rsel, zmat.cord, drop = FALSE]
-      if (any(zmat.rsel) && length(zmat.cord) > 0L) {
-          multicoloc.plot(zmat, dbc = dbc)
-          mtext.fit(main = pdesc2)
-	  ## FIXME add legend about what is not shown, region used, hard clipping on/off
-      } else {
-          message('Skipping plotting')
-      }
-  } else {
-      stop('unknown style [ ', style, ' ]')
+  ## get results labels (resl), i.e. gene data for entities
+  ## 
+  ## FIXME not guaranteed entity_type is ensg
+  resl <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
+                    sprintf('SELECT ensemblid AS entity1, hgncid, chrom, pos_start, pos_end FROM genes WHERE %s ORDER BY pos_start;',
+                            gtxwhere(ensemblid = unique(res$entity1))), # FIXME not guaranteed entity_type is ENSG
+                    uniq = FALSE)
+  res <- cbind(res, 
+               resl[match(res$entity1, resl$entity1), c('hgncid', 'chrom', 'pos_start', 'pos_end')])
+  
+  ## Add the following as an attr()ibute
+  ## analysis2 is not allowed an entity currently
+  pdesc2 <- gtxanalysis_label(analysis = analysis2, signal = signal2, nlabel = FALSE, dbc = dbc)
+  
+  if ('heatplot' %in% style) {
+    multicoloc.plot(res, 
+                    thresh_analysis = thresh_analysis, 
+                    thresh_entity = thresh_entity, 
+                    main = pdesc2)
   }
   
   return(invisible(res))
 }
 
 ## Input, a matrix of z values with analysis as column names and entity as row names 
-multicoloc.plot <- function(zmat,
+multicoloc.plot <- function(res, 
+                            thresh_entity = 0.1, 
+                            thresh_analysis = 0.1, 
+                            main = 'Unspecified multicoloc plot', 
                             dbc = getOption("gtx.dbConnection", NULL)) {
-    gtxdbcheck(dbc)
-  
+  gtxdbcheck(dbc)
+
+  analyses <- unique(res$analysis1)
+  entities <- res[match(unique(res$entity1), res$entity1), list(entity1, hgncid, chrom, pos_start, pos_end)]
+  entities <- entities[order((entities$pos_start + entities$pos_end)/2.), ]
+  ## create column z between -1 and 1 for coloc P12 probability * sign of effect direction
+  ## then reshape ready for matrix
+  res[ , z := P12*sign(alpha21)]
+  resmat <- reshape(res[ , list(analysis1, entity1, z)],
+                  direction = 'wide', idvar = 'entity1', timevar = 'analysis1')
+  zmat <- as.matrix(resmat[match(entities$entity1, resmat$entity1), 
+                             paste0('z', '.', analyses), with = FALSE])
+  # note, preserve order of entities because sorted by midpoint pos_start,pos_end
+  # MUST BE preserved if replaced by a merge or left join
+  #  res <- cbind(res, resc[match(res$entity1, resc$entity1), paste0('z', '.', analyses), with  = FALSE])
+  rownames(zmat) <- with(entities, ifelse(hgncid != '', as.character(hgncid), as.character(entity1))) # FIXME will this work for all entity types
+  colnames(zmat) <- analyses
+
+  ## thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold could be relative instead of absolute
+  ## thresh_entity <- thresh_entity*max(zmat, na.rm = TRUE) # threshold, ditto
+  ## FIXME, if nothing passes thresholds, should adapt more gracefully
+  zmat.rsel <- apply(zmat, 1, function(z) return(any(abs(z) >= thresh_entity, na.rm = TRUE) && any(!is.na(z))))
+  if (all(!zmat.rsel)) gtx_warn('No entities to plot, because no P12 >= thresh_entity={thresh_entity}')    
+  zmat.cord <- order(apply(zmat, 2, function(z) if (any(abs(z) >= thresh_analysis, na.rm = TRUE)) max(z, na.rm = TRUE) else NA), na.last = NA)
+  if (identical(length(zmat.cord), 0L)) gtx_warn('No analyses to plot, because no P12 >= thresh_analysis={thresh_analysis}')
+  zmat <- zmat[zmat.rsel, zmat.cord, drop = FALSE]
+  if (any(zmat.rsel) && length(zmat.cord) > 0L) {
+    
     ## Query plot labels for analyses
     label_y <- sqlWrapper(dbc, 
-                         sprintf('SELECT analysis, label FROM analyses WHERE %s',
-                                 gtxwhat(analysis = colnames(zmat))),
-                         uniq = FALSE)
+                          sprintf('SELECT analysis, label FROM analyses WHERE %s',
+                                  gtxwhat(analysis = colnames(zmat))),
+                          uniq = FALSE)
     label_y <- label_y$label[match(colnames(zmat), label_y$analysis)]
     ## label_y <- ifelse(!is.na(label_y), label_y, colnames(zmat)) # fall back to analysis if label lookup failed
     
@@ -740,39 +752,47 @@ multicoloc.plot <- function(zmat,
     
     cex_ylab <- 1.
     while (TRUE) {
-        y_used <- sum(strheight(label_y, cex = cex_ylab)*y_linesep)
-        x_used <- max(strwidth(label_y, cex = cex_ylab))
-        if (y_used <= 1. && x_used <= x_labelmax) break
-        cex_ylab <- cex_ylab*min(1./y_used, x_labelmax/x_used)
+      y_used <- sum(strheight(label_y, cex = cex_ylab)*y_linesep)
+      x_used <- max(strwidth(label_y, cex = cex_ylab))
+      if (y_used <= 1. && x_used <= x_labelmax) break
+      cex_ylab <- cex_ylab*min(1./y_used, x_labelmax/x_used)
     }
     x_labeluse <- x_used
     
     cex_values <- 1.
     while (TRUE) {
-        y_used <- strheight('000', cex = cex_values)*ncol(zmat)*y_linesep
-        x_used <- strwidth('000', cex = cex_values)*nrow(zmat)
-        if (y_used <= 1. && x_used <= (1. - x_labeluse)) break
-        cex_values <- cex_values*min(1./y_used, (1. - x_labeluse)/x_used)
+      y_used <- strheight('000', cex = cex_values)*ncol(zmat)*y_linesep
+      x_used <- strwidth('000', cex = cex_values)*nrow(zmat)
+      if (y_used <= 1. && x_used <= (1. - x_labeluse)) break
+      cex_values <- cex_values*min(1./y_used, (1. - x_labeluse)/x_used)
     }
-
+    
     plot.window(c(-x_labeluse/(1. - x_labeluse), 1.)*(nrow(zmat) + .5), c(.5, ncol(zmat) + .5))
     abline(v = 0)
     
     image(x = 1:nrow(zmat), y = 1:ncol(zmat),
           z = zmat,
-          zlim = c(0, 1),
-          col = rgb(1, 100:0/100, 100:0/100,),
+          zlim = c(-1, 1),
+          col = c(rgb(0:100/100, 0:100/100, 1), rgb(1, 100:0/100, 100:0/100,)),
           add = TRUE) # should add options for different colour scalings
-
+    
     text(0, 1:ncol(zmat), label_y, pos = 2, cex = cex_ylab)
     for (idx in 1:ncol(zmat)) {
-        zvals <- as.integer(round(zmat[, idx]*100))
-        text(1:nrow(zmat), idx, ifelse(!is.na(zvals), sprintf('%02i', zvals), ''), cex = cex_values)
+      zvals <- as.integer(round(abs(zmat[, idx])*100))
+      text(1:nrow(zmat), idx, ifelse(!is.na(zvals), sprintf('%02i', zvals), ''), cex = cex_values)
     }
     axis(1, at = 1:nrow(zmat),
          labels = rownames(zmat),
          las = 2, cex.axis = .5, font = 3)
     box()
+    
+    mtext.fit(main = main)
+    ## FIXME add legend about what is not shown, region used, hard clipping on/off
+  } else {
+    gtx_warn('Skipping plotting')
+  }
+  
+    
 
     return(invisible(NULL))
 }
