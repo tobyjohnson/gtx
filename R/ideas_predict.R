@@ -24,7 +24,7 @@ ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
     stop();
   }
   safely_gwas <- purrr::safely(gtx::gwas)
-  exec <- safely_gwas(analysis, case_emac_ge = 25, pval_thresh = pval_le, 
+  exec <- safely_gwas(analysis, case_emac_ge = case_emac_ge, pval_thresh = pval_le, 
                       style = FALSE, gene_annotate = FALSE)
   
   if(is_null(exec$result)){
@@ -53,7 +53,7 @@ ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
     my_gwas %>% 
     dplyr::group_by(chrom, pos_index, pval_index) %>% 
     dplyr::do(regionplot.data(analysis, chrom = .$chrom, pos = .$pos_index, 
-                              case_emac_ge = 25, style = "signal", maf_ge = 0.001)) %>% 
+                              case_emac_ge = case_emac_ge, style = "signal", maf_ge = 0.001)) %>% 
     dplyr::ungroup() %>% 
     dplyr::select(pos_index, cs_signal, freq, rsq, beta, pp_signal, pval, chrom, pos, ref, alt) %>% 
     dplyr::filter(cs_signal == TRUE) %>% 
@@ -122,6 +122,11 @@ ideas_predict <- function(.data,  states_data = NULL,
   }
   gtx_info("ideas_predict | Number of cred sets: {length(unique(x[t, 1]))}")
   gtx_info("ideas_predict | Number of snps across cred sets: {length(t)}")
+  
+  if(nrow(x[t,]) == 0){
+    gtx_warn("No cred sets snps after filtering for 95% CI.")
+    return(NULL);
+  }
   
   gtx_debug("ideas_predict | Starting ideas_lasso . . .");
   rt = ideas_lasso(chrom  = as.matrix(x[t, 8]), 
@@ -228,7 +233,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
       glue::glue_collapse(
         c(glue::glue("SELECT * FROM {db}.ideas_states WHERE"), 
           glue::glue_collapse(glue::glue("chrom = \"{unique(chrom)}\""), sep = " OR ")), 
-        sep = " ")
+        sep = " ") 
     
     safely_get_query <- purrr::safely(implyr::dbGetQuery)
     exec <- safely_get_query(impala, sql_statement)
@@ -238,7 +243,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
       stop()
     } else {
       gtx_debug("ideas_get_states | states collected.");
-      states_data <- exec$result
+      states_data <- exec$result %>% arrange(chrom, pos_start)
     }
   } else if (is_null(states_data)){
     gtx_debug("ideas_get_states | Querying states from: {db}.ideas_states")
@@ -256,7 +261,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
       stop();
     } else {
       gtx_debug("ideas_get_states | states collected.");
-      states_data <- exec$result
+      states_data <- exec$result %>% arrange(chrom, pos_start)
     }
   }
   else {
