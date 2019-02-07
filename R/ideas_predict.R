@@ -233,7 +233,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
       glue::glue_collapse(
         c(glue::glue("SELECT * FROM {db}.ideas_states WHERE"), 
           glue::glue_collapse(glue::glue("chrom = \"{unique(chrom)}\""), sep = " OR ")), 
-        sep = " ")
+        sep = " ") 
     
     safely_get_query <- purrr::safely(implyr::dbGetQuery)
     exec <- safely_get_query(impala, sql_statement)
@@ -243,7 +243,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
       stop()
     } else {
       gtx_debug("ideas_get_states | states collected.");
-      states_data <- exec$result
+      states_data <- exec$result %>% arrange(chrom, pos_start)
     }
   } else if (is_null(states_data)){
     gtx_debug("ideas_get_states | Querying states from: {db}.ideas_states")
@@ -261,7 +261,7 @@ ideas_get_states <- function(chrom, pos, staten, states = NULL, states_data,
       stop();
     } else {
       gtx_debug("ideas_get_states | states collected.");
-      states_data <- exec$result
+      states_data <- exec$result %>% arrange(chrom, pos_start)
     }
   }
   else {
