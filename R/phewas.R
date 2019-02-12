@@ -149,7 +149,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
                       tag_is = tag_is, with_tags = with_tags, 
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
-    gtx_debug('Queried metadata for {nrow(a1)} analyses with access to'))
+    gtx_debug('Queried metadata for {nrow(a1)} analyses with access to')
 
     ## Handle when results_db is NULL in database (returned as NA to R), since not using gtxanalysisdb()
     ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
