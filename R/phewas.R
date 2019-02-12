@@ -133,11 +133,22 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     gtxdbcheck(dbc)
 
     ## Look up variant
+    
     v1 <- sqlWrapper(dbc,
-                     sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
-                             gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs))) # default uniq = TRUE
-    v1_label <- label_variant(v1$chrom, v1$pos, v1$ref, v1$alt)
-    gtx_debug('Resolved PheWAS varint to {v1_label}')
+                     sprintf('SELECT chrom, pos, ref, alt, rsid AS rs FROM sites WHERE %s;',
+                             gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs)),
+                     uniq = FALSE, zrok = TRUE) # default uniq = TRUE
+    v1_label <- label_variant(v1$chrom, v1$pos, v1$ref, v1$alt, v1$rs)
+    if (nrow(v1) == 0L) {
+      gtx_warn('PheWAS query did not match any variant (check TABLE sites)')
+      v1 <- NULL # go through rest of code to have single point where no results are handled
+    } else if (nrow(v1) > 1L) {
+      gtx_warn('PheWAS query matches variant to {v1_label}') # normally a debug message but raised to warning in this situation
+      gtx_warn('PheWAS query matched multiple variants, cannot provide results without disambiguating ref/alt arguments')
+      v1 <- NULL # go through rest of code to have single point where no results are handled
+    } else {
+      gtx_debug('PheWAS query matches variant to {v1_label}')
+    }
 
     ## Look up analysis metadata
     a1 <- gtxanalyses(analysis = analysis, analysis_not = analysis_not, 
@@ -165,7 +176,9 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     # note, following do.call(rbind, lapply(...)) constructs generate R NULL when a1 has zero rows
     # okay but need to check below
 
-    if (all_analyses) {
+    if (is.null(v1)) {
+      res <- NULL
+    } else if (all_analyses) {
         ## Optimize for the case where all analyses are desired, to avoid having a
         ## very long SQL string with thousands of 'OR analysis=' clauses
         res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
@@ -230,6 +243,13 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     
     res <- res[!is.na(res$pval),]
     res <- res[order(res$pval), ]
+    # add chrom/pos/ref/alt columns to make easier to pass through to other functions, or to help interpretation if saved to a file
+    # (note, not added if v1<-NULL above)
+    res$chrom <- v1$chrom
+    res$pos <- v1$pos
+    res$ref <- v1$ref
+    res$alt <- v1$alt
+    # add attribute, used for plot labelling etc., FIXME should we do this when multiple variants matched hence no query was run?
     attr(res, 'variant') <- v1_label
     return(res)
 }
