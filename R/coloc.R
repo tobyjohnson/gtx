@@ -733,7 +733,7 @@ multicoloc.plot <- function(res,
   ## FIXME, if nothing passes thresholds, should adapt more gracefully
   zmat.rsel <- apply(zmat, 1, function(z) return(any(abs(z) >= thresh_entity, na.rm = TRUE) && any(!is.na(z))))
   if (all(!zmat.rsel)) gtx_warn('No entities to plot, because no P12 >= thresh_entity={thresh_entity}')    
-  zmat.cord <- order(apply(zmat, 2, function(z) if (any(abs(z) >= thresh_analysis, na.rm = TRUE)) max(z, na.rm = TRUE) else NA), na.last = NA)
+  zmat.cord <- order(apply(zmat, 2, function(z) if (any(abs(z) >= thresh_analysis, na.rm = TRUE)) max(abs(z), na.rm = TRUE) else NA), na.last = NA)
   if (identical(length(zmat.cord), 0L)) gtx_warn('No analyses to plot, because no P12 >= thresh_analysis={thresh_analysis}')
   zmat <- zmat[zmat.rsel, zmat.cord, drop = FALSE]
   if (any(zmat.rsel) && length(zmat.cord) > 0L) {
