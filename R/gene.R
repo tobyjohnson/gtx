@@ -249,7 +249,7 @@ prune.distance <- function(data, surround = 500000L, sorted = FALSE) {
       signals[ , row := NULL] # do not return row indices if input unsorted
       ## FIXME would be better to store original order and invert the permutation
   }
-  data[ , signal := NULL]
+  signals[ , signal := NULL]
   return(signals)
 }
 
