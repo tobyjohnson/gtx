@@ -41,6 +41,11 @@ phewas <- function(chrom, pos, ref, alt, rs,
                       analysis_fields = analysis_fields,
                       tag_is = tag_is, with_tags = TRUE, # force with_tags = TRUE
                       dbc = dbc)
+    if (nrow(p1) == 0L) {
+      gtx_warn('PheWAS had zero results, skipping plotting')
+      return(invisible(p1))
+    }
+    
     p1orig <- p1
 
     ymax <- max(10, ceiling(-log10(min(p1$pval))))
