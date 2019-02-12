@@ -90,6 +90,8 @@ phewas <- function(chrom, pos, ref, alt, rs,
     }
     axis(2, las = 1)
     mtext(x1$tag, side = 1, line = 0.5, las = 2, at = x1$midpt, col = x1$col, las = 2, cex = 0.5)
+    mtext(expression(-log[10](paste(italic(P), "-value"))), 2, 3)
+    mtext.fit(main = paste('PheWAS for', attr(p1, 'variant')))
     box()
     
     return(invisible(p1orig))
@@ -134,7 +136,8 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     v1 <- sqlWrapper(dbc,
                      sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
                              gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs))) # default uniq = TRUE
-    flog.debug(paste0('Resolved PheWAS varint to chr', v1$chrom, ':', v1$pos, ':', v1$ref, '>', v1$alt))
+    v1_label <- label_variant(v1$chrom, v1$pos, v1$ref, v1$alt)
+    gtx_debug('Resolved PheWAS varint to {v1_label}')
 
     ## Look up analysis metadata
     a1 <- gtxanalyses(analysis = analysis, analysis_not = analysis_not, 
@@ -146,7 +149,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
                       tag_is = tag_is, with_tags = with_tags, 
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
-    flog.debug(paste0('Queried metadata for ', nrow(a1), ' analyses with access to'))
+    gtx_debug('Queried metadata for {nrow(a1)} analyses with access to'))
 
     ## Handle when results_db is NULL in database (returned as NA to R), since not using gtxanalysisdb()
     ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
@@ -227,6 +230,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     
     res <- res[!is.na(res$pval),]
     res <- res[order(res$pval), ]
+    attr(res, 'variant') <- v1_label
     return(res)
 }
 
