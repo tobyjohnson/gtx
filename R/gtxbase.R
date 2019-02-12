@@ -26,6 +26,20 @@ gtxlog <- function(...) {
     return(invisible(NULL))
 }
 
+# internal function to produce human-readable labels
+# for one or a set of variants, based on optional
+# arguments ref, alt, rs
+# for data.frame x, use do.call(label_variant, x)
+label_variant <- function(chrom, pos, ref, alt, rs, ...) {
+  if (missing(chrom)) gtx_fatal2('gtx:::label_variant missing chrom(osome) argument')
+  if (missing(pos)) gtx_fatal2('gtx:::label_variant missing pos(ition) argument')
+  return(
+    sprintf('chr%s:%i%s%s', 
+            chrom, pos, 
+            if (!missing(alt) && !missing(ref)) sprintf(':%s>%s', ref, alt) else '',
+            if (!missing(rs)) ifelse(!is.na(rs), sprintf(' (rs%i)', rs), '') else '')
+  )
+}
 
 ## convenience function to construct WHERE
 ## part of SQL for genomic data tables

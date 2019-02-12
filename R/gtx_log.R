@@ -72,3 +72,28 @@ gtx_warn <- function(.msg){
 gtx_fatal <- function(.msg){
   futile.logger::flog.fatal(glue::glue(.msg, .envir = parent.frame()))
 }
+
+#' gtx_fatal_stop
+#' 
+#' Wrapper around futile.logger::flog.fatal(glue::glue(.msg)), which
+#' also throws a true fatal error with the same message, using 
+#' stop().  Useful if calling within a function body where we want to 
+#' stop execution, and also ensures the stop() message goes to
+#' the console (even if futile.logger messages have been redirected).
+#' 
+#' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
+#' @export
+#' @family gtx_log
+#' @param .msg msg to glue and flog
+#' @import glue
+#' @import futile.logger
+gtx_fatal_stop <- function(.msg){
+  # evaluate once, just in case there are side effects:
+  msg_eval <- glue::glue(.msg, .envir = parent.frame())
+  futile.logger::flog.fatal(msg_eval)
+  stop(msg_eval, call. = FALSE)
+  # changing call. = TRUE would just make the stop message
+  # say that the error occurred in gtx_fatal2().  We want
+  # to inspect the parent.frame() to find where the error
+  # *actually* occurred...  FIXME
+}
