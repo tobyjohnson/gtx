@@ -623,6 +623,83 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   return(res)
 }
 
+## A second use case for multicoloc, is that a single analysis1 
+## [and entity1] is to be colocalized with a potentially 
+## large set of analysis2 [and entity2], not necessarily e/pQTL.
+## Motivating example is taking a locus tophit from one
+## disease GWAS, PheWAS'ing it, and then testing colocalization
+## with all the PheWAS hits.
+
+#' @export
+multicoloc2.data <- function(analysis1, 
+                             target,
+                             chrom, pos_start, pos_end, pos, 
+                             hgncid, ensemblid, rs, surround = 0,
+                             dbc = getOption("gtx.dbConnection", NULL)) {
+  gtxdbcheck(dbc)
+
+  ## check target is a dataframe
+  stopifnot(is.data.frame(target))
+  stopifnot(all(c('analysis', 'entity') %in% names(target)))
+  ## could play nicer and write a null column for entity if  not present
+
+  ## Determine genomic region from arguments
+  xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                       hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                       dbc = dbc)
+  chrom = xregion$chrom
+  pos_start = xregion$pos_start
+  pos_end = xregion$pos_end
+  
+  ## Determine entity, if required, for each analysis1
+  xentity1 <- gtxentity(analysis1, entity = entity1, hgncid = hgncid, ensemblid = ensemblid)
+
+  where2 <- paste0('(',
+                   with(target, 
+                        paste(sprintf('(analysis=\'%s\' AND entity%s)', 
+                                      analysis,
+                                      ifelse(!is.na(entity) & entity != '', 
+                                             sprintf('=\'%s\'', entity), 
+                                             ' IS NULL')),
+                              collapse = ' OR ')),
+                   ')')
+
+  t0 <- as.double(Sys.time())
+  # note join is t2 join t1, so that join hints are
+  # same as regular multicoloc
+  res <- sqlWrapper(dbc,
+                    sprintf('SELECT STRAIGHT_JOIN
+                              t2.analysis AS analysis2, t2.entity AS entity2,
+                              t1.beta AS beta1, t1.se AS se1, 
+                              t2.beta AS beta2, t2.se AS se2 
+                              FROM 
+                              (SELECT
+                              chrom, pos, ref, alt, analysis, entity, beta, se
+                              FROM gwas_results 
+                              WHERE
+                              %s AND %s AND pval IS NOT NULL
+                              ) AS t2 
+                              JOIN /* +SHUFFLE */
+                              (SELECT 
+                              chrom, pos, ref, alt, beta, se
+                              FROM gwas_results
+                              WHERE 
+                              %s AND %s AND pval IS NOT NULL
+                              ) AS t1
+                              USING (chrom, pos, ref, alt);',
+                              where2,
+                              gtx:::gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
+                              gtx:::where_from(analysisu = analysis1), 
+                              gtx:::gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
+                      ),
+                      uniq = FALSE) # expect >=1 rows
+  t1 <- as.double(Sys.time())
+  gtx_info('Results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
+  return(res)
+}
+
+
+
 #' @import data.table
 #' @export
 multicoloc <- function(analysis1, analysis2, signal2, 
@@ -704,6 +781,61 @@ multicoloc <- function(analysis1, analysis2, signal2,
   return(invisible(res))
 }
 
+
+#' Multiple colocalization, use case 2
+#'
+#' Multiple colocalization, one (disease) analysis against 
+#' a set of analysis/entity pairs.
+#'
+#' A second use case for multicoloc, is that a single analysis1 
+#' (and entity1 in future) is to be colocalized with a potentially 
+#' large set of analysis2 (with or without entity2; not necessarily 
+#' e/pQTL).
+#' The Motivating example is taking a top hit variant at a (disease) 
+#' GWAS locus,PheWAS'ing it, and then testing colocalization with all 
+#' the PheWAS hits.
+#'
+#' @param analysis1 analysis id to colocalize
+#' @param target data frame with columns analysis and entity
+#' @param chrom other arguments used to determine region for coloc
+#'
+#' @return
+#'  A data frame of analysis1 against each analysis/entity from
+#'  target (called analysis2 and entity2) along with 
+#'  colocalization probabilities.
+#'
+#' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
+#' @import data.table
+#' @export
+multicoloc2 <- function(analysis1, 
+                        target, 
+                        chrom, pos_start, pos_end, pos, 
+                        hgncid, ensemblid, rs, surround = 0,
+                        dbc = getOption("gtx.dbConnection", NULL), ...) {
+  gtxdbcheck(dbc)
+  
+  ## get summary stats (ss)
+  ss <- multicoloc2.data(analysis1 = analysis1, target = target, 
+                        chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
+                        hgncid = hgncid, ensemblid = ensemblid, rs = rs,
+                        surround = surround, 
+                        dbc = dbc)
+  
+  ## do colocalization analyses using data.table fast grouping
+  ## storing in data.table res (= multicoloc RESults)
+  t0 <- as.double(Sys.time())
+  ss <- data.table::data.table(ss) # could inline
+  data.table::setkey(ss, analysis2, entity2)
+  res <- ss[ ,
+               gtx:::coloc.fast(beta1, se1, beta2, se2), # FIXME explicitly pass priors
+               by = .(analysis2, entity2)]
+  t1 <- as.double(Sys.time())
+  gtx_info('Colocalization analyzed for {sum(!is.na(res$P12))} pairs in {round(t1 - t0, 3)}s.')
+  res <- as.data.frame(res)
+  res$analysis1 <- analysis1
+  return(res)
+}
+  
 ## Input, a matrix of z values with analysis as column names and entity as row names 
 multicoloc.plot <- function(res, 
                             thresh_entity = 0.1, 
