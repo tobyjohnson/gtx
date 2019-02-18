@@ -176,7 +176,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
                                            dropping {database}.{table_name}"))
     }
     
-    sql_statement <- glue::glue("INVALIDATE METADATA {database}.tmp_data4join PURGE")
+    sql_statement <- glue::glue("INVALIDATE METADATA {database}.tmp_data4join")
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbExecute(impala, sql_statement)
     
