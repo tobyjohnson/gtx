@@ -168,14 +168,26 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   # If old tmp table, clean it up. 
   if(database == whoami() & table_name == "tmp_data4join" & random_name == FALSE){
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
+    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (is.null(exec$error) & nrow(exec$result) >= 1){
       futile.logger::flog.debug(glue::glue("tidy_connections::impala_copy_to | \\
-                                           overwriting {database}.{table_name}"))
+                                           dropping {database}.{table_name}"))
     }
     
-    sql_statement <- glue::glue("DROP TABLE IF EXISTS {`database`}.tmp_data4join PURGE")
+    sql_statement <- glue::glue("INVALIDATE METADATA {database}.tmp_data4join PURGE")
+    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
+    exec <- safely_dbExecute(impala, sql_statement)
+    
+    if (!is.null(exec$error)){
+      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
+                                           unable to remove {database}.tmp_data4join because:\n{exec$error}"))
+      stop()
+    }
+    
+    sql_statement <- glue::glue("DROP TABLE IF EXISTS {database}.tmp_data4join PURGE")
+    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbExecute(impala, sql_statement)
     
     if (!is.null(exec$error)){
@@ -187,17 +199,18 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   # If a new table, determine if the table already exists
   else if(table_name != "tmp_data4join" & random_name == FALSE){
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
+    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (!is.null(exec$error)){ 
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
-                                           failed to determine if {database}.{table_name} exist because:\n{exec$error}"))
+      gtx_error("tidy_connections::impala_copy_to | \\
+                 failed to determine if {database}.{table_name} exist because:\n{exec$error}")
       stop()
     }
     # If we have rows here, we found tables that have conflicting names
     else if (nrow(exec$result) >=1){
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
-                                           {database}.{table_name} already exists."))
+      gtx_error("tidy_connections::impala_copy_to | \\
+                {database}.{table_name} already exists.")
       stop();
     }
   }
@@ -206,21 +219,22 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     table_name <- glue::glue("tmp_{time_stamp}")
     
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
+    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (!is.null(exec$error)){ 
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
-                                           unable to query if random_name table exists because:\n{exec$error}"))
+      gtx_error("tidy_connections::impala_copy_to | \\
+                 unable to query if random_name table exists because:\n{exec$error}")
       stop();
     }
     # If we have rows here, we found tables that have conflicting names
     else if (nrow(exec$result) >=1){
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | {database}.{table_name} already exists."))
+      gtx_error("tidy_connections::impala_copy_to | {database}.{table_name} already exists.")
       stop();
     }
   }
   else {
-    futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | Unable to determine appropriate table_name."))
+    gtx_error("tidy_connections::impala_copy_to | Unable to determine appropriate table_name.")
     stop();
   }
 
@@ -273,10 +287,10 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   safely_dbGetQuery <- purrr::safely(implyr::dbGetQuery)
   safely_system     <- purrr::safely(system)
   if(is.null(database)){
-    futile.logger::flog.error("tidy_connections::big_copy_to | database is NULL.")
+    gtx_error("tidy_connections::big_copy_to | database is NULL.")
   }
   if(is.null(table_name)){
-    futile.logger::flog.error("tidy_connections::big_copy_to | table_name is NULL.")
+    gtx_error("tidy_connections::big_copy_to | table_name is NULL.")
   }
   
   # Data 
@@ -298,42 +312,43 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   
   # --
   # Write the data 4 join to a tmp file on the edge node
-  futile.logger::flog.debug("tidy_connections::big_copy_to | create tmp dir")
+  gtx_debug("tidy_connections::big_copy_to | create tmp dir")
   exec <- safely_system("mkdir -p ~/tmp")
   if(!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to create ~/tmp because: {exec$error}"))
+    gtx_error("tidy_connections::big_copy_to | Unable to create ~/tmp because: {exec$error}")
     stop();
   }
   # Export data to tmp.csv in user's home directory
-  futile.logger::flog.debug("tidy_connections::big_copy_to | write data to tmp csv")
+  gtx_debug("tidy_connections::big_copy_to | write data to tmp csv")
   safely_write_csv <- purrr::safely(readr::write_csv)
   exec <- safely_write_csv(df, path = glue::glue("~/tmp/{table_name}.csv"))
   if(!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to export data to: ~/tmp/{table_name}.csv because: {exec$error}"))
+    gtx_error("tidy_connections::big_copy_to | Unable to export data to: ~/tmp/{table_name}.csv because: {exec$error}")
     stop();
   }
   
   # Make sure there is a user staging direction on HDFS
-  futile.logger::flog.debug(glue::glue("tidy_connections::big_copy_to | create staging dir on hdfs"))
+  gtx_debug("tidy_connections::big_copy_to | create staging dir on hdfs")
   exec <- safely_system(glue::glue("hdfs dfs -mkdir -p /user/{user_name}/staging/"))
   if(!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to create: /user/{user_name}/staging/ on HDFS because: {exec$error}"))
+    gtx_error("tidy_connections::big_copy_to | \\
+              Unable to create: /user/{user_name}/staging/ on HDFS because: {exec$error}")
     stop();
   }
   
   # Move data to HDFS
-  futile.logger::flog.debug(glue::glue("tidy_connections::big_copy_to | move data to hdfs"))
+  gtx_debug("tidy_connections::big_copy_to | move data to hdfs")
   exec <- safely_system(glue::glue("hdfs dfs -put -f ~/tmp/{table_name}.csv /user/{user_name}/staging/"))
   if(!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to put data on HDFS because: {exec$error}"))
+    gtx_error("tidy_connections::big_copy_to | Unable to put data on HDFS because: {exec$error}")
     stop();
   }
   
   # Remove tmp data in user's home directory
-  futile.logger::flog.debug(glue::glue("tidy_connections::big_copy_to | remove tmp file on edge node"))
+  gtx_debug("tidy_connections::big_copy_to | remove tmp file on edge node")
   exec <- safely_system(glue::glue("rm ~/tmp/{table_name}.csv"))
   if(!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to remove tmp data in ~/tmp because: {exec$error}"))
+    gtx_error("tidy_connections::big_copy_to | Unable to remove tmp data in ~/tmp because: {exec$error}")
     stop();
   }
   # Data is now ready to be read into a table
@@ -362,7 +377,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   }
 
   # Create new table based on correct col types
-  futile.logger::flog.debug(glue::glue("tidy_connections::big_copy_to | create new table: {database}.{table_name}"))
+  gtx_debug("tidy_connections::big_copy_to | create new table: {database}.{table_name}")
   sql_statement <- 
     glue::glue(
       glue::glue("CREATE TABLE {`database`}.{`table_name`} ("), 
@@ -372,18 +387,19 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
            STORED AS TEXTFILE \\
            TBLPROPERTIES(\"skip.header.line.count\"=\"1\")"))
   
+  gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | unable to create table: {database}.{table_name} because:\n{exec$error}"))
+    gtx_error("tidy_connections::big_copy_to | unable to create table: {database}.{table_name} because:\n{exec$error}")
     stop()
   }
 
   # Load data from tmp HDFS file into table
-  futile.logger::flog.debug(glue::glue("tidy_connections::big_copy_to | Load data into new table: {database}.{table_name}"))
+  gtx_debug("tidy_connections::big_copy_to | Load data into new table: {database}.{table_name}")
   sql_statement <- 
     glue::glue("LOAD DATA INPATH '/user/{`user_name`}/staging/{table_name}.csv' \\
                 INTO TABLE {`database`}.{`table_name`}")
-  
+  gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
     futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}"))
@@ -392,12 +408,13 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
 
   # COMPUTE STATS on the new table
   if(isTRUE(compute_stats)){
-    flog.debug(glue("tidy_connections::big_copy_to | COMPUTE STATS on: {database}.{table_name}"))
+    gtx_debug("tidy_connections::big_copy_to | COMPUTE STATS on: {database}.{table_name}")
     sql_statement <- glue("COMPUTE STATS {`database`}.{`table_name`}")
-    
+    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbExecute(dest, sql_statement)
     if (!is.null(exec$error)){
-      flog.error(glue("tidy_connections::big_copy_to | Unable to COMPUTE STATS on: {database}.{table_name} because:\n{exec$error}"))
+      gtx_error("tidy_connections::big_copy_to | Unable to COMPUTE STATS on: \\
+                {database}.{table_name} because:\n{exec$error}")
       stop()
     }
   }
