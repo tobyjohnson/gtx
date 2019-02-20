@@ -21,9 +21,9 @@
 validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0", app_name = "sparklyr", sc_config=spark_config()){
 
   # Check we have a spark connection
-  futile.logger::flog.debug("tidy_connections::validate_sc | Validating Spark connection.")
+  gtx_debug("tidy_connections::validate_sc | Validating Spark connection.")
   if(is.null(sc) | !any(stringr::str_detect(class(sc), "spark_connection"))){ 
-    futile.logger::flog.debug("tidy_connections::validate_sc | Spark connection is not valid, will try to establish a connection.")
+    gtx_debug("tidy_connections::validate_sc | Spark connection is not valid, will try to establish a connection.")
     # Try to establish a spark connection 
     sc_config <- sparklyr::spark_config()
     sc_config$spark.driver.memory                <- '16G'
@@ -42,33 +42,33 @@ validate_sc <- function(sc = getOption("gtx.sc", NULL), spark_version = "2.2.0",
       sc <- safe_sc$result 
       # Record that we made a connection
       attr(sc, "internal_conn") <- TRUE
-      futile.logger::flog.debug("tidy_connections::validate_sc | Spark connection established.")
+      gtx_debug("tidy_connections::validate_sc | Spark connection established.")
     }
     # Otherwise advise user to manually create and pass the spark connection
     else if (!is.null(safe_sc$error)){
-      futile.logger::flog.error(glue::glue('tidy_connections::validate_sc | Unable to make the spark connection. Try initiating the spark connection manually and passing the connection to through option sc. To build a spark connection run:\n
+      gtx_error('tidy_connections::validate_sc | Unable to make the spark connection. Try initiating the spark connection manually and passing the connection to through option sc. To build a spark connection run:\n
                       \tsc <- spark_connect(master = {double_quote("yarn-client")}, \n\t\tspark_home = {double_quote("/opt/cloudera/parcels/SPARK2/lib/spark2")}, \n\t\tversion = {double_quote("2.1")})\n
                       After establishing the spark connection (above), you can also set the gtx options to use this connection by default running:\n
-                      \t\toptions(gtx.sc = sc)'))
+                      \t\toptions(gtx.sc = sc)')
       stop()
     }
   }
   else if(any(stringr::str_detect(class(sc), "spark_connection"))){
-    futile.logger::flog.debug("tidy_connections::validate_sc | Spark connection is valid.")
+    gtx_debug("tidy_connections::validate_sc | Spark connection is valid.")
     # Check if spark version and app_name matches those requested. Otherwise, disconnect and call function again
     if (grepl(spark_version, sc$spark_home)){
-	    futile.logger::flog.debug("Spark version detected is different from current version. Restarting Spark connection")
+	    gtx_debug("Spark version detected is different from current version. Restarting Spark connection")
 	    sparklyr::spark_disconnect(sc)
 	    sc = validate_sc(spark_version=spark_version, app_name=app_name)
     }
     if (sc$app_name != app_name){
-	    futile.logger::flog.debug("App name requested is different from current value. Restarting Spark connection")
+	    gtx_debug("App name requested is different from current value. Restarting Spark connection")
       sparklyr::spark_disconnect(sc)
 	    sc = validate_sc(spark_version=spark_version, app_name=app_name)
     }
   }
   else{
-    futile.logger::flog.error("tidy_connections::validate_sc | Unsure how to process sc.")
+    gtx_error("tidy_connections::validate_sc | Unsure how to process sc.")
     stop()
   }
   return(sc)
@@ -104,12 +104,12 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
     if(is.null(safe_con$error)){ 
       impala <- safe_con$result 
       # Record that we made a connection
-      futile.logger::flog.debug("tidy_connections::validate_impala | impala connection established.")
+      gtx_debug("tidy_connections::validate_impala | impala connection established.")
       attr(impala, "internal_conn") <- TRUE
     }
     # Otherwise advise user to manually create and pass the impala connection
     else if (!is.null(safe_con$error)){
-      futile.logger::flog.error('tidy_connections::validate_impala | Unable to make the impala connection.
+      gtx_error('tidy_connections::validate_impala | Unable to make the impala connection.
                  FIRST, make sure you have used kinit.
                  Second, try to create+trouble shoot your own connection using: 
                    impala = implyr::src_impala(drv = odbc::odbc(), dsn = "impaladsn")')
@@ -117,10 +117,10 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
     }
   }
   else if(any(stringr::str_detect(class(impala), "src_impala"))){
-    futile.logger::flog.debug("tidy_connections::validate_impala | impala connection is valid.")
+    gtx_debug("tidy_connections::validate_impala | impala connection is valid.")
   }
   else{
-    futile.logger::flog.error("tidy_connections::validate_impala | Unsure how to process impala Please check input and read documentation.")
+    gtx_error("tidy_connections::validate_impala | Unsure how to process impala Please check input and read documentation.")
     stop()
   }
   return(impala)
@@ -145,66 +145,71 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @import implyr
 #' @import readr
 #' @import futile.logger
-impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL), 
-                           database = NULL, table_name = "tmp_data4join", random_name = FALSE ){
+impala_copy_to <- function(df, dest    = getOption("gtx.impala", NULL), 
+                           database    = gtx::config_tmp_write_db(), 
+                           table_name  = glue("tmp_{gtx::whoami()}_data4join"), 
+                           random_name = TRUE ){
   safely_dbExecute  <- purrr::safely(implyr::dbExecute)
   safely_dbGetQuery <- purrr::safely(implyr::dbGetQuery)
   # Validate input has rows
-  if(nrow(df) == 0){ futile.logger::flog.error("tidy_connections::impala_copy_to | The data has no rows.") }
+  if(nrow(df) == 0){ gtx_error("tidy_connections::impala_copy_to | \\
+                                               The data has no rows.") }
   
   # Validate impala connection
   impala = validate_impala(impala = dest)
+  user_name <- gtx::whoami()
   
   # Determine database for tables
   if(is.null(database)){
-    database <- whoami()
+    database <- user_name
     if(is.null(database)){ 
-      futile.logger::flog.error("tidy_connections::impala_copy_to | \\
+      gtx_error("tidy_connections::impala_copy_to | \\
                                 Unable to determine user name for database.") 
       stop()
     }
   }
 
   # If old tmp table, clean it up. 
-  if(database == whoami() & table_name == "tmp_data4join" & random_name == FALSE){
+  if(database == user_name & table_name == glue("tmp_{user_name}_data4join") & random_name == FALSE){
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (is.null(exec$error) & nrow(exec$result) >= 1){
-      futile.logger::flog.debug(glue::glue("tidy_connections::impala_copy_to | \\
-                                           dropping {database}.{table_name}"))
+      gtx_debug("tidy_connections::impala_copy_to | \\
+                dropping {database}.{table_name}")
     }
     
-    sql_statement <- glue::glue("INVALIDATE METADATA {database}.tmp_data4join")
+    sql_statement <- glue::glue("INVALIDATE METADATA {database}.{table_name}")
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbExecute(impala, sql_statement)
     
     if (!is.null(exec$error)){
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
-                                           unable to remove {database}.tmp_data4join because:\n{exec$error}"))
+      gtx_error("tidy_connections::impala_copy_to | unable to remove \\
+                {database}.{table_name} because:\n{exec$error}")
       stop()
     }
     
-    sql_statement <- glue::glue("DROP TABLE IF EXISTS {database}.tmp_data4join PURGE")
+    sql_statement <- glue::glue("DROP TABLE IF EXISTS {database}.{table_name} PURGE")
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbExecute(impala, sql_statement)
     
     if (!is.null(exec$error)){
-      futile.logger::flog.error(glue::glue("tidy_connections::impala_copy_to | \\
-                                           unable to remove {database}.tmp_data4join because:\n{exec$error}"))
+      gtx_error("tidy_connections::impala_copy_to | unable to remove \\
+                {database}.{table_name} because:\n{exec$error}")
       stop()
     }
   }
   # If a new table, determine if the table already exists
-  else if(table_name != "tmp_data4join" & random_name == FALSE){
+  else if(table_name != glue("tmp_{user_name}_data4join") & random_name == FALSE){
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbGetQuery(impala, sql_statement)
     
     if (!is.null(exec$error)){ 
       gtx_error("tidy_connections::impala_copy_to | \\
-                 failed to determine if {database}.{table_name} exist because:\n{exec$error}")
+                failed to determine if {database}.{table_name} \\
+                exist because:\n{exec$error}")
       stop()
     }
     # If we have rows here, we found tables that have conflicting names
@@ -216,7 +221,7 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   }
   else if(random_name == TRUE){
     time_stamp <- as.integer(Sys.time())
-    table_name <- glue::glue("tmp_{time_stamp}")
+    table_name <- glue::glue("tmp_{user_name}_{time_stamp}")
     
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
@@ -234,7 +239,8 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     }
   }
   else {
-    gtx_error("tidy_connections::impala_copy_to | Unable to determine appropriate table_name.")
+    gtx_error("tidy_connections::impala_copy_to | \\
+              Unable to determine appropriate table_name.")
     stop();
   }
 
@@ -248,9 +254,13 @@ impala_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
         temporary = FALSE)
   }
 
-  # If we have a big table, need to more complicated copy
+  # If we have a big table, need a more complicated copy
   else {
-    input_tbl <- big_copy_to(df = df, dest = impala, database = database, table_name = table_name)
+    input_tbl <- 
+      big_copy_to(df         = df, 
+                  dest       = impala, 
+                  database   = database, 
+                  table_name = table_name)
   }
   
   # Attach "tmp" status to delete
@@ -296,8 +306,8 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   # Data 
   if(any(stringr::str_detect(names(df), "chrom")) & chrom_as_string == TRUE){
     if(typeof(df$chrom) != "character"){
-      futile.logger::flog.warn(glue::glue("column \"chrom\" detected, forcing it to be type character. 
-                     Set chrom_as_string to FALSE if you don't want this."))
+      gtx_warn("column \"chrom\" detected, forcing it to be type character. \\
+               Set chrom_as_string to FALSE if you don't want this.")
       df <-
         df %>% 
         dplyr::mutate(chrom = as.character(chrom))
@@ -306,7 +316,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   # Determine user name for tables
   user_name <- whoami()
   if(is.null(user_name)){ 
-    futile.logger::flog.error("Unable to determine user name which is needed for copying data to RDIP.") 
+    gtx_error("Unable to determine user name which is needed for copying data to RDIP.") 
     stop();
   }
   
@@ -348,7 +358,8 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   gtx_debug("tidy_connections::big_copy_to | remove tmp file on edge node")
   exec <- safely_system(glue::glue("rm ~/tmp/{table_name}.csv"))
   if(!is.null(exec$error)){
-    gtx_error("tidy_connections::big_copy_to | Unable to remove tmp data in ~/tmp because: {exec$error}")
+    gtx_error("tidy_connections::big_copy_to | \\
+              Unable to remove tmp data in ~/tmp because: {exec$error}")
     stop();
   }
   # Data is now ready to be read into a table
@@ -372,7 +383,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
       dplyr::pull(col_names) %>% 
       glue::glue_collapse(., sep = ",")
     
-    futile.logger::flog.error(glue::glue("Could not match {bad_cols}"))
+    gtx_error("Could not match {bad_cols}")
     stop()
   }
 
@@ -381,7 +392,9 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   sql_statement <- 
     glue::glue(
       glue::glue("CREATE TABLE {`database`}.{`table_name`} ("), 
-      glue_collapse(glue::glue("`{col_info$col_names}` {col_info$sql_class}"), sep = ", ", last = ""),
+      glue_collapse(glue::glue("`{col_info$col_names}` {col_info$sql_class}"), 
+                    sep = ", ", 
+                    last = ""),
       glue::glue(") \\
            ROW FORMAT DELIMITED FIELDS TERMINATED BY \",\" \\
            STORED AS TEXTFILE \\
@@ -390,7 +403,8 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
-    gtx_error("tidy_connections::big_copy_to | unable to create table: {database}.{table_name} because:\n{exec$error}")
+    gtx_error("tidy_connections::big_copy_to | \\
+              unable to create table: {database}.{table_name} because:\n{exec$error}")
     stop()
   }
 
@@ -402,7 +416,8 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("tidy_connections::big_copy_to | Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}"))
+    gtx_error("tidy_connections::big_copy_to | \\
+              Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}")
     stop()
   }
 
@@ -443,21 +458,21 @@ close_int_conn <- function(conn){
   
   if(!is.null(internal_conn_atrr)){
     if(internal_conn_atrr ==  TRUE){
-      futile.logger::flog.debug("tidy_connections::close_int_conn | internal connection detected.")
+      gtx_debug("tidy_connections::close_int_conn | internal connection detected.")
       # Check for impala connection
       if(any(stringr::str_detect(class(conn), "src_impala"))){
         implyr::dbDisconnect(conn)
-        futile.logger::flog.debug("tidy_connections::close_int_conn | impala connection closed.")
+        gtx_debug("tidy_connections::close_int_conn | impala connection closed.")
       }
       # Check for sparklyr connection
       else if(any(stringr::str_detect(class(sc), "spark_connection"))){
         sparklyr::spark_disconnect(conn)
-        futile.logger::flog.debug("tidy_connections::close_int_conn | spark connection closed.")
+        gtx_debug("tidy_connections::close_int_conn | spark connection closed.")
       }
     }
   }
   else {
-    futile.logger::flog.debug("tidy_connections::close_int_conn | internal connection not detected.")
+    gtx_debug("tidy_connections::close_int_conn | internal connection not detected.")
   }
 }
 
@@ -476,8 +491,8 @@ whoami <- function(){
     names %>% 
     dplyr::mutate(getenv = purrr::map_chr(env, ~Sys.getenv(., unset = NA)))
   
-  futile.logger::flog.debug("whoami | Determined System environmental variables to be:")
-  futile.logger::flog.debug(glue::glue("whoami | {names}"))
+  gtx_debug("whoami | Determined System environmental variables to be:")
+  gtx_debug("whoami | {names}")
   
   ret <- 
     names %>% 
@@ -486,10 +501,10 @@ whoami <- function(){
     dplyr::pull(getenv) %>% 
     stringr::str_to_lower()
   
-  futile.logger::flog.debug(glue::glue("whoami | Determined username to be: {ret}"))
+  gtx_debug("whoami | Determined username to be: {ret}")
   
   if(!stringr::str_detect(ret, "\\w+")){
-    futile.logger::flog.error("whoami | username appears empty. Email kbs14104@gsk.com to report the bug.")
+    gtx_error("whoami | username appears empty. Email kbs14104@gsk.com to report the bug.")
   }
   
   return(ret)
@@ -510,15 +525,16 @@ whoami <- function(){
 #' @import glue
 #' @import dplyr
 #' @import stringr
-drop_impala_copy <- function(.table = NULL){
+drop_impala_copy <- function(.table = NULL, dest = getOption("gtx.impala", NULL)){
   if(is.null(.table)){
-    futile.logger::flog.error("tidy_connections::drop_tmp_impala_tbl | no .table specified.")
+    gtx_error("tidy_connections::drop_tmp_impala_tbl | no .table specified.")
     return();
   } 
   
   table_path <- purrr::pluck(.table, "ops") %>% purrr::pluck("x", 1)
   if(!stringr::str_detect(table_path, stringr::regex("\\w+\\.\\w+"))){
-    futile.logger::flog.error(glue::glue("tidy_connections::drop_tmp_impala_tbl | {table_path} path doesn't match database.table convention."))
+    gtx_error("tidy_connections::drop_tmp_impala_tbl | \\
+               {table_path} path doesn't match database.table convention.")
   }
   
   # Remove the table IF the table is an impala table
@@ -530,24 +546,29 @@ drop_impala_copy <- function(.table = NULL){
         safely_dbExecute <- purrr::safely(implyr::dbExecute)
         sql_statement <- glue::glue("DROP TABLE IF EXISTS {`table_path`} PURGE")
         
-        exec <- safely_dbExecute(impala, sql_statement)
+        exec <- safely_dbExecute(dest, sql_statement)
         if (!is.null(exec$error)){
-          futile.logger::flog.error(glue::glue("tidy_connections::drop_tmp_impala_tbl | unable to remove {`table_path`} because:\n{exec$error}"))
+          gtx_error("tidy_connections::drop_tmp_impala_tbl | \\
+                     unable to remove {`table_path`} because:\n{exec$error}")
           stop();
         }
         else {
-          futile.logger::flog.debug(glue::glue("tidy_connections::drop_tmp_impala_tbl | Successfully removed {`table_path`}"))
+          gtx_debug("tidy_connections::drop_tmp_impala_tbl | \\
+                    Successfully removed {`table_path`}")
         }
       }
       else{
-        futile.logger::flog.warn("tidy_connections::drop_tmp_impala_tbl | This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
+        gtx_warn("tidy_connections::drop_tmp_impala_tbl | \\
+                 This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
       }
     }
     else{
-      futile.logger::flog.warn("tidy_connections::drop_tmp_impala_tbl | This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
+      gtx_warn("tidy_connections::drop_tmp_impala_tbl | \\
+               This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
     }
   }
   else{
-    futile.logger::flog.warn("tidy_connections::drop_tmp_impala_tbl | This is not an impala tbl. Skipping.")
+    gtx_warn("tidy_connections::drop_tmp_impala_tbl | \\
+             This is not an impala tbl. Skipping.")
   }
 }

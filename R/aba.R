@@ -54,75 +54,94 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                       db     = gtx::config_db(),
                       impala = getOption("gtx.impala", NULL)){
   # ---
-  futile.logger::flog.debug("aba.query | validating input.")
+  gtx_debug("aba.query | validating input.")
   if(missing(hgncid) & 
      missing(ensemblid) & 
      missing(rsid) & 
      (missing(chrom) & ( (missing(pos_start) & missing(pos_end)) | missing(pos) ) ) & 
      missing(analysis_ids)){
-    futile.logger::flog.error("aba.query | must specify either: analysis_ids, hgncid, ensemblid, or rsid. Skipping.")
+    gtx_error("aba.query | must specify either: analysis_ids, hgncid, \\
+              ensemblid, or rsid. Skipping.")
     return()
   }
   # ---
-  futile.logger::flog.debug("aba.query | validating impala connection.")
+  gtx_debug("aba.query | validating impala connection.")
   impala <- validate_impala(impala = impala)
   
   # ---
-  futile.logger::flog.debug("aba.query | establishing connection to database tables.")
-  aba_tbl      <- dplyr::tbl(impala, glue::glue("{db}.coloc_results"))
+  gtx_debug("aba.query | establishing connection to database tables.")
+  # Build SQL statement to subset coloc results based on TTAM, GSK, neale data.
+  aid_filter <- 
+    dplyr::tibble(vars       = c("neale", "gsk", "ttam"), 
+                  filter_val = c(neale_only, gsk_only, ttam_only), 
+                  regex_str  = c('analysis2 ilike "neale%"', 
+                                 'analysis2 ilike "%500kv3%"', 
+                                 'analysis2 ilike "ttam%"'))
+  
+  sql_query <- glue('SELECT * FROM {db}.coloc_results')
+  if(any(aid_filter$filter_val == TRUE)){
+    regex_for_aids <- 
+      glue::glue_collapse(aid_filter %>% 
+                      dplyr::filter(filter_val == TRUE) %>% 
+                      dplyr::pull(regex_str), 
+                    sep = " OR ")
+    sql_query <- glue('{sql_query} WHERE {regex_for_aids}')
+  }
+    
+  aba_tbl      <- dplyr::tbl(impala, dplyr::sql(sql_query))
   gwas_th_tbl  <- dplyr::tbl(impala, glue::glue("{db}.gwas_results_top_hits"))
   genes_tbl    <- dplyr::tbl(impala, glue::glue("{db}.genes"))
   analyses_tbl <- dplyr::tbl(impala, glue::glue("{db}.analyses"))
   sites_tbl    <- dplyr::tbl(impala, glue::glue("{db}.sites_ukb_500kv3"))
   
   # ---
-  futile.logger::flog.debug("aba.query | set input")
+  gtx_debug("aba.query | set input")
   if(!missing(analysis_ids)){
-    futile.logger::flog.debug("aba.query | processing analysis_ids input.")
+    gtx_debug("aba.query | processing analysis_ids input.")
     input <- dplyr::tibble(input = analysis_ids, analysis = analysis_ids)
   }
   else if(!missing(hgncid)){
-    futile.logger::flog.debug("aba.query | processing hgncid input.")
+    gtx_debug("aba.query | processing hgncid input.")
     input <- dplyr::tibble(input = hgncid, hgncid = hgncid)
   }
   else if(!missing(ensemblid)){
-    futile.logger::flog.debug("aba.query | processing ensemblid input.")
+    gtx_debug("aba.query | processing ensemblid input.")
     input <- dplyr::tibble(input = ensemblid, ensemblid = ensemblid)
   }
   else if(!missing(rsid)){
-    futile.logger::flog.debug("aba.query | processing rsid input.")
+    gtx_debug("aba.query | processing rsid input.")
     input <- 
       dplyr::tibble(input = rsid) %>% 
       dplyr::mutate(rs = stringr::str_match(input, "\\d+") %>% as.numeric())
   }
   else if(!missing(chrom) & !missing(pos)){
-    futile.logger::flog.debug("aba.query | processing chrom & pos input.")
+    gtx_debug("aba.query | processing chrom & pos input.")
     input <- 
       dplyr::tibble(chrom = chrom, in_start = pos - surround, in_end = pos + surround) %>% 
       dplyr::mutate(input = glue::glue("chr{chrom}:{in_start}-{in_end}") %>% as.character()) # have to use as.character for copy_to()
   }
   else if(!missing(chrom) & !missing(pos_start) & !missing(pos_end)){
-    futile.logger::flog.debug("aba.query | processing chrom & pos input.")
+    gtx_debug("aba.query | processing chrom & pos input.")
     input <- 
       dplyr::tibble(chrom = chrom, in_start = pos_start, in_end = pos_end) %>% 
       dplyr::mutate(input = glue::glue("chr{chrom}:{in_start}-{in_end}") %>% as.character()) 
   }
   else {
-    futile.logger::flog.error("aba.query | unable to properly handle input.")
+    gtx_error("aba.query | unable to properly handle input.")
     return()
   }
   
   # ---
-  futile.logger::flog.debug("aba.query | copy input to RDIP")
-  input_tbl <- impala_copy_to(df = input, dest = impala)
+  gtx_debug("aba.query | copy input to RDIP")
+  input_raw_tbl <- impala_copy_to(df = input, dest = impala)
   
   # ---
-  futile.logger::flog.debug("aba.query | harmonizing input")
+  gtx_debug("aba.query | harmonizing input")
   if(!missing(hgncid)){
-    futile.logger::flog.debug("aba.query | harmonizing hgncid input.")
-    input_tbl <- 
+    gtx_debug("aba.query | harmonizing hgncid input.")
+    input_proc_tbl <- 
       dplyr::inner_join(
-        input_tbl,
+        input_raw_tbl,
         genes_tbl %>% 
           dplyr::select(hgncid, ensemblid, chrom, in_pos = "pos_start"),
         by = "hgncid") %>% 
@@ -130,10 +149,10 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       dplyr::select(-in_pos, -hgncid)
   }
   else if(!missing(ensemblid)){
-    futile.logger::flog.debug("aba.query | harmonizing ensemblid input.")
-    input_tbl <- 
+    gtx_debug("aba.query | harmonizing ensemblid input.")
+    input_proc_tbl <- 
       dplyr::inner_join(
-        input_tbl,
+        input_raw_tbl,
         genes_tbl %>% 
           dplyr::select(ensemblid, chrom, in_pos = "pos_start"),
         by = "ensemblid") %>% 
@@ -141,10 +160,10 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       dplyr::select(-in_pos)
   }
   else if(!missing(rsid)){
-    futile.logger::flog.debug("aba.query | harmonizing rsid input.")
-    input_tbl <- 
+    gtx_debug("aba.query | harmonizing rsid input.")
+    input_proc_tbl <- 
       dplyr::inner_join(
-        input_tbl,
+        input_raw_tbl,
         sites_tbl,
         by = "rs") %>% 
       dplyr::select(input, chrom, in_pos = "pos") %>% 
@@ -152,27 +171,35 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       dplyr::select(-in_pos)
   }
   else if(!missing(analysis_ids)){
-    futile.logger::flog.debug("aba.query | harmonizing rsid input.")
-    input_tbl <- 
+    gtx_debug("aba.query | harmonizing rsid input.")
+    input_proc_tmp <- 
       dplyr::inner_join(
-        input_tbl,
+        input_raw_tbl,
         gwas_th_tbl,
         by = ("analysis")) %>% 
       dplyr::select(analysis, chrom, pos_index) %>% 
       dplyr::collect()
     
-    input_tbl <- 
-      input_tbl %>% 
+    if(nrow(input_proc_tmp) >= 1){
+      drop_impala_copy(.table = input_raw_tbl, dest = impala)
+    } else {
+      gtx_error("aba.query | Unable to process top hits for analysis_ids.")
+      stop()
+    }
+    
+    input_proc_tmp <- 
+      input_proc_tmp %>% 
       dplyr::rename(in_pos = "pos_index") %>% 
       dplyr::mutate(in_start = in_pos - surround, in_end = in_pos + surround) %>% 
       dplyr::mutate(input = glue::glue("{analysis}__chr{chrom}:{in_pos}") %>% as.character()) %>% 
       dplyr::select(input, chrom, in_start, in_end)
     
-    input_tbl <- impala_copy_to(df = input_tbl, dest = impala)
+    input_raw_tbl  <- impala_copy_to(df = input_proc_tmp, dest = impala)
+    input_proc_tbl <- input_raw_tbl;
   }
   
   # ---
-  futile.logger::flog.debug("aba.query | prelim filter colocs")
+  gtx_debug("aba.query | prelim filter colocs")
   colocs_tbl <- 
     aba_tbl %>% 
     dplyr::filter(p12      >= p12_ge & 
@@ -190,7 +217,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   }
   
   # ---
-  futile.logger::flog.debug("aba.query | append GWAS top hits & gene info")
+  gtx_debug("aba.query | append GWAS top hits & gene info")
   # Join GWAS top hits for each GWAS trait
   colocs_th_tbl <- 
     dplyr::inner_join(
@@ -220,19 +247,18 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   dplyr::filter(ncase >= ncase_ge | ncohort >= ncohort_ge)
   
   # ---
-  futile.logger::flog.debug("aba.query | filter colocs based on input")
+  gtx_debug("aba.query | filter colocs based on input")
   # If we gave a gene/region input filter based on that
   colocs_final_tbl <- 
     dplyr::inner_join(
-      input_tbl,
+      input_proc_tbl,
       colocs_th_tbl,
       by = "chrom") %>% 
     # Make sure the TH are in the desired input window
     dplyr::filter((in_start < th_start) & (in_end > th_end)) 
-    
   
   # ---
-  futile.logger::flog.debug("aba.query | collect results")
+  gtx_debug("aba.query | collect results")
   colocs_final <- 
     colocs_final_tbl %>% 
     dplyr::collect() %>% 
@@ -241,34 +267,19 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     dplyr::mutate(genes_per_locus = dplyr::n_distinct(entity)) %>% 
     dplyr::ungroup()
   
-  futile.logger::flog.debug("aba.query | verify collect results returned")
+  gtx_debug("aba.query | verify collect results returned")
   if(nrow(colocs_final) == 0){
-    futile.logger::flog.error("no results returned for the input.")
+    gtx_error("no results returned for the input.")
     return()
   }
   
-  if(isTRUE(neale_only)){
-    colocs_final <-
-      colocs_final %>% 
-      dplyr::filter(stringr::str_detect(analysis2, "neale"))
-  }
-  else if(isTRUE(gsk_only)){
-    colocs_final <-
-      colocs_final %>% 
-      dplyr::filter(stringr::str_detect(analysis2, "GSK"))
-  }
-  else if(isTRUE(ttam_only)){
-    colocs_final <-
-      colocs_final %>% 
-      dplyr::filter(stringr::str_detect(analysis2, "ttam_"))
-  }
-  
   # ---
-  futile.logger::flog.debug("aba.query | clean up conn")
+  gtx_debug("aba.query | clean up conn")
+  drop_impala_copy(.table = input_raw_tbl,  dest = impala)
   close_int_conn(impala)
   
   # ---
-  futile.logger::flog.debug("aba.query | complete")
+  gtx_debug("aba.query | complete")
   return(colocs_final)
 }
 
@@ -292,15 +303,15 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
 aba.flatten <- function(.data){
   input = .data
   # ---
-  futile.logger::flog.debug("aba.flatten | verify input")
+  gtx_debug("aba.flatten | verify input")
   mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
   if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
-    futile.logger::flog.error("aba.flatten | missing input column.")
+    gtx_error("aba.flatten | missing input column.")
     return()
   }
   
   # ---
-  futile.logger::flog.debug("aba.flatten | flatten data")
+  gtx_debug("aba.flatten | flatten data")
   input_filtered <-
     input %>%
     dplyr::group_by(input, rsid) %>% 
@@ -322,7 +333,7 @@ aba.flatten <- function(.data){
     dplyr::distinct() %>% 
     dplyr::arrange(gene_n_tissue, gene_n_top_hits, loci_max_n_genes, loci_min_n_genes)
   
-  futile.logger::flog.debug("aba.flatten | return data")
+  gtx_debug("aba.flatten | return data")
   return(input_filtered)
 }
 
@@ -347,30 +358,30 @@ aba.flatten <- function(.data){
 aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impala", NULL)){
   input = .data
   # ---
-  futile.logger::flog.debug("aba.fill | verify input")
+  gtx_debug("aba.fill | verify input")
   mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
   if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
-    futile.logger::flog.error("aba.fill | missing input column.")
+    gtx_error("aba.fill | missing input column.")
     return()
   }
   # ---
-  futile.logger::flog.debug("aba.fill | verify impala")
+  gtx_debug("aba.fill | verify impala")
   impala <- validate_impala(impala = impala)
   # ---
-  futile.logger::flog.debug("aba.fill | establishing connection to db.tables")
+  gtx_debug("aba.fill | establishing connection to db.tables")
   aba_tbl <- dplyr::tbl(impala, glue::glue("{db}.coloc_results"))
   # ---
-  futile.logger::flog.debug("aba.fill | expand matrix")
+  gtx_debug("aba.fill | expand matrix")
   data2pull <- 
     input %>% 
     dplyr::group_by(input) %>% 
     tidyr::expand(analysis2, analysis1, entity) %>% 
     dplyr::ungroup()
   # ---
-  futile.logger::flog.debug("aba.fill | copy input to RDIP for join")
+  gtx_debug("aba.fill | copy input to RDIP for join")
   data2pull_tbl <- impala_copy_to(df = data2pull, dest = impala)
   # ---
-  futile.logger::flog.debug("aba.fill | query expanded matrix from aba results")
+  gtx_debug("aba.fill | query expanded matrix from aba results")
   expanded_dat <- 
     dplyr::inner_join(
       aba_tbl,
@@ -394,13 +405,13 @@ aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impal
     dplyr::filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) 
   
   # ---
-  futile.logger::flog.debug("aba.fill | clean up conn")
+  gtx_debug("aba.fill | clean up conn")
+  drop_impala_copy(.table = data2pull_tbl, dest = impala)
   close_int_conn(impala)
   
   # ---
-  futile.logger::flog.debug("aba.fill | complete")
+  gtx_debug("aba.fill | complete")
   return(expanded_dat)
-  
 }
 
 #' aba.plot() - Plot aba results
@@ -445,28 +456,29 @@ aba.plot <- function(.data, ...){
   ## Pull out plot function into internal fxn
   ## add option to return data nested. 
   # Verify input
-  futile.logger::flog.debug("aba.plot | validating input")
+  gtx_debug("aba.plot | validating input")
   input <- .data
   required_cols <- c("analysis1", "analysis2", "description", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   if(!all(required_cols %in% (names(input)))){
-    futile.logger::flog.error(paste0("aba.plot | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
+    gtx_error('aba.plot | input is missing required cols. \\
+              Required cols include: {paste(required_cols, collapse = ", ")}')
     stop();
   }
   
   # If we only have 1 "input" process as singular
   if(all((names(input) %in% "input")==FALSE)){
-    futile.logger::flog.debug("aba.plot | process single input")
+    gtx_debug("aba.plot | process single input")
     ret = aba.int_coloc_plot(.data = input, ...) 
   }
   else {
-    futile.logger::flog.debug("aba.plot | process multiple inputs")
+    gtx_debug("aba.plot | process multiple inputs")
     ret <- 
       input %>% 
       dplyr::group_by(input) %>% 
       tidyr::nest() %>% 
       dplyr::mutate(figures = purrr::map(data, aba.int_coloc_plot, ...))
   }
-  futile.logger::flog.debug("aba.plot | complete")
+  gtx_debug("aba.plot | complete")
   return(ret)
 }
 
@@ -480,24 +492,25 @@ aba.plot <- function(.data, ...){
 #' @return ggplot2 object for viz and export.
 #' @import dplyr
 aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL){
-  futile.logger::flog.debug("aba.plot | validating input")
+  gtx_debug("aba.plot | validating input")
   input <- .data
   required_cols <- c("analysis1", "analysis2", "description", "hgncid", 
                      "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   
   if(!all(required_cols %in% (names(input)))){
-    futile.logger::flog.error(paste0("aba.plot | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
+    gtx_error('aba.plot | input is missing required cols. \\
+              Required cols include: {paste(required_cols, collapse = ", ")}')
     stop();
   }
   if(!is.numeric(max_dot_size)){
-    futile.logger::flog.warn("aba.plot | max_dot_size parameter is not numeric.")
+    gtx_warn("aba.plot | max_dot_size parameter is not numeric.")
   }
   if(!is.null(title) & !is.character(title)){
-    futile.logger::flog.warn("aba.plot | title is neither NULL or character string.")
+    gtx_warn("aba.plot | title is neither NULL or character string.")
   }
   # ---
   # Clean data (e.g. tissue & description), add simple direction of effect
-  futile.logger::flog.debug("aba.plot | cleaing data for plotting")
+  gtx_debug("aba.plot | cleaing data for plotting")
   fig_dat <- 
     input %>% 
     # clean tissue names
@@ -521,14 +534,14 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
                                  p12 <  !! p12_ge & is.numeric(alpha21) ~ "Not Sig.")) %>% 
     dplyr::mutate(rs_pos = glue::glue("{rsid}\n{chrom}:{th_pos}") %>% as.character())
   
-  futile.logger::flog.debug("aba.plot | ordering results by chromosome - position coordinates")
+  gtx_debug("aba.plot | ordering results by chromosome - position coordinates")
   # Order genes (cols) and rows (rs ids) by position
   fig_dat <- within(fig_dat, {
     hgncid <- reorder(hgncid, gene_start)
     rs_pos <- reorder(rs_pos, th_pos) 
   })
 
-  futile.logger::flog.debug("aba.plot | plotting data")
+  gtx_debug("aba.plot | plotting data")
   fig <-
     fig_dat %>% 
     ggplot2::ggplot(ggplot2::aes(x = analysis1, y = description_wrap)) + 
@@ -564,14 +577,22 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
       dplyr::distinct(tier1_zoom, tier2_zoom)
     
     if(nrow(t2_title) > 1){
-      futile.logger::flog.error("aba.plot | tier1/2 have too many variables.")
+      gtx_error("aba.plot | tier1/2 have too many variables.")
       stop()
     }
     if(pull(t2_title, tier1_zoom) == pull(t2_title, tier2_zoom)){
-      fig <- fig + ggplot2::ggtitle(glue::glue("Tier 2 zoom on {glue::glue_collapse(t2_title$tier1_zoom, sep = ' & ')}"))
+      fig <- 
+        fig + 
+        ggplot2::ggtitle(glue::glue("Tier 2 zoom on \\
+                                    {glue::glue_collapse(t2_title$tier1_zoom, sep = ' & ')}"))
     }
     else {
-      fig <- fig + ggplot2::ggtitle(glue::glue("Tier 1 zoom on {glue::glue_collapse(t2_title$tier1_zoom, sep = ' & ')}, and Tier 2 zoom on {glue::glue_collapse(t2_title$tier2_zoom, sep = ' & ')}"))  
+      fig <- 
+        fig + 
+        ggplot2::ggtitle(glue::glue("Tier 1 zoom on \\
+                                    {glue::glue_collapse(t2_title$tier1_zoom, sep = ' & ')}, \\
+                                    and Tier 2 zoom on \\
+                                    {glue::glue_collapse(t2_title$tier2_zoom, sep = ' & ')}"))  
     }
     
   }
@@ -582,7 +603,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
       dplyr::distinct(tier1_zoom)
     
     if(nrow(t1_title) > 1){
-      futile.logger::flog.error("aba.plot | tier1 have too many variables.")
+      gtx_error("aba.plot | tier1 have too many variables.")
       stop()
     }
     fig <- fig + ggplot2::ggtitle(glue::glue("Tier 1 zoom on {t1_title}"))
@@ -597,7 +618,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
     fig <- fig + ggplot2::theme(strip.text.x = ggplot2::element_text(angle = 90, size = 12))
   }
   # ---
-  futile.logger::flog.debug("aba.plot | return plot")
+  gtx_debug("aba.plot | return plot")
 
   return(fig)
 }
@@ -620,72 +641,74 @@ aba.wrapper <-
            chrom, pos, pos_start, pos_end, 
            impala = getOption("gtx.impala", NULL), ...){
   # ---
-  futile.logger::flog.debug("aba.wrapper | validating input.")
+  gtx_debug("aba.wrapper | validating input.")
   if(missing(hgncid) & 
      missing(ensemblid) & 
      missing(rsid) & 
      (missing(chrom) & missing(pos_start) & missing(pos_end)) & 
      missing(analysis_ids)){
-    futile.logger::flog.error("aba.wrapper | must specify either: analysis_ids, hgncid, ensemblid, or rsid. Skipping.")
+    gtx_error("aba.wrapper | must specify either: analysis_ids, hgncid, \\
+              ensemblid, or rsid. Skipping.")
     return()
   }
   # ---
-  futile.logger::flog.debug("aba.wrapper | validating impala connection.")
+  gtx_debug("aba.wrapper | validating impala connection.")
   close_conn_later <- dplyr::case_when(is.null(impala) ~ TRUE, !is.null(impala) ~ FALSE)
   conn <- validate_impala(impala = impala)
   attr(conn, "internal_conn") <- FALSE
   
   # ---
-  futile.logger::flog.debug("aba.wrapper | aba.query")
+  gtx_debug("aba.wrapper | aba.query")
   if(!missing(analysis_ids)){
-    futile.logger::flog.debug("aba.wrapper | processing analysis_ids input.")
+    gtx_debug("aba.wrapper | processing analysis_ids input.")
     colocs <- aba.query(analysis_ids = analysis_ids, impala = conn, ...)
   }
   else if(!missing(hgncid)){
-    futile.logger::flog.debug("aba.wrapper | processing hgncid input.")
+    gtx_debug("aba.wrapper | processing hgncid input.")
     colocs <- aba.query(hgncid = hgncid, impala = conn, ...)
   }
   else if(!missing(ensemblid)){
-    futile.logger::flog.debug("aba.wrapper | processing ensemblid input.")
+    gtx_debug("aba.wrapper | processing ensemblid input.")
     colocs <- aba.query(ensemblid = ensemblid, impala = conn, ...)
   }
   else if(!missing(rsid)){
-    futile.logger::flog.debug("aba.wrapper | processing rsid input.")
+    gtx_debug("aba.wrapper | processing rsid input.")
     colocs <- aba.query(rsid = rsid, impala = conn, ...)
   }
   else if(!missing(chrom) & !missing(pos)){
-    futile.logger::flog.debug("aba.wrapper | processing chrom & pos input.")
+    gtx_debug("aba.wrapper | processing chrom & pos input.")
     colocs <- aba.query(chrom     = chrom, 
                         pos       = pos,
                         impala    = conn, ...)
   }
   else if(!missing(chrom) & (!missing(pos_start) | !missing(pos_end))){
-    futile.logger::flog.debug("aba.wrapper | processing chrom & pos input.")
+    gtx_debug("aba.wrapper | processing chrom & pos input.")
     colocs <- aba.query(chrom     = chrom, 
                         pos_start = pos_start, 
                         pos_end   = pos_end, 
                         impala    = conn, ...) 
   }
   else {
-    futile.logger::flog.error("aba.wrapper | unable to properly handle input.")
+    gtx_error("aba.wrapper | unable to properly handle input.")
     return()
   }
   # ---
-  futile.logger::flog.debug("aba.wrapper | aba.fill")
+  gtx_debug("aba.wrapper | aba.fill")
   colocs <- aba.fill(colocs, impala = conn)
   
   # ---
-  futile.logger::flog.debug("aba.wrapper | aba.plots")
+  gtx_debug("aba.wrapper | aba.plots")
   colocs <- aba.plot(colocs)
   
   # ---
-  futile.logger::flog.debug("aba.wrapper | clean up conn")
+  gtx_debug("aba.wrapper | clean up conn")
   if(close_conn_later == TRUE){
-    implyr::dbDisconnect(conn)
+    attr(conn, "internal_conn") <- TRUE
+    close_int_conn(conn)
   }
   
   # ---
-  futile.logger::flog.debug("aba.wrapper | complete")
+  gtx_debug("aba.wrapper | complete")
   return(colocs)
   }
 
@@ -713,29 +736,32 @@ aba.wrapper <-
 #' @import ggplot2
 aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
   # ---
-  futile.logger::flog.debug("aba.save | validate input")
-  if(missing(.data)){futile.logger::flog.error("aba.save | missing input .data")}
+  gtx_debug("aba.save | validate input")
+  if(missing(.data)){gtx_error("aba.save | missing input .data")}
   
   input = .data
   mandatory_cols <- c("input", "figures")
   if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
-    futile.logger::flog.error("aba.save | missing input column.")
+    gtx_error("aba.save | missing input column.")
     return()
   }
   # ---
-  futile.logger::flog.debug("aba.save | validate path")
+  gtx_debug("aba.save | validate path")
   safe_system <- purrr::safely(base::system)
   
   exec <- safe_system(glue::glue("mkdir -p {path}"))
   if (!is.null(exec$error)){
-    futile.logger::flog.error(glue::glue("aba.save | unable to create/validate {path}"))
+    gtx_error("aba.save | unable to create/validate {path}")
     stop()
   }
   
   # ---
-  futile.logger::flog.debug("aba.save | saving figures . . .")
-  purrr::walk2(glue::glue("{path}/{input$input}_{suffix}.pdf"), input$figures, ggsave, ...)
-  futile.logger::flog.debug("aba.save | saving figures complete")
+  gtx_debug("aba.save | saving figures . . .")
+  purrr::walk2(glue::glue("{path}/{input$input}_{suffix}.pdf"), 
+               input$figures, 
+               ggsave, 
+               ...)
+  gtx_debug("aba.save | saving figures complete")
 }
 
 #' aba.zoom - A function to help zoom in on specific data from aba.
@@ -773,54 +799,55 @@ aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
 aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
   input <- .data
   # ---
-  futile.logger::flog.debug("aba.zoom | validating args.")
+  gtx_debug("aba.zoom | validating args.")
   if(missing(hgncid) & missing(entity) & missing(analysis2)){
-    futile.logger::flog.error("aba.zoom | must specify either:hgncid, entity, analysis2.")
+    gtx_error("aba.zoom | must specify either:hgncid, entity, analysis2.")
     stop()
   }
   # ---
-  futile.logger::flog.debug("aba.zoom | validating input.")
+  gtx_debug("aba.zoom | validating input.")
   required_cols <- c("analysis1", "analysis2", "hgncid", "entity", "p12")
   if(!all(required_cols %in% (names(input)))){
-    futile.logger::flog.error(paste0("aba.zoom | input is missing required cols. Required cols include:", paste(required_cols, collapse = ", ")))
+    gtx_error('aba.zoom | input is missing required cols. \\
+              Required cols include: {paste(required_cols, collapse = ", ")}')
     stop();
   }
   if(!missing(hgncid)){
     if(nrow(filter(.data, hgncid == !!hgncid)) == 0){
-      futile.logger::flog.error(glue::glue("aba.zoom | input data does not contain the input hgncid: {hgncid}"))
+      gtx_error("aba.zoom | input data does not contain the input hgncid: {hgncid}")
       stop()
     }
   }
   else if(!missing(entity)){
     if(nrow(filter(.data, entity == !!entity)) == 0){
-      futile.logger::flog.error(glue::glue("aba.zoom | input data does not contain the input ensemblid: {ensemblid}"))
+      gtx_error("aba.zoom | input data does not contain the input ensemblid: {ensemblid}")
       stop()
     }
   }
   else if(!missing(analysis2)){
     if(nrow(filter(.data, analysis2 == !!analysis2)) == 0){
-      futile.logger::flog.error(glue::glue("aba.zoom | input data does not contain the input analysis2: {analysis2}"))
+      gtx_error("aba.zoom | input data does not contain the input analysis2: {analysis2}")
       stop()
     }
   }
   # ---
-  futile.logger::flog.debug("aba.zoom | Determining how to process data.")
+  gtx_debug("aba.zoom | Determining how to process data.")
   if("zoom2" %in% names(input)){
-    futile.logger::flog.error("aba.zoom | previous zoom2 found, cannot further process.")
+    gtx_error("aba.zoom | previous zoom2 found, cannot further process.")
     stop()
   }
   else if("zoom1" %in% names(input)){
-    futile.logger::flog.debug("aba.zoom | previous zoom1 found, tier 2 zoom processing")
+    gtx_debug("aba.zoom | previous zoom1 found, tier 2 zoom processing")
     ret <- aba.int_zoom2(input, hgncid = hgncid, entity = entity, 
                          analysis2 = analysis2, p12_ge = p12_ge)
   } 
   else {
-    futile.logger::flog.debug("aba.zoom | no previous zoom found, tier 1 zoom processing")
+    gtx_debug("aba.zoom | no previous zoom found, tier 1 zoom processing")
     ret <- aba.int_zoom1(input, hgncid = hgncid, entity = entity, 
                          analysis2 = analysis2, p12_ge = p12_ge)
   }
   # ---
-  futile.logger::flog.debug("aba.zoom | processing complete.")
+  gtx_debug("aba.zoom | processing complete.")
   return(ret)
 }
 
@@ -831,7 +858,7 @@ aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
 aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
   # ---
   if(!missing(hgncid)){
-    futile.logger::flog.debug(glue::glue("aba.zoom1 | Filtering using input hgncid: {hgncid}."))
+    gtx_debug("aba.zoom1 | Filtering using input hgncid: {hgncid}.")
     ret <- 
       .data %>% 
       dplyr::mutate(tier1_zoom = !!hgncid) %>% 
@@ -840,7 +867,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query))
   }
   else if(!missing(entity)){
-    futile.logger::flog.debug(glue::glue("aba.zoom1 | Filtering using input entity: {entity}."))
+    gtx_debug("aba.zoom1 | Filtering using input entity: {entity}.")
     ret <- 
       .data %>% 
       dplyr::mutate(tier1_zoom = !!entity) %>% 
@@ -849,7 +876,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query))
   }
   else if(!missing(analysis2)){
-    futile.logger::flog.debug(glue::glue("aba.zoom1 | Filtering using input analysis2: {analysis2}."))
+    gtx_debug("aba.zoom1 | Filtering using input analysis2: {analysis2}.")
     ret <- 
       .data %>% 
       dplyr::mutate(tier1_zoom = !!analysis2) %>% 
@@ -882,7 +909,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
 aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
   # ---
   if(!missing(hgncid)){
-    futile.logger::flog.debug(glue::glue("aba.zoom2 | Filtering using input hgncid: {hgncid}."))
+    gtx_debug("aba.zoom2 | Filtering using input hgncid: {hgncid}.")
     ret <- 
       .data %>% 
       dplyr::mutate(tier2_zoom = !!hgncid) %>% 
@@ -892,7 +919,7 @@ aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
       
   }
   else if(!missing(entity)){
-    futile.logger::flog.debug(glue::glue("aba.zoom2 | Filtering using input entity: {entity}."))
+    gtx_debug("aba.zoom2 | Filtering using input entity: {entity}.")
     ret <- 
       .data %>% 
       dplyr::mutate(tier2_zoom = !!entity) %>% 
@@ -901,7 +928,7 @@ aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(zoom2_pos_gwas = any(zoom2_pos_query))
   }
   else if(!missing(analysis2)){
-    futile.logger::flog.debug(glue::glue("aba.zoom2 | Filtering using input analysis2: {analysis2}."))
+    gtx_debug("aba.zoom2 | Filtering using input analysis2: {analysis2}.")
     ret <- 
       .data %>% 
       dplyr::mutate(tier2_zoom = !!analysis2)
