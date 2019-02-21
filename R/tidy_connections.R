@@ -510,7 +510,6 @@ whoami <- function(){
   return(ret)
 }
 
-# TODO: Add debug comments
 #' Drop (tmp) impala_copy_to tables.
 #' 
 #' \strong{drop_impala_copy() - drop tmp tables}
@@ -520,7 +519,6 @@ whoami <- function(){
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
 #' @param .table Table reference to drop
-#' @import futile.logger
 #' @import purrr
 #' @import glue
 #' @import dplyr

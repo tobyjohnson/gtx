@@ -15,8 +15,8 @@ For full control over flog or glue opts use full explicit code.
 }
 \seealso{
 Other gtx_log: \code{\link{gtx_debug}},
-  \code{\link{gtx_error}}, \code{\link{gtx_fatal}},
-  \code{\link{gtx_info}}
+  \code{\link{gtx_error}}, \code{\link{gtx_fatal_stop}},
+  \code{\link{gtx_fatal}}, \code{\link{gtx_info}}
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

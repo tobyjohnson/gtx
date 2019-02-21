@@ -5,7 +5,9 @@
 \title{Copy data to user's home database for joins with impala tables.}
 \usage{
 impala_copy_to(df, dest = getOption("gtx.impala", NULL),
-  database = NULL, table_name = "tmp_data4join", random_name = FALSE)
+  database = gtx::config_tmp_write_db(),
+  table_name = glue("tmp_{gtx::whoami()}_data4join"),
+  random_name = TRUE)
 }
 \arguments{
 \item{df}{Data to copy to RDIP}
