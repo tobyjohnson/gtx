@@ -417,7 +417,8 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   exec <- safely_dbExecute(dest, sql_statement)
   if (!is.null(exec$error)){
     gtx_error("tidy_connections::big_copy_to | \\
-              Unable to load tmp_data4join.csv into table: {user_name}.{table_name} because:\n{exec$error}")
+              Unable execute SQL: {sql_statement} \\
+              because:\n{exec$error}")
     stop()
   }
 
