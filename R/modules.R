@@ -230,20 +230,20 @@ config_tmp_write_db <- function(file = "~/.gtx_config.csv"){
     stop()
   }
   
-  # Select the key-value pair where key=database
+  # Select the key-value pair where key=tmp_write_db
   ret <- 
     exec$result %>% 
     dplyr::filter(key == "tmp_write_db") %>% 
     dplyr::select(value)
   
   if(nrow(ret) != 1){
-    gtx_error("config_db | key \"database\" does not have exactly 1 row/value.")
+    gtx_error("config_db | key \"tmp_write_db\" does not have exactly 1 row/value.")
   }
   ret <- dplyr::pull(ret)
   
   # Validate the database name doesn't have "DROP" in it for SQL protection
   if(stringr::str_detect(ret, stringr::coll("DROP", ignore_case = TRUE))){
-    gtx_error("config_db | database value has \"drop\" in it, refusing to use it.")
+    gtx_error("config_db | tmp_write_db value has \"drop\" in it, refusing to use it.")
     stop()
   }
   
@@ -251,11 +251,11 @@ config_tmp_write_db <- function(file = "~/.gtx_config.csv"){
   if(!stringr::str_detect(ret, stringr::regex("^[A-Za-z0-9_]+$"))){
     illegal <- str_replace_all(ret, stringr::regex("[A-Za-z0-9_]+"), "")
     if(!stringr::str_detect(illegal, stringr::regex(".+"))){
-      gtx_error("config_db | database value contains no characters, value:{ret}")
+      gtx_error("config_db | tmp_write_db value contains no characters, value:{ret}")
       stop()   
     }
     else {
-      gtx_error("config_db | database value contains illegal \\
+      gtx_error("config_db | tmp_write_db value contains illegal \\
                 characters: {illegal} : value:{ret}")
       stop() 
     }
