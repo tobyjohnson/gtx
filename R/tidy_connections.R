@@ -529,6 +529,10 @@ drop_impala_copy <- function(.table = NULL, dest = getOption("gtx.impala", NULL)
     gtx_error("tidy_connections::drop_tmp_impala_tbl | no .table specified.")
     return();
   } 
+  if(is.null(dest)){
+    gtx_error("tidy_connections::drop_tmp_impala_tbl | no dest specified.")
+    return();
+  }
   
   table_path <- purrr::pluck(.table, "ops") %>% purrr::pluck("x", 1)
   if(!stringr::str_detect(table_path, stringr::regex("\\w+\\.\\w+"))){
