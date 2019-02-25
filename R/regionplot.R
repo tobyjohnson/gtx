@@ -166,11 +166,11 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     # Add extra annotation to indicate CLEO conditional signal is being plotted
     if (!missing(signal)) {
       with(pvals[which.max(pvals$pp_signal), ], {
-        arrows(x0 = pos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
-               y1 = -log10(pval), 
-               length = 0, lty = 'dotted') 
-        text(pos,.75*gl$yline[5] + .25*gl$yline[4], 
-             labels = paste0('#', signal), pos = 4, cex = 0.75)
+        #arrows(x0 = pos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
+        #       y1 = -log10(pval), 
+        #       length = 0, lty = 'dotted') 
+        text(pos, -log10(max(pval, pmin)), labels = paste0('#', signal), pos = 3, cex = 0.75)
+        # FIXME this may not work when yaxis truncation is on
       })
     }
   }
