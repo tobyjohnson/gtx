@@ -526,7 +526,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
                               TRUE                        ~ hgncid)) %>% 
     # Remove Broad in label b/c only using broad data here
     dplyr::mutate(label = stringr::str_replace(label, "\\(UKB Broad\\)", "")) %>% 
-    dplyr::mutate(label_wrap = stringr::str_wrap(label,  width = 60, exdent = 8)) %>%
+    dplyr::mutate(label_wrap = stringr::str_wrap(label,  width = 80, exdent = 8)) %>%
     # Adjust alpha21 so that non-significant (H4 < 0.80) = NA 
     dplyr::mutate(direction = dplyr::case_when(p12 >= !! p12_ge & alpha21 >  0        ~ "Increased", 
                                  p12 >= !! p12_ge & alpha21 <  0        ~ "Decreased", 
