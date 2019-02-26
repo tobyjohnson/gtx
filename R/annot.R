@@ -1,18 +1,21 @@
 #' Query analysis, variant, gene etc. annotation
 #'
-#' Various standard queries of the tables that annotate the actual GWAS results
+#' Common queries of the annotation tables of the GWAS summary statistics.
+#' 
+#' All the main function arguments are optional, but at least one argument 
+#' must be given in order to generate any results.
 #'
 #' @param analysis Analysis identifier
 #' @param chrom Chromosome identifier (string)
-#' @param pos Position (on chromosome)
+#' @param pos Position
 #' @param ref Reference allele
 #' @param alt Alternate allele
-#' @param rs dbSNP identifier (string e.g. rs123456)
+#' @param rs dbSNP identifier (e.g. "rs123456")
 #' @param hgnc HGNC gene symbol
-#' @param ensg Ensembl gene identifier (string e.g. ENSG00000123456)
+#' @param ensg Ensembl gene identifier (e.g. "ENSG00000123456")
 #' @param max_variants Maximum number of variants to return
 #' @param max_genes Maximum number of genes to return
-#' @param dbc Database connection (see \code{\link{gtxconnect}})
+#' @param dbc Database connection (see \link{\code{gtxconnect}})
 #'
 #' @return
 #'  Query results
@@ -22,7 +25,7 @@
 annot <- function(analysis,
                   chrom, pos, ref, alt, rs,
                   hgnc, ensg,
-                  max_variants = 100L, max_genes = 10L,
+                  max_variants = 30L, max_genes = 3L,
                   dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
   if (!missing(analysis)) {
@@ -41,8 +44,8 @@ annot <- function(analysis,
     }
     if (nrow(v1) > max_variants) {
       gtx_warn('>{max_variants} variants match query in TABLE sites: {w1}')
-      gtx_warn('Query results suppressed; refine query or increase max_variants')
-      return(NULL)
+      gtx_warn('First {max_variants} results returned; to get more, refine query or increase max_variants')
+      return(head(v1, max_variants))
     }
     return(v1)
   }
@@ -57,8 +60,8 @@ annot <- function(analysis,
     }
     if (nrow(g1) > max_genes) {
       gtx_warn('>{max_genes} genes match query in TABLE genes: {w1}')
-      gtx_warn('>{max_genes} genes (in TABLE genes) matched query; refine query or increase max_genes')
-      return(NULL)
+      gtx_warn('First {max_genes} results returned; to get more, refine query or increase max_genes')
+      return(head(g1, max_genes))
     }
     return(g1)
   }  
