@@ -4,8 +4,8 @@
 \alias{find_qtl_bygene}
 \title{Given an Ensembl ID, identify all significant QTLs}
 \usage{
-find_qtl_bygene(geneId, cutoff = 2e-05,
-  dbc = getOption("gtx.dbConnection", NULL))
+find_qtl_bygene(geneId, cutoff = 2e-05, dbc = getOption("gtx.dbConnection",
+  NULL))
 }
 \arguments{
 \item{geneId}{Gene to search. Recommended to use Ensembl ID. The function will try to infer gene symbols, but result may not be correct.}

@@ -24,4 +24,3 @@ Other gtx_log: \code{\link{gtx_debug}},
 \author{
 Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }
-\concept{gtx_log}
