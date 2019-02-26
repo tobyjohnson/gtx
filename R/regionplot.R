@@ -241,7 +241,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
              x1 = ssi$pos, y1 = .25*gl$yline[5] + .75*gl$yline[4],
              length = 0, lty = 'dotted')
       arrows(x0 = ssi$pos, y0 = .25*gl$yline[5] + .75*gl$yline[4],
-             y1 = -log10(ssi$pval),
+             y1 = pmin(-log10(ssi$pval), plot_ymax), # FIXME still not quite right
              length = 0, lty = 'dotted')
       points(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
              pch = 21, col = rgb(.33, .33, .33, .5), bg = colvec, cex = 1)
@@ -480,10 +480,10 @@ regionplot.data <- function(analysis, entity, signal,
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
                            hgncid, ensemblid, rs, surround = 500000, 
                            pmin = 1e-10, main, fdesc, 
-			   protein_coding_only = TRUE,   
+                           protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
-    
+
   ## Determine x-axis range from arguments
   xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                        hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
@@ -493,20 +493,22 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   pos_end = xregion$pos_end
 
   ## Determine y-axis upper limit
-  ymax <- ceiling(-log10(pmin) + 0.5)
+  ## removed +0.5 since space above allocated by regionplot.genelayout()
+  ymax <- ceiling(-log10(pmin))
 
   ## Determine amount of y-axis space needed for gene annotation
   gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only)
-  
+  gtx_debug('gene layout set up for ymax={gl$ymax} yline[1]={gl$yline[1]} yline[4]={gl$yline[4]} yline[5]={gl$yline[5]}')
   ## Set up plotting area
   plot.new()
   plot.window(c(pos_start, pos_end), range(gl$yline * 1.04, na.rm=TRUE)) # y axis *1.04 adjustment for using par(yaxs='i')
-  
+
   ## Draw axes, and axis labels
   abline(h = 0, col = "grey")
   with(list(xpretty = pretty(c(pos_start, pos_end)*1e-6)),
        axis(1, at = xpretty*1e6, labels = xpretty))
-  axis(2, at = pretty(c(0, ymax)), las = 1)
+  with(list(ypretty = pretty(c(0, ymax))),
+       axis(2, at = ypretty[ypretty <= ymax], las = 1))
   mtext(paste0("chr", chrom, " position (Mb)"), 1, 3)
   mtext(expression(paste("Association ", -log[10](paste(P, "-value")))), 2, 3)
 
@@ -608,39 +610,52 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
               }))
 }
 
-regionplot.points <- function(pos, pval,
+regionplot.points <- function(pos, pval, labels, 
                               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1, 
+                              pos.labels = 3, col.labels = rgb(0, 0, 0), cex.labels = 0.5, 
                               ymax, 
                               suppressWarning = FALSE) {
-  # auto-detecting ymax does not work perfectly 
-  # since we would like white space above highest points in plot
-  # but passing in ymax is tedious (would need to pass into regionplot.label() too)
-  # A /1.0504 factor should reverse the manual *1.04 in regionplot.new plus
-  # reverse an undocumented *1.01 effect of par(yaxs = 'i')
-  # plus a 0.5 'epsilon' to avoid numerical issues 
+  # auto-detecting ymax (==yline[4]), works because:
+  # par('usr')[5] == yline[5] # true since changed to par(yaxs='i')
+  # par('usr')[4] == yline[1] # ibid
+  # yline[5]-yline[4] is 10% of plot always (by genelayout())
+  # reverse the *1.04 applied in regionplot.new plus
+  # plus a 0.5 'epsilon' to avoid effect of numerical imprecision on floor()  
   if (missing(ymax)) ymax <- floor(sum(par('usr')[c(3, 4)]*c(.1, .9)/1.04) + 0.5)
   y <- -log10(pval)
   f <- y > ymax
-  points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg, cex = cex)
+  if (missing(labels)) {
+    points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg, cex = cex)
+  } else {
+    text(x = pos, y = ifelse(f, ymax, y), labels = labels, 
+         pos = pos.labels, col = col.labels, cex = cex.labels)
+  }
   if (any(f) && !suppressWarning) {
     # would be nice to more cleanly overwrite y axis label
     axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
-    text(mean(range(pos[f])), ymax, 'Plot truncated', adj = c(0.5, 0), cex = 0.5)
+    # draw at left edge, otherwise multiple regionplot.points() generate 
+    # partly overlapping  (and hence illegible) warnings
+    text(par('usr')[1] + strwidth('M', cex = 0.5), 
+         ymax, '(plot truncated)', adj = c(0, 0.5), cex = 0.5)
     return(FALSE)
   }
   return(ifelse(f, ymax, y))
 }
 
 regionplot.highlight <- function(pvals, highlight_style) {
-    stopifnot(is.data.frame(pvals))
-    if (all(c('pos', 'pval') %in% names(pvals))) {
+  stopifnot(is.data.frame(pvals))
+  if (all(c('pos', 'pval') %in% names(pvals))) {
         pvals <- subset(pvals, !is.na(pos) & !is.na(pval))
         if (nrow(pvals) > 0) {
-            if ('circle' %in% highlight_style) {
-                regionplot.points(pvals$pos, pvals$pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75))
+            if ('circle' %in% tolower(highlight_style)) {
+                regionplot.points(pvals$pos, pvals$pval, 
+                                  pch = 1, cex = 2, col = rgb(0, 0, 0, .75),
+                                  suppressWarning = TRUE) # suppress since points already drawn
             }
-            if ('pos' %in% highlight_style) {
-                text(pvals$pos, -log10(pvals$pval), pvals$pos, pos = 3, cex = 0.5)
+            if ('pos' %in% tolower(highlight_style)) {
+                regionplot.points(pvals$pos, pvals$pval, 
+                                  labels = pvals$pos,
+                                  suppressWarning = TRUE) # suppress since points already drawn
             }
             ## in future will add options if 'rs' %in% highlight_style etc.
         }
