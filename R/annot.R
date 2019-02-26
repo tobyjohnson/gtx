@@ -15,7 +15,7 @@
 #' @param ensg Ensembl gene identifier (e.g. "ENSG00000123456")
 #' @param max_variants Maximum number of variants to return
 #' @param max_genes Maximum number of genes to return
-#' @param dbc Database connection (see \link{\code{gtxconnect}})
+#' @param dbc Database connection (see \code{\link{gtxconnect}})
 #'
 #' @return
 #'  Query results

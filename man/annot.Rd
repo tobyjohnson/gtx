@@ -28,7 +28,7 @@ annot(analysis, chrom, pos, ref, alt, rs, hgnc, ensg, max_variants = 30L,
 
 \item{max_genes}{Maximum number of genes to return}
 
-\item{dbc}{Database connection (see \link{\code{gtxconnect}})}
+\item{dbc}{Database connection (see \code{\link{gtxconnect}})}
 }
 \value{
 Query results
