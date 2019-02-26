@@ -11,7 +11,8 @@
 #' was tested.  If results are required for only a specific set of analyses, these can be 
 #' specified using a combination of arguments that are passed through to \code{gtxanalyses()}.
 #' 
-#' @param plot_ymax Y-axis value maximum 
+#' @param plot_ymax Y-axis value maximum
+#' @param tags_to_right Tag values to force to right of plot, next to "No tag"
 #' 
 #' @author Toby Johnson \email{Toby.x.Johnson@gsk.com}
 #' @export
@@ -24,14 +25,24 @@ phewas <- function(chrom, pos, ref, alt, rs,
                    has_tag, 
                    ncase_ge,
                    ncohort_ge,
-                   ## if extra filters are added, be sure to update definition of all_analyses below                   
+                   ## if extra filters are added, be sure to update definition of all_analyses below
                    analysis_fields = c('description', 'label', 'unit',
                                        'ncase', 'ncontrol', 'ncohort'),
                    tag_is = 'phewas_group', 
+                   nearby, 
                    plot_ymax = 30,
+                   tags_to_right = NULL,
                    dbc = getOption("gtx.dbConnection", NULL)) {
 
-    gtxdbcheck(dbc)
+  gtxdbcheck(dbc)
+
+  ## validate nearby argument
+  if (!missing(nearby)) {
+    nearby <- as.integer(nearby)
+    if (nearby <= 0) nearby <- NULL
+  }
+  
+  # funny indenting starts here
     p1 <- phewas.data(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs,
                       analysis = analysis, analysis_not = analysis_not,
                       description_contains = description_contains,
@@ -40,6 +51,7 @@ phewas <- function(chrom, pos, ref, alt, rs,
                       ncase_ge = ncase_ge, ncohort_ge = ncohort_ge,
                       analysis_fields = analysis_fields,
                       tag_is = tag_is, with_tags = TRUE, # force with_tags = TRUE
+                      nearby = nearby, 
                       dbc = dbc)
     if (nrow(p1) == 0L) {
       gtx_warn('PheWAS had zero results, skipping plotting')
@@ -64,17 +76,39 @@ phewas <- function(chrom, pos, ref, alt, rs,
                          by = list(tag = p1$tag), 
                          FUN = function(x) return(c(min = min(x), max = max(x)))),
                cbind(data.frame(tag), as.data.frame(x)))
+    # reorder because 'No tag' will be sorted within x1:
+    x1 <- x1[order(match(x1$tag, c(tags_to_right, 'No tag')), x1$tag, na.last = FALSE), ]
     group_interspace <- 50 # this should be a user configurable parameter
     x1$offset <- c(0, cumsum(x1$max - x1$min + group_interspace))[1:nrow(x1)] - x1$min + group_interspace
     x1$midpt <- 0.5*(x1$max + x1$min) + x1$offset
     if (x1$tag[nrow(x1)] == 'No tag') {
-        x1$col <- c(rainbow(nrow(x1) - 1), 'grey') # rainbow for all tags, grey for last
+        tmp_col <- col2rgb(c(rainbow(nrow(x1) - 1), 'grey')) # rainbow for all tags, grey for last
     } else {
-        x1$col <- rainbow(nrow(x1)) # rainbow for all tags
+        tmp_col <- col2rgb(rainbow(nrow(x1))) # rainbow for all tags
     }
+    x1$col_red <- tmp_col['red', , drop = TRUE]
+    x1$col_green <- tmp_col['green', , drop = TRUE]
+    x1$col_blue <- tmp_col['blue', , drop = TRUE]
     p1m <- match(p1$tag, x1$tag)
     p1$x <- p1$x1 + x1$offset[p1m]
-    p1$col <- x1$col[p1m]
+    if (!missing(nearby) && !is.null(nearby)) {
+      # colour scaling so that:
+      # strength = 1      when pval == pval_nearby
+      # strength = 0.60   when pval == pval_nearby * 10 (one log10 less significant)
+      # strength = 0.37   when pval == pval_nearby * 100 
+      # strength = 0.22   when pval == pval_nearby * 1000
+      # etc.
+      p1$strength <- (p1$pval_nearby/p1$pval)^(1./log(10))
+    } else {
+      p1$strength <- 1.
+    }
+    # for point background, interpolate RGB space linearly, 
+    # (strength) of the way from main (point outline) colour to white
+    p1$col <- rgb(x1$col_red[p1m], x1$col_green[p1m], x1$col_blue[p1m], maxColorValue = 255)
+    p1$col_bg <- rgb((p1$strength * x1$col_red[p1m] + (1. - p1$strength) * 255),
+                     (p1$strength * x1$col_green[p1m] + (1. - p1$strength) * 255),
+                     (p1$strength * x1$col_blue[p1m] + (1. - p1$strength) * 255),
+                     maxColorValue = 255)
     # note still sorted by tag then pval
     p1$y <- pmin(-log10(p1$pval), ymax)
     p1$yo <- c(Inf, ifelse(p1$tag[-1] != p1$tag[-nrow(p1)], Inf, p1$y[-nrow(p1)] - p1$y[-1])) # yaxis space within group relative to previous point
@@ -87,7 +121,10 @@ phewas <- function(chrom, pos, ref, alt, rs,
     ## plot text then overplot with points
     with(subset(p1, y > min(6, max_y*.96) & yo > strheight('M', cex = 0.5)), # should be user controllable
          text(x, y, as.character(label), pos = 4, cex = 0.5))
-    points(p1$x, p1$y, pch = 19, col = p1$col, cex = 0.5)
+    points(p1$x, p1$y, 
+           pch = ifelse(p1$beta > 0., 24, 25), 
+           col = p1$col, bg = p1$col_bg, 
+           cex = 0.75)
     if (truncp) {
         ## would be nice to more cleanly overwrite y axis label
         axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
@@ -136,9 +173,14 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
                         nearby, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
+    
+    ## validate nearby argument
+    if (!missing(nearby)) {
+      nearby <- as.integer(nearby)
+      if (nearby <= 0) nearby <- NULL
+    }
 
     ## Look up variant
-    
     v1 <- sqlWrapper(dbc,
                      sprintf('SELECT chrom, pos, ref, alt, rsid AS rs FROM sites WHERE %s;',
                              gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs)),
@@ -182,6 +224,10 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     # okay but need to check below
 
     if (is.null(v1)) {
+      # falling through when unique variant not specified
+      res <- NULL
+    } else if (nrow(a1) == 0L) {
+      # no analyses identified using TABLE analyses, don't run real query
       res <- NULL
     } else if (all_analyses) {
         ## Optimize for the case where all analyses are desired, to avoid having a
@@ -189,19 +235,20 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
             flog.debug(paste0('PheWAS all_analyses query in db ', results_db, ' ...'))
             sqlWrapper(getOption('gtx.dbConnection'),
-                       sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
+                       sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq \
+                                FROM %sphewas_results \
+                                WHERE %s AND pval IS NOT NULL;',
                                results_db,
-                               sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
-                               sanitize1(v1$pos, type = "int"),
-                               sanitize1(v1$ref, type = "ACGT+"),
-                               sanitize1(v1$alt, type = "ACGT+")),
+                               do.call(gtxwhere, v1[ , c('chrom', 'pos', 'ref', 'alt')])),
                        uniq = FALSE, zrok = TRUE)
         }))
-        if (!missing(nearby)) {
+        if (!missing(nearby) && !is.null(nearby)) {
             ## FIXME check nearby is an integer
             res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
-                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %sgwas_results WHERE %s AND pval IS NOT NULL GROUP BY analysis, entity;',
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby \
+                                    FROM %sphewas_results \
+                                    WHERE %s AND pval IS NOT NULL GROUP BY analysis, entity;',
                                    results_db,
                                    gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
                            uniq = FALSE, zrok = TRUE)
@@ -209,29 +256,49 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
             res <- merge(res, res_nearby, all.x = TRUE, all.y = FALSE)
         }
     } else {
-        res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
-            sqlWrapper(getOption('gtx.dbConnection'),
-                       sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq FROM %sgwas_results WHERE %s AND chrom=\'%s\' AND pos=%s AND ref=\'%s\' AND alt=\'%s\' AND pval IS NOT NULL;',
-                               results_db,
-                               gtxwhat(analysis = a1$analysis),
-                               sanitize1(v1$chrom, values = c(as.character(1:22), "X", "Y")),
-                               sanitize1(v1$pos, type = "int"),
-                               sanitize1(v1$ref, type = "ACGT+"),
-                               sanitize1(v1$alt, type = "ACGT+")),
-                       uniq = FALSE, zrok = TRUE)
-        }))
-        if (!missing(nearby)) {
-            ## FIXME check nearby is an integer
-            res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
-                sqlWrapper(getOption('gtx.dbConnection'),
-                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby FROM %sgwas_results WHERE %s AND %s AND pval IS NOT NULL GROUP BY analysis, entity;',
-                                   results_db,
-                                   gtxwhat(analysis = a1$analysis),
-                                   gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby)),
-                           uniq = FALSE, zrok = TRUE)
-            }))
-            res <- merge(res, res_nearby, all.x = TRUE, all.y = FALSE)
+      if (nrow(a1) > 10) { # FIXME this should be a tuning parameter, unclear what near-optimal value is
+        # Optimize for large number of analyses expected
+        # evaluate WHERE clause because missing(analysis) etc do not work correctly inside anonymous function body
+        w1 <- gtxwhat(analysis = analysis, analysis_not = analysis_not,
+                      description_contains = description_contains,
+                      phenotype_contains = phenotype_contains,
+                      ncase_ge = ncase_ge, ncohort_ge = ncohort_ge,
+                      tablename = 'phewas_results')
+        # FIXME, temporary workaround, analyses_tags should (?) be in VIEW definition for phewas_results
+        # FIXME current LEFT JOIN analyses_tags seems to result in inefficient query plans
+        if (!missing(has_tag)) {
+          w1 <- paste(w1, 'AND', gtxwhat(has_tag = has_tag, tablename = 'analyses_tags'))
         }
+      } else {
+        # Optimize for small number of analyses expected
+        w1 <- gtxwhat(analysis = a1$analysis, tablename = 'phewas_results')
+      }
+      gtx_debug('PheWAS using: {w1}') 
+      res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
+        sqlWrapper(getOption('gtx.dbConnection'),
+                   sprintf('SELECT phewas_results.analysis, entity, beta, se, pval, rsq, freq \
+                            FROM %sphewas_results LEFT JOIN analyses_tags USING (analysis) \
+                            WHERE %s AND pval IS NOT NULL AND %s;',
+                           results_db,
+                           do.call(gtxwhere, v1[ , c('chrom', 'pos', 'ref', 'alt')]),
+                           w1),
+                   uniq = FALSE, zrok = TRUE)
+        }))
+      if (!missing(nearby) && !is.null(nearby)) {
+        ## FIXME check nearby is an integer
+        res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
+          sqlWrapper(getOption('gtx.dbConnection'),
+                     sprintf('SELECT analysis, entity, min(pval) AS pval_nearby \
+                              FROM %sphewas_results \
+                              WHERE %s AND pval IS NOT NULL AND %s \
+                              GROUP BY analysis, entity;',
+                             results_db,
+                             gtxwhere(chrom = v1$chrom, pos_ge = v1$pos - nearby, pos_le = v1$pos + nearby),
+                             w1),
+                     uniq = FALSE, zrok = TRUE)
+          }))
+          res <- merge(res, res_nearby, all.x = TRUE, all.y = FALSE)
+      }
     }
     if (is.null(res)) {
         res <- data.frame(analysis = character(0), entity = character(0), 
