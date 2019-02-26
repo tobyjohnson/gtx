@@ -21,4 +21,3 @@ Other gtx_log: \code{\link{gtx_debug}},
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 }
-\concept{gtx_log}

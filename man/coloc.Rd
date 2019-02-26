@@ -4,8 +4,8 @@
 \alias{coloc}
 \title{Colocalization analysis.}
 \usage{
-coloc(analysis1, analysis2, signal1, signal2, chrom, pos_start, pos_end,
-  pos, hgncid, ensemblid, rs, surround = 5e+05, entity, entity1, entity2,
+coloc(analysis1, analysis2, signal1, signal2, chrom, pos_start, pos_end, pos,
+  hgncid, ensemblid, rs, surround = 5e+05, entity, entity1, entity2,
   style = "Z", priorsd1 = 1, priorsd2 = 1, priorc1 = 1e-04,
   priorc2 = 1e-04, priorc12 = 1e-05, join_type = "inner",
   dbc = getOption("gtx.dbConnection", NULL))

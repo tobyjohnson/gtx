@@ -4,9 +4,9 @@
 \alias{ideas_predict}
 \title{ideas_predict}
 \usage{
-ideas_predict(.data, states_data = NULL, states = NULL,
-  permute = FALSE, inter = 5, binsz = 200, pcut = 6, CI = 0.95,
-  seed = NULL, db = config_db())
+ideas_predict(.data, states_data = NULL, states = NULL, permute = FALSE,
+  inter = 5, binsz = 200, pcut = 6, CI = 0.95, seed = NULL,
+  db = config_db())
 }
 \arguments{
 \item{.data}{\code{\link{ideas_make}} input data}
@@ -51,4 +51,3 @@ Karsten Sieber \email{karsten.b.sieber@gsk.com}
 
 Karl Guo \email{karl.x.guo@gsk.com}
 }
-\concept{ideas_predict}
