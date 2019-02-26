@@ -91,7 +91,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
   ## set par to ensure large enough margins, internal xaxs, regular yaxs,
   ## should apply for all plots generated
   oldpar <- par(mar = pmax(c(4, 4, 4, 4) + 0.1, par('mar')), 
-                xaxs = 'i', yaxs = 'r') # xaxs='i' stops R expanding x axis
+                xaxs = 'i', yaxs = 'i') # xaxs='i' stops R expanding x axis; manual *1.04 for yaxs in regionplot.new
 
   if ('classic' %in% tolower(style)) {
     gl <- regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
@@ -500,7 +500,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   
   ## Set up plotting area
   plot.new()
-  plot.window(c(pos_start, pos_end), range(gl$yline, na.rm=TRUE))
+  plot.window(c(pos_start, pos_end), range(gl$yline * 1.04, na.rm=TRUE)) # y axis *1.04 adjustment for using par(yaxs='i')
   
   ## Draw axes, and axis labels
   abline(h = 0, col = "grey")
@@ -550,7 +550,9 @@ regionplot.genedraw <- function(gl) {
 #
 # returns a list with elements:
 # cex:  value of cex used when computing the layout
-# yline:  vector of length 5
+# ymax: value of ymax used when computing the layout
+# yline:  vector of length 5 delimiting the regions for the genes track, 
+#                   zero [min for points], max for points, max for whole plot   
 #' @export
 regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
 				   protein_coding_only = TRUE, 
@@ -601,14 +603,22 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
                 if (length(iline) > 0) {
                   y <- -(iline/max(iline + 1)*yd2 + yd1)
                 }
-                list(cex = cex, yline = yline, genelayout = data.frame(label, pos_start, pos_end, pos_mid, iline, y))
+                list(cex = cex, ymax = ymax, yline = yline, 
+                     genelayout = data.frame(label, pos_start, pos_end, pos_mid, iline, y))
               }))
 }
 
 regionplot.points <- function(pos, pval,
                               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1, 
+                              ymax, 
                               suppressWarning = FALSE) {
-  ymax <- floor(par("usr")[4])
+  # auto-detecting ymax does not work perfectly 
+  # since we would like white space above highest points in plot
+  # but passing in ymax is tedious (would need to pass into regionplot.label() too)
+  # A /1.0504 factor should reverse the manual *1.04 in regionplot.new plus
+  # reverse an undocumented *1.01 effect of par(yaxs = 'i')
+  # plus a 0.5 'epsilon' to avoid numerical issues 
+  if (missing(ymax)) ymax <- floor(sum(par('usr')[c(3, 4)]*c(.1, .9)/1.04) + 0.5)
   y <- -log10(pval)
   f <- y > ymax
   points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg, cex = cex)
