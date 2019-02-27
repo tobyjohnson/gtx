@@ -4,8 +4,8 @@
 \alias{gtxanalyses}
 \title{Find GWAS analyses}
 \usage{
-gtxanalyses(analysis, analysis_not, phenotype_contains, description_contains,
-  has_tag, ncase_ge, ncohort_ge, has_cleo = FALSE,
+gtxanalyses(analysis, analysis_not, phenotype_contains,
+  description_contains, has_tag, ncase_ge, ncohort_ge, has_cleo = FALSE,
   analysis_fields = c("description", "phenotype", "covariates", "cohort",
   "unit", "ncase", "ncontrol", "ncohort"), tag_is, with_tags = FALSE,
   has_access_only = FALSE, dbc = getOption("gtx.dbConnection", NULL))

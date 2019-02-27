@@ -11,8 +11,8 @@
 #' @param ref Reference allele
 #' @param alt Alternate allele
 #' @param rs dbSNP identifier (e.g. "rs123456")
-#' @param hgnc HGNC gene symbol
-#' @param ensg Ensembl gene identifier (e.g. "ENSG00000123456")
+#' @param hgncid HGNC gene symbol
+#' @param ensemblid Ensembl gene identifier (e.g. "ENSG00000123456")
 #' @param max_variants Maximum number of variants to return
 #' @param max_genes Maximum number of genes to return
 #' @param dbc Database connection (see \code{\link{gtxconnect}})
@@ -24,7 +24,7 @@
 #' @export
 annot <- function(analysis,
                   chrom, pos, ref, alt, rs,
-                  hgnc, ensg,
+                  hgncid, ensemblid,
                   max_variants = 30L, max_genes = 3L,
                   dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
@@ -49,10 +49,10 @@ annot <- function(analysis,
     }
     return(v1)
   }
-  if (!missing(hgnc) || !missing(ensg)) {
-    w1 <- gtxwhere(hgncid = hgnc, ensemblid = ensg)
+  if (!missing(hgncid) || !missing(ensemblid)) {
+    w1 <- gtxwhere(hgncid = hgncid, ensemblid = ensemblid)
     g1 <- sqlWrapper(dbc,
-                     glue('SELECT chrom, pos_start, pos_end, hgncid AS hgnc, ensemblid AS ensg, genetype FROM genes WHERE {w1};'),
+                     glue('SELECT chrom, pos_start, pos_end, hgncid AS hgncid, ensemblid AS ensemblid, genetype FROM genes WHERE {w1};'),
                      uniq = FALSE, zrok = TRUE) # default uniq = TRUE
     if (nrow(g1) == 0L) {
       gtx_warn('No genes match query in TABLE genes: {w1}')

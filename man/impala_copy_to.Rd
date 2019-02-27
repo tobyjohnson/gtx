@@ -6,7 +6,8 @@
 \usage{
 impala_copy_to(df, dest = getOption("gtx.impala", NULL),
   database = gtx::config_tmp_write_db(),
-  table_name = glue("tmp_{gtx::whoami()}_data4join"), random_name = TRUE)
+  table_name = glue("tmp_{gtx::whoami()}_data4join"),
+  random_name = TRUE)
 }
 \arguments{
 \item{df}{Data to copy to RDIP}
