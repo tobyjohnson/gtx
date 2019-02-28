@@ -4,9 +4,8 @@
 \alias{annot}
 \title{Query analysis, variant, gene etc. annotation}
 \usage{
-annot(analysis, chrom, pos, ref, alt, rs, hgncid, ensemblid,
-  max_variants = 30L, max_genes = 3L,
-  dbc = getOption("gtx.dbConnection", NULL))
+annot(analysis, chrom, pos, ref, alt, rs, hgnc, ensg, max_variants = 30L,
+  max_genes = 3L, dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
 \item{analysis}{Analysis identifier}
@@ -21,9 +20,9 @@ annot(analysis, chrom, pos, ref, alt, rs, hgncid, ensemblid,
 
 \item{rs}{dbSNP identifier (e.g. "rs123456")}
 
-\item{hgncid}{HGNC gene symbol}
+\item{hgnc}{HGNC gene symbol}
 
-\item{ensemblid}{Ensembl gene identifier (e.g. "ENSG00000123456")}
+\item{ensg}{Ensembl gene identifier (e.g. "ENSG00000123456")}
 
 \item{max_variants}{Maximum number of variants to return}
 
