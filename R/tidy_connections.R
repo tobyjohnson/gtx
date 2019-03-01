@@ -547,6 +547,14 @@ drop_impala_copy <- function(.table = NULL, dest = getOption("gtx.impala", NULL)
     if(!is.null(tmp_impala_tbl_value)){
       if(tmp_impala_tbl_value == TRUE){
         safely_dbExecute <- purrr::safely(implyr::dbExecute)
+        sql_statement <- glue::glue("INVALIDATE METADATA {`table_path`}")
+        
+        exec <- safely_dbExecute(dest, sql_statement)
+        if (!is.null(exec$error)){
+          gtx_fatal_stop("tidy_connections::drop_tmp_impala_tbl | \\
+                          unable to: \n {sql_query} \n because: \n {exec$error}")
+        }
+        
         sql_statement <- glue::glue("DROP TABLE IF EXISTS {`table_path`} PURGE")
         
         exec <- safely_dbExecute(dest, sql_statement)
