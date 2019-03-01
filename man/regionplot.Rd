@@ -15,6 +15,7 @@ regionplot(analysis,
            style = 'signals', 
            protein_coding_only = TRUE,
            maf_ge, rsq_ge, 
+           emac_ge, case_emac_ge,
            dbc = getOption("gtx.dbConnection", NULL))
 regionplot.data(analysis,
                 chrom, pos_start, pos_end, pos, 
