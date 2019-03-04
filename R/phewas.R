@@ -63,7 +63,7 @@ phewas <- function(chrom, pos, ref, alt, rs,
     ymax <- max(10, ceiling(-log10(min(p1$pval))))
     if (ymax > plot_ymax) { # Hard coded threshold makes sense for control of visual display
         ymax <- plot_ymax
-        warning('Truncating P-values at 1e-', ymax)
+        gtx_warn('Truncating P-values at 1e-{ymax}')
         truncp <- TRUE
     } else {
         truncp <- FALSE
@@ -71,7 +71,7 @@ phewas <- function(chrom, pos, ref, alt, rs,
 
     p1 <- p1[order(p1$tag, p1$pval), ] # with this sort, tag==NA will be last
     p1$tag[is.na(p1$tag)] <- 'No tag'
-    p1$x1 <- 1:nrow(p1) # initial attempt at x axis position, to be refined below
+    p1$x1 <- 1:nrow(p1) # initial attempttag_is at x axis position, to be refined below
     x1 <- with(aggregate(p1$x1, 
                          by = list(tag = p1$tag), 
                          FUN = function(x) return(c(min = min(x), max = max(x)))),
@@ -94,11 +94,21 @@ phewas <- function(chrom, pos, ref, alt, rs,
     if (!missing(nearby) && !is.null(nearby)) {
       # colour scaling so that:
       # strength = 1      when pval == pval_nearby
-      # strength = 0.60   when pval == pval_nearby * 10 (one log10 less significant)
+      # strength = 0.61   when pval == pval_nearby * 10 (one log10 less significant)
       # strength = 0.37   when pval == pval_nearby * 100 
       # strength = 0.22   when pval == pval_nearby * 1000
       # etc.
-      p1$strength <- (p1$pval_nearby/p1$pval)^(1./log(10))
+      p1$strength <- (p1$pval_nearby/p1$pval)^(0.5/log(10))
+      w0 <- which(p1$pval == 0.)
+      if (length(w0) > 0) {
+        gtx_warn('PheWAS results include {length(w0)} analyses with pval=0.; assuming strength=1')
+        p1$strength[w0] <- 1.
+      }
+      wna <- which(!is.finite(p1$strength) | p1$strength < 0. | p1$strength > 1.)
+      if (length(wna) > 0) {
+        gtx_warn('PheWAS results include {length(wna)} analyses with invalid strength; assuming strength=0')
+        p1$strength[wna] <- 0.
+      }
     } else {
       p1$strength <- 1.
     }
@@ -110,13 +120,30 @@ phewas <- function(chrom, pos, ref, alt, rs,
                      (p1$strength * x1$col_blue[p1m] + (1. - p1$strength) * 255),
                      maxColorValue = 255)
     # note still sorted by tag then pval
-    p1$y <- pmin(-log10(p1$pval), ymax)
+    p1$y <- pmin(-log10(p1$pval), ymax) # guarantee all y <= ymax
     p1$yo <- c(Inf, ifelse(p1$tag[-1] != p1$tag[-nrow(p1)], Inf, p1$y[-nrow(p1)] - p1$y[-1])) # yaxis space within group relative to previous point
 
     p1 <- p1[order(p1$pval, decreasing = TRUE), ] # reorder to make sure most significant points plotted over less significant ones
+    
     plot.new()
-    plot.window(range(p1$x), c(0, max(p1$y)))
-
+    plot.window(range(p1$x), c(0, 1.1*ymax))
+    abline(h = 0, col = "grey")
+    
+    if (!missing(nearby) && !is.null(nearby)) {
+      ### Ad hoc legend for colour scheme
+      nearby_legend <- c(paste0('association within ', round(nearby*1.e-3), 'kb'), 'equal', '10x', '100x', '1000x more significant')
+      xoff <- cumsum(strwidth(nearby_legend, units = 'user', cex = 0.5) + 
+                     3.*strwidth('M', units = 'user', cex = 0.5))
+      # FIXME dynamically shrink cex if bigger than par('usr')[1:2]
+      yoff <- 0.5*(ymax + par('usr')[4])
+      points(xoff[1:4], rep(yoff, 4),  
+             pch = 22, cex = 1, 
+             col = rgb(1, 0, 0), 
+             bg = rgb(1, 1 - exp(-c(0.0, 0.5, 1.0, 1.5)), 1 - exp(-c(0.0, 0.5, 1.0, 1.5))))
+      text(c(0, xoff[1:4]), rep(yoff, 4), 
+           pos = 4, cex = 0.5, 
+           labels = nearby_legend)
+    }
     max_y = max(p1$y)
     ## plot text then overplot with points
     with(subset(p1, y > min(6, max_y*.96) & yo > strheight('M', cex = 0.5)), # should be user controllable
@@ -130,7 +157,8 @@ phewas <- function(chrom, pos, ref, alt, rs,
         axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
         # could e.g. do setdiff(pretty(...), ymax)
     }
-    axis(2, las = 1)
+    ypretty <- pretty(c(0, ymax))
+    axis(2, at = ypretty[ypretty <= ymax], las = 1)
     mtext(x1$tag, side = 1, line = 0.5, las = 2, at = x1$midpt, col = x1$col, las = 2, cex = 0.5)
     mtext(expression(-log[10](paste(italic(P), "-value"))), 2, 3)
     mtext.fit(main = paste('PheWAS for', attr(p1, 'variant')))
@@ -207,7 +235,8 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
                       tag_is = tag_is, with_tags = with_tags, 
                       has_access_only = TRUE, 
                       dbc = dbc) # will work fine if all filtering arguments are missing, as it internally sets all_analyses<-TRUE
-    gtx_debug('Queried metadata for {nrow(a1)} analyses with access to')
+    gtx_debug('Queried metadata for {nrow(a1)} analyses')
+    gtx_debug('{sum(is.na(a1$results_db) | a1$results_db == "", na.rm = TRUE)} analyses in current database, {sum(a1$results_db != "", na.rm = TRUE)} analyses in other accessible databases')
 
     ## Handle when results_db is NULL in database (returned as NA to R), since not using gtxanalysisdb()
     ## Add period if results_db is a database name, otherwise empty string (use pattern %sgwas_results in sprintf's below)
@@ -246,7 +275,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
             ## FIXME check nearby is an integer
             res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
                 sqlWrapper(getOption('gtx.dbConnection'),
-                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby \
+                           sprintf('SELECT analysis, entity, min(pval) AS pval_nearby, count(pval) AS num_pvals \
                                     FROM %sphewas_results \
                                     WHERE %s AND pval IS NOT NULL GROUP BY analysis, entity;',
                                    results_db,
@@ -288,7 +317,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         ## FIXME check nearby is an integer
         res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
           sqlWrapper(getOption('gtx.dbConnection'),
-                     sprintf('SELECT analysis, entity, min(pval) AS pval_nearby \
+                     sprintf('SELECT analysis, entity, min(pval) AS pval_nearby, count(pval) AS num_pvals \
                               FROM %sphewas_results \
                               WHERE %s AND pval IS NOT NULL AND %s \
                               GROUP BY analysis, entity;',
