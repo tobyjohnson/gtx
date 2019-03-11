@@ -4,7 +4,8 @@
 \alias{aba.int_coloc_plot}
 \title{\strong{aba.int_coloc_plot() - Plot aba results}}
 \usage{
-aba.int_coloc_plot(.data, p12_ge = 0.8, max_dot_size = 5, title = NULL)
+aba.int_coloc_plot(.data, p12_ge = 0.8, max_dot_size = 5,
+  title = NULL)
 }
 \arguments{
 \item{p12_ge}{[Default = 0.80] Values below this will be colored as non-significant, while above have color for direction.}

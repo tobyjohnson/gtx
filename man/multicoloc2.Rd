@@ -5,8 +5,8 @@
 \title{Multiple colocalization, use case 2}
 \usage{
 multicoloc2(analysis1, target, chrom, pos_start, pos_end, pos, hgncid,
-  ensemblid, rs, surround = 0, dbc = getOption("gtx.dbConnection", NULL),
-  ...)
+  ensemblid, rs, surround = 0, dbc = getOption("gtx.dbConnection",
+  NULL), ...)
 }
 \arguments{
 \item{analysis1}{analysis id to colocalize}
