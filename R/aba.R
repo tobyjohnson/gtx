@@ -82,9 +82,10 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   if(any(aid_filter$filter_val == TRUE)){
     regex_for_aids <- 
       glue::glue_collapse(aid_filter %>% 
-                      dplyr::filter(filter_val == TRUE) %>% 
-                      dplyr::pull(regex_str), 
-                    sep = " OR ")
+                            dplyr::filter(filter_val == TRUE) %>% 
+                            dplyr::pull(regex_str), 
+                          sep = " OR ")
+    
     sql_query <- glue('{sql_query} WHERE {regex_for_aids}')
   }
     
