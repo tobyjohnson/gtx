@@ -1,8 +1,8 @@
 Package: gtx
 Type: Package
 Title: Genetics ToolboX
-Version: 2.1.0
-Date: 2019-03-14
+Version: 2.1.1
+Date: 2019-04-01
 Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.Johnson@gsk.com"), 
              person("Karsten", "Sieber", role = c("ctb"), email = "karsten.b.sieber@gsk.com"),
              person("Andrew", "Slater", role = c("ctb")),
