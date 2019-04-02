@@ -552,16 +552,15 @@ drop_impala_copy <- function(.table = NULL, dest = getOption("gtx.impala", NULL)
         exec <- safely_dbExecute(dest, sql_statement)
         if (!is.null(exec$error)){
           gtx_fatal_stop("tidy_connections::drop_tmp_impala_tbl | \\
-                          unable to: \n {sql_query} \n because: \n {exec$error}")
+                          unable to: \n {sql_statement} \n because: \n {exec$error}")
         }
         
         sql_statement <- glue::glue("DROP TABLE IF EXISTS {`table_path`} PURGE")
         
         exec <- safely_dbExecute(dest, sql_statement)
         if (!is.null(exec$error)){
-          gtx_error("tidy_connections::drop_tmp_impala_tbl | \\
-                     unable to remove {`table_path`} because:\n{exec$error}")
-          stop();
+          gtx_fatal_stop("tidy_connections::drop_tmp_impala_tbl | \\
+                          unable to remove {`table_path`} because:\n{exec$error}")
         }
         else {
           gtx_debug("tidy_connections::drop_tmp_impala_tbl | \\
