@@ -51,7 +51,7 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
       stop("piccolo | the length of each input is different.", call. = FALSE)
     }
   }
-  print(input)
+  #print(input)
   input$ancestry <- ifelse(!is.na(input$ancestry) , as.character(input$ancestry),"EUR")
   input <- input[!is.na(input$snpID) & !is.na(input$pval) ,]
   
