@@ -4,11 +4,15 @@
 \alias{piccolo}
 \title{PICCOLO: Colocalization of GWAS and eQTL/pQTL signals without summary stats}
 \usage{
-piccolo(rs, pval, ancestry = NULL, indication = NULL,
+piccolo(chrom, pos, rs, pval, ancestry, indication,
   dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
-\item{rs}{SNP rsid or chr:pos id. Single string or vector.}
+\item{chrom}{SNP chromosome. Single string or vector.}
+
+\item{pos}{SNP position. Single string or vector.}
+
+\item{rs}{SNP rsid. Single string or vector.}
 
 \item{pval}{the association p-value for the SNP. Single string or vector.}
 

@@ -9,7 +9,7 @@ pics_calc(index.data, dbc = getOption("gtx.dbConnection", NULL))
 \arguments{
 \item{dbc}{Database connection. Default: getOption("gtx.dbConnection", NULL)}
 
-\item{data}{Data frame with columns rs, pval, ancestry and indication. Use the same column names for your data. However, ancestry and indication are optional.}
+\item{data}{Data frame with columns rs|chr:pos, pval, ancestry and indication. Use the same column names for your data. However, ancestry and indication are optional.}
 }
 \value{
 a data frame containing the result of the

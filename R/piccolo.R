@@ -6,7 +6,9 @@
 #'   do not share full summary stats which makes a traditional colocalization analysis impossible..
 #' . In this case, PICCOLO enable to do a colocalization using PICS.
 #'      
-#' @param rs SNP rsid or chr:pos id. Single string or vector.
+#' @param rs SNP rsid. Single string or vector.
+#' @param chrom SNP chromosome. Single string or vector. 
+#' @param pos SNP position. Single string or vector.
 #' @param pval the association p-value for the SNP. Single string or vector.
 #' @param ancestry Ancestry information: EUR/ASN/AFR. Currently, only EUR is available. OPTIONAL!!
 #' @param indication Associated phenotype or trait info. OPTIONAL!!
@@ -20,26 +22,38 @@
 #'
 #' @export
 
-piccolo <- function(rs,pval,ancestry=NULL,indication=NULL,dbc=getOption("gtx.dbConnection", NULL)){
+piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbConnection", NULL)){
  
   # check database connection
   gtxdbcheck(dbc) 
   
   # Check input columns
   gtx_debug("piccolo | validating input.")
-  if(is.null(rs))    { stop("piccolo | input is missing: rs", call. = FALSE) }
-  if(is.null(pval))     { stop("piccolo | input is missing: pval", call. = FALSE) }
-  if(is.null(ancestry)) { ancestry <- c(rep("EUR", length(rs))) }
-  if(is.null(indication)) { indication <- c(rep(NA_character_, length(rs)))}
-  tmp.list <- list(rs,pval,ancestry,indication)
-  if(all(sapply(tmp.list,length)==length(tmp.list[[1]]))){
-    input <- tibble(rs, pval, ancestry, indication)
-  }else{
-    stop("piccolo | the length of each input is different.", call. = FALSE)
+  if((missing(rs) & missing(chrom) & missing(pos)) | (missing(rs) & missing(chrom)) |(missing(rs) & missing(pos))) { stop("piccolo | must specify either: rs or chr/pos", call. = FALSE) }
+  if(!missing(rs) & !missing(chrom) & !missing(pos))  { stop("piccolo | Duplicate input: input either rs or chr/pos", call. = FALSE) }
+  if(missing(pval))     { stop("piccolo | input is missing: pval", call. = FALSE) }
+  if(missing(ancestry)) { ancestry <- c(rep("EUR", length(rs))) }
+  if(missing(indication)) { indication <- c(rep(NA_character_, length(rs)))}
+  if(!missing(rs)){
+     tmp.list <- list(rs,pval,ancestry,indication)
+     if(all(sapply(tmp.list,length)==length(tmp.list[[1]]))){
+       snpID <- rs
+       input <- tibble(snpID, pval, ancestry, indication)
+     }else{
+       stop("piccolo | the length of each input is different.", call. = FALSE)
+     }
+  }else if(!missing(chrom) & !missing(pos)){
+    tmp.list <- list(chrom,pos,pval,ancestry,indication)
+    if(all(sapply(tmp.list,length)==length(tmp.list[[1]]))){
+      snpID <- paste(chrom,pos,sep=":")
+      input <- tibble(snpID, pval, ancestry, indication)
+    }else{
+      stop("piccolo | the length of each input is different.", call. = FALSE)
+    }
   }
+  print(input)
   input$ancestry <- ifelse(!is.na(input$ancestry) , as.character(input$ancestry),"EUR")
-  #input$indication <- ifelse(!is.na(input$indication) , as.character(input$indication) , "n/a")
-  input <- input[!is.na(input$rs) & !is.na(input$pval) ,]
+  input <- input[!is.na(input$snpID) & !is.na(input$pval) ,]
   
   gwas.pics <- tryCatch(pics_calc(input),error=function(e) NULL)
   if(is.null(gwas.pics)) { stop("All SNP IDs are not available in the current LD reference", call. = FALSE)}
@@ -74,9 +88,9 @@ piccolo <- function(rs,pval,ancestry=NULL,indication=NULL,dbc=getOption("gtx.dbC
   tmp00 <- list()
   n1 <- 1
   for(j in unique(idx.nearst.genes$ID)){
-    dta1 <- subset(gwas.pics, paste(chrom_idx,pos_idx,pval_idx,sep="_") == j, c("pos","pics","rsid_idx","pval_idx","chrom_idx","ancestry","indication"))
+    dta1 <- subset(gwas.pics, paste(chrom_idx,pos_idx,pval_idx,sep="_") == j, c("pos","pics","snpID_idx","rsid_idx","pval_idx","chrom_idx","ancestry","indication"))
     dta1 <- dta1[order(-dta1$pics),]
-    names(dta1) <- c("pos1","pics1","rsid","pval","chrom","ancestry","indication")
+    names(dta1) <- c("pos1","pics1","snpID","rsid","pval","chrom","ancestry","indication")
     
     tmp <- subset(idx.nearst.genes, ID == j)
     x <- subset(pics.qtls, entity %in% tmp$ensemblid)
@@ -95,10 +109,10 @@ piccolo <- function(rs,pval,ancestry=NULL,indication=NULL,dbc=getOption("gtx.dbC
     n1 <- n1+1
   }
   res <- do.call("rbind",tmp00)
-  res <- res[,c("rsid","pval","chrom","pos1","ancestry","indication","tissue","eqtl_rsid","pos2","hgnc_symbol","ensembl_ID","pubmed_ID","H3","H4")]
-  names(res) <- c("gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","tissue","eqtl_rsid","eqtl_pos","hgnc_symbol","ensembl_ID","pubmed_ID","H3","H4")
-  check.missing.gwas.snp <- subset(input, !(input$rs %in% unique(res$gwas_rsid)),c("rs","pval","ancestry","indication") )
-  names(check.missing.gwas.snp) <- c("gwas_rsid","gwas_pval","ancestry","indication")
+  res <- res[,c("snpID","rsid","pval","chrom","pos1","ancestry","indication","tissue","eqtl_rsid","pos2","hgnc_symbol","ensembl_ID","pubmed_ID","H3","H4")]
+  names(res) <- c("gwas_input","gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","tissue","eqtl_rsid","eqtl_pos","hgnc_symbol","ensembl_ID","pubmed_ID","H3","H4")
+  check.missing.gwas.snp <- subset(input, !(input$snpID %in% unique(res$gwas_input)),c("snpID","pval","ancestry","indication") )
+  names(check.missing.gwas.snp) <- c("gwas_input","gwas_pval","ancestry","indication")
   if(nrow(check.missing.gwas.snp) >= 1) res <- int_sbind(check.missing.gwas.snp,res)
   
   return(res)
@@ -116,7 +130,7 @@ piccolo <- function(rs,pval,ancestry=NULL,indication=NULL,dbc=getOption("gtx.dbC
 #'   by Kyle Kai-How Farh,et al. Nature 518, 337–343 (19 February 2015) at
 #'   \url{http://www.nature.com/nature/journal/v518/n7539/full/nature13835.html#close}
 #'
-#' @param data Data frame with columns rs, pval, ancestry and indication. Use the same column names for your data. However, ancestry and indication are optional.
+#' @param data Data frame with columns rs|chr:pos, pval, ancestry and indication. Use the same column names for your data. However, ancestry and indication are optional.
 #' @param dbc Database connection. Default: getOption("gtx.dbConnection", NULL) 
 #'   
 #' @return  
@@ -130,24 +144,25 @@ piccolo <- function(rs,pval,ancestry=NULL,indication=NULL,dbc=getOption("gtx.dbC
 pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   gtx_debug("pics_calc | starting pics calc")
   # Pull out pos and chrom for all SNPs 
-  rs.snpid <- subset(index.data, grepl("rs",index.data$rs))
-  rs.snpid.tmp <- gsub("rs","",rs.snpid$rs)
-  .snpid <- subset(index.data,!grepl("rs",index.data$rs))
+  rs.snpid <- subset(index.data, grepl("rs",index.data$snpID))
+  rs.snpid.tmp <- gsub("rs","",rs.snpid$snpID)
+  .snpid <- subset(index.data,!grepl("rs",index.data$snpID))
   dta.ext <- NULL
   if(nrow(rs.snpid) > 0){
     x=tryCatch(sqlWrapper(dbc,paste0("SELECT chrom,pos,rsid FROM sites WHERE rsid IN (", 
                                      paste(rs.snpid.tmp,collapse=","),")"),uniq = F, zrok = FALSE),error=function(e) NULL)
     if(!is.null(x)){
       dta.ext=x[!duplicated(x$rsid),]
-      dta.ext$rsid <- paste("rs",dta.ext$rsid,sep="")
-      dta.ext=rename(dta.ext,rs = rsid)
+      dta.ext$rsid1 <- paste("rs",dta.ext$rsid,sep="")
+      dta.ext$snpID <- dta.ext$rsid1
+      dta.ext$rsid <- NULL
     }else{
       gtx_warn("pics_calc: all rsid's are missing, check your rsid's carefully!")
     }
   }
   if(nrow(.snpid) > 0){
-    .snpid$chrom <- unlist(lapply( strsplit(as.character(.snpid$rs),":"),function(x)x[[1]]))
-    .snpid$pos <- unlist(lapply( strsplit(as.character(.snpid$rs),":"),function(x)x[[2]]))
+    .snpid$chrom <- unlist(lapply( strsplit(as.character(.snpid$snpID),":"),function(x)x[[1]]))
+    .snpid$pos <- unlist(lapply( strsplit(as.character(.snpid$snpID),":"),function(x)x[[2]]))
     tmp <- list()
     n <- 1
     for(i in unique(.snpid$chrom)){
@@ -155,7 +170,7 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
       x=tryCatch(sqlWrapper(dbc,paste0("SELECT chrom,pos,rsid FROM sites WHERE chrom = '",i,"' AND pos IN (", 
                                        paste(.snpid.sub$pos,collapse=","),")"),uniq = F, zrok = FALSE), error=function(e) NULL)
       if(!is.null(x)){
-        x %>% distinct(chrom,pos, .keep_all = TRUE) %>% mutate(rs = paste(chrom,pos,sep=":")) %>% select(-rsid)
+        x <- x %>% distinct(chrom,pos, .keep_all = TRUE) %>% mutate(snpID = paste(chrom,pos,sep=":"),rsid1 = paste("rs",rsid,sep="")) %>% select(-rsid)
         tmp[[n]] <- x
         n <- n+1
       }
@@ -170,7 +185,7 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
     
   }
   if(!is.null(dta.ext)){
-    index.data=merge(index.data,dta.ext,by="rs")
+    index.data=merge(index.data,dta.ext,by="snpID")
   }else{
     stop("pics_calc: all rs's are missing, carefully check the input data, specially rs.", call. = FALSE)
   }  
@@ -181,8 +196,8 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   tmp.ld$pos2 <- tmp.ld$pos
   tmp.ld$r <- 1
   tmp.ld$r2 <- 1
-  tmp.ld <- tmp.ld[,c("rs","pval","chrom","pos","chrom2","pos2","ancestry","indication","r","r2")]
-  names(tmp.ld) <- c("rs","pval","chrom1","pos1","chrom2","pos2","ancestry","indication","r","r2")
+  tmp.ld <- tmp.ld[,c("snpID","rsid1","pval","chrom","pos","chrom2","pos2","ancestry","indication","r","r2")]
+  names(tmp.ld) <- c("snpID","rsid1","pval","chrom1","pos1","chrom2","pos2","ancestry","indication","r","r2")
   
   tmp <- list()
   n <- 1
@@ -236,9 +251,9 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   snp.anno$snp2 <- ifelse(!is.na(snp.anno$rsid),paste("rs",snp.anno$rsid,sep=""),snp.anno$rsid)
   names(snp.anno)<-c("chrom2","pos2","rsid","snp2")
   pics.result<-merge(all.ld,snp.anno,by=c("chrom2","pos2"))
-  pics.result<-pics.result[order(pics.result$rs,-pics.result$r2),c("chrom2","pos2","snp2","pics","ancestry","indication","rs","pval","chrom1","pos1")]
+  pics.result<-pics.result[order(pics.result$snpID,-pics.result$r2),c("chrom2","pos2","snp2","pics","ancestry","indication","snpID","rsid1","pval","chrom1","pos1")]
   # pics.result$pval <- pics.result$Mean
-  names(pics.result) <- c("chrom","pos","rsid","pics","ancestry","indication","rsid_idx","pval_idx","chrom_idx","pos_idx")
+  names(pics.result) <- c("chrom","pos","rsid","pics","ancestry","indication","snpID_idx","rsid_idx","pval_idx","chrom_idx","pos_idx")
   return(pics.result)
 }
 
