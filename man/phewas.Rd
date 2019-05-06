@@ -9,7 +9,8 @@
 phewas(chrom, pos, ref, alt, rs, analysis, analysis_not,
   description_contains, phenotype_contains, has_tag, ncase_ge, ncohort_ge,
   analysis_fields = c("description", "label", "unit", "ncase",
-  "ncontrol", "ncohort"), tag_is = "phewas_group", plot_ymax = 30,
+  "ncontrol", "ncohort"), tag_is = "phewas_group", nearby,
+  plot_ymax = 30, tags_to_right = NULL,
   dbc = getOption("gtx.dbConnection", NULL))
 
 phewas.data(chrom, pos, ref, alt, rs, analysis, analysis_not,
@@ -49,11 +50,13 @@ phewas.qq(chrom, pos, ref, alt, rs, analysis, analysis_not,
 
 \item{tag_is}{Tag flag to use for plot grouping}
 
+\item{nearby}{Additionally return minimum pvalue at position+-nearby}
+
 \item{plot_ymax}{Y-axis value maximum}
 
-\item{dbc}{Database connection}
+\item{tags_to_right}{Tag values to force to right of plot, next to "No tag"}
 
-\item{nearby}{Additionally return minimum pvalue at position+-nearby}
+\item{dbc}{Database connection}
 }
 \value{
 Data frame of summary statistics
