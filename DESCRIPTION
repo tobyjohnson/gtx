@@ -1,7 +1,8 @@
 Package: gtx
 Type: Package
 Title: Genetics ToolboX
-Version: 2.1.2
+Encoding: UTF-8
+Version: 2.2.0
 Date: 2019-05-01
 Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.Johnson@gsk.com"), 
              person("Karsten", "Sieber", role = c("ctb"), email = "karsten.b.sieber@gsk.com"),
@@ -31,4 +32,4 @@ Description: Assorted tools for genetic and pharmacogenetic association
 	analysis tools.
 URL: https://cran.r-project.org/web/packages/gtx/index.html, 
 	https://github.com/tobyjohnson/gtx
-RoxygenNote: 6.1.0
+RoxygenNote: 6.1.1
