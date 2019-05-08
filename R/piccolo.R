@@ -111,8 +111,8 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
     n1 <- n1+1
   }
   res <- do.call("rbind",tmp00)
-  res <- res[,c("snpID","rsid","pval","chrom","pos1","ancestry","indication","tissue","eqtl_rsid","pos2","hgnc_symbol","ensembl_ID","pubmed_ID","H3","H4")]
-  names(res) <- c("gwas_input","gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","tissue","eqtl_rsid","eqtl_pos","hgnc_symbol","ensembl_ID","pubmed_ID","H3","H4")
+  res <- res[,c("snpID","rsid","pval","chrom","pos1","ancestry","indication","eqtl_rsid","pos2","hgnc_symbol","ensembl_ID","tissue","pubmed_ID","H3","H4")]
+  names(res) <- c("gwas_input","gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","qtl_rsid","qtl_pos","hgncid","ensemblid","tissue","pmid","H3","H4")
   check.missing.gwas.snp <- subset(input, !(input$snpID %in% unique(res$gwas_input)),c("snpID","pval","ancestry","indication") )
   names(check.missing.gwas.snp) <- c("gwas_input","gwas_pval","ancestry","indication")
   if(nrow(check.missing.gwas.snp) >= 1) res <- int_sbind(check.missing.gwas.snp,res)
