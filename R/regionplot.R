@@ -121,7 +121,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
     ## Plot variants shaded by LD
     pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
     ## current db format means r<0.01 is not included in table, hence substitute missing with zero
-    pvals$r[is.na(pvals$r)] <- 0.
+    pvals$r[is.na(pvals$r)] <- 0. #FIXME dangerous to return incorrect numerical data
     pvals$alpha <- .5 + .25*pvals$r^2 # currently use a single alpha for col and bg for coding and noncoding, so precalculate
     with(pvals, regionplot.points(pos, pval,
                                   pch = ifelse(!is.na(impact), 23, 21),
