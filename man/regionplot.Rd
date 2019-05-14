@@ -15,6 +15,7 @@ regionplot(analysis,
            style = 'signals', 
            protein_coding_only = TRUE,
            maf_ge, rsq_ge, 
+           emac_ge, case_emac_ge,
            dbc = getOption("gtx.dbConnection", NULL))
 regionplot.data(analysis,
                 chrom, pos_start, pos_end, pos, 
@@ -63,6 +64,8 @@ regionplot.recombination(chrom, pos_start, pos_end,
     coding genes only}
   \item{maf_ge}{Filtering threshold, minor allele frequency greater-or-equal than}
   \item{rsq_ge}{Filtering threshold, imputation r-squared greater-or-equal than}
+  \item{emac_ge}{Filtering threshold, minor allele count greater-or-equal than}
+  \item{case_emac_ge}{Filtering threshold, case minor allele count greater-or-equal than}
   \item{pmin}{Smallest P-value to size plot region for}
   \item{ymax}{Largest y-axis value to plan gene layout for}
   \item{cex}{Relative size for gene name labels}

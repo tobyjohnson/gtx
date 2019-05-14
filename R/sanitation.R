@@ -1,10 +1,14 @@
+#' @import DBI
+
 ##' @export
+## FIXME, change to required(?) argument odbc=...
 gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'), 
                        use_database,
-                       do_stop = TRUE,
+                       do_stop = TRUE, # deprecate this, it's cleaner for caller to use a tryCatch()
                        cache = TRUE, cache_analyses = TRUE, cache_genes = TRUE) {
   if (missing(use_database)) {
     stop('gtxconnect() requires use_database argument')
+    ## FIXME instead don't execute USE statement
   }
   tmp <- try(eval(dbc))
   if (identical('try-error', class(tmp))) {
@@ -17,15 +21,20 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
   }
   options(gtx.dbConnection = tmp)
   tmp <- gtxdbcheck(check_databases = use_database, do_stop = do_stop) # overwrite previous value of tmp
-  if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
+  if (!do_stop) gtx_debug(tmp$status) # FIXME this was a temporary workaround
   if (do_stop || tmp$check) { # if do_stop, would have stopped previously instead of setting tmp$check=FALSE
-    invisible(dbExecute(getOption('gtx.dbConnection'), 
+    invisible(DBI::dbExecute(getOption('gtx.dbConnection'), 
                         sprintf('USE %s;', sanitize1(use_database, type = 'alphanum'))))
     tmp <- gtxdbcheck(do_stop = do_stop) # overwrite previous value of tmp
-    if (!do_stop) gtxlog(tmp$status) # FIXME this was a temporary workaround
+    if (!do_stop) gtx_debug(tmp$status) # FIXME this was a temporary workaround
   }
   
   if (cache) gtxcache(cache_analyses = cache_analyses, cache_genes = cache_genes)
+  
+  # Document DB connection & GTX version.
+  futile.logger::flog.info(glue::glue("{gtx:::gtxversion()}"))
+  futile.logger::flog.info(glue::glue("GTX connection established to: {use_database}"))
+  
   return(tmp)
 }
 
@@ -45,6 +54,9 @@ gtxconnect <- function(dbc = dbConnect(odbc::odbc(), dsn = 'impaladsn'),
 ## checking a connection to a cache
 ##                                       
 ## added verbose option otherwise more useful logging messages get swamped
+
+#' @import DBI
+#' @import RSQLite
 
 ##' @export
 gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
@@ -78,8 +90,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## (i.e. check whether a later USE statement should be successful)
   if (!missing(check_databases)) {
       if ('Impala' %in% class(dbc)) {
-          if (verbose) gtxlog('Trying query: SHOW DATABASES;')
-          dbs <- try(dbGetQuery(dbc, 'SHOW DATABASES;'))
+          if (verbose) gtx_debug('Trying query: SHOW DATABASES;')
+          dbs <- try(DBI::dbGetQuery(dbc, 'SHOW DATABASES;'))
 	  if (identical('try-error', class(dbs))) {
 	      # FIXME grepl the content of dbs for 'Ticket expired' to help user
               if (do_stop) {
@@ -120,8 +132,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   
   ## Update string describing current database connection to include db name or SQLite path
   if ('Impala' %in% class(dbc)) {
-      if (verbose) gtxlog('Trying query: SELECT current_database();')
-      scdb <- try(dbGetQuery(dbc, 'SELECT current_database();'))
+      if (verbose) gtx_debug('Trying query: SELECT current_database();')
+      scdb <- try(DBI::dbGetQuery(dbc, 'SELECT current_database();'))
       if (identical('try-error', class(scdb))) {
 	# FIXME grepl the content of scdb for 'Ticket expired' to help user
         if (do_stop) {
@@ -143,8 +155,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
   ## Always check tables since this is cheapest way we know to check
   ## db connection is working and pointing to the expected content
   if ('Impala' %in% class(dbc)) {
-      if (verbose) gtxlog('Trying query: SHOW TABLES;')
-      tables <- try(dbGetQuery(dbc, 'SHOW TABLES;'))
+      if (verbose) gtx_debug('Trying query: SHOW TABLES;')
+      tables <- try(DBI::dbGetQuery(dbc, 'SHOW TABLES;'))
       if (identical('try-error', class(tables))) {
 	# FIXME grepl the content of tables for 'Ticket expired' to help user
         if (do_stop) {
@@ -164,7 +176,7 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
       }
       tables <- tables$name
   } else if ('SQLiteConnection' %in% class(dbc)) {
-      tables <- dbListTables(dbc)
+      tables <- RSQLite::dbListTables(dbc)
   }
 
   if (!is.null(tables_required) && !all(tables_required %in% tables)) {
@@ -229,7 +241,7 @@ gtxanalysisdb <- function(analysis,
                                   gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE
         ## First, if null or empty string, return empty string (hence caller will use unqualified table name)
         ## (note, database nulls are returned as R NAs; following is safe because length(res$results_db)==1)
-        if (is.null(res$results_db) || res$results_db == '') {
+        if (is.na(res$results_db) || res$results_db == '') {
             return('')
         }
         ## Next, if results_db is specified but dbs is NULL, throw error
@@ -401,6 +413,8 @@ sanitize1 <- function(x, values, type) {
 ## [or at least] one row (if uniq is TRUE [or FALSE])
 ## -- allow zero rows is zrok=TRUE
 ##
+#' @import DBI
+#' 
 #' @export
 sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL usage
@@ -408,8 +422,11 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc)) {
         stop('dbc is not an odbc database connection of class Impala or SQLiteConnection')
     }
-    flog.debug(paste0('SQL: ', sql))
-    res <- dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
+    flog.debug(paste0(class(dbc), ' query: ', sql))
+    t0 <- as.double(Sys.time())
+    res <- DBI::dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
+    t1 <- as.double(Sys.time())
+    flog.debug(paste0(class(dbc), ' query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
             if (zrok) return(res)

@@ -8,7 +8,8 @@ aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
   pos_end, p12_ge = 0.8, minpval1_le = 1e-04, minpval2_le = 5e-08,
   surround = 1e+06, ncase_ge = 200, ncohort_ge = 200,
   protein_coding_only = FALSE, neale_only = FALSE, gsk_only = FALSE,
-  db = "gene_gwas", impala = getOption("gtx.impala", NULL))
+  ttam_only = FALSE, db = gtx::config_db(),
+  impala = getOption("gtx.impala", NULL))
 }
 \arguments{
 \item{analysis_ids}{ukbiobank analysis id(s), single string or vector.}
@@ -39,13 +40,15 @@ aba.query(analysis_ids, hgncid, ensemblid, rsid, chrom, pos, pos_start,
 
 \item{ncohort_ge}{[Default >= 200] Minimum ncohort for traits.}
 
-\item{protein_coding_only}{[Default = TRUE] Filter only for protein coding transcripts}
+\item{protein_coding_only}{[Default = FALSE] Filter only for protein coding transcripts}
 
-\item{neale_only}{[Default = FALSE] Filter onyl for Neale traits, reduces redundancy b/w GSK & Neale data.}
+\item{neale_only}{[Default = FALSE] Filter only for Neale traits, reduces redundancy b/w GSK & Neale data.}
 
 \item{gsk_only}{[Default = FALSE] Filter only for GSK traits, reduces redundancy b/w GSK & Neale data.}
 
-\item{db}{[Defalt = "gene_gwas"] Database to pull data from.}
+\item{ttam_only}{[Default = FALSE] Filter only for 23andMe (TTAM) traits.}
+
+\item{db}{[Defalt = gtx::config_db()] Database to pull data from.}
 
 \item{impala}{[getOption("gtx.impala", NULL)] Implyr impala connection}
 }

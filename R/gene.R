@@ -221,10 +221,11 @@ XXgene.draw <- function(chr, leftpos, rightpos, genetable, nodraw = NULL,
   }
 }
 
+#' @import data.table
 #' @export
 prune.distance <- function(data, surround = 500000L, sorted = FALSE) {
   if (nrow(data) == 0) return (NULL) # FIXME should return data table with zero rows
-  data <- data.table(data)
+  data <- data.table::data.table(data)
   if (!sorted) {
       oo <- data[ , order(chrom, pos)]
       data <- data[oo, ]
@@ -248,7 +249,7 @@ prune.distance <- function(data, surround = 500000L, sorted = FALSE) {
       signals[ , row := NULL] # do not return row indices if input unsorted
       ## FIXME would be better to store original order and invert the permutation
   }
-  data[ , signal := NULL]
+  signals[ , signal := NULL]
   return(signals)
 }
 

@@ -5,18 +5,21 @@
 \title{Copy large data to RDIP tables.}
 \usage{
 big_copy_to(df, dest = getOption("gtx.impala", NULL),
-  chrom_as_string = TRUE, database = NULL, table_name = NULL)
+  chrom_as_string = TRUE, database = NULL, table_name = NULL,
+  compute_stats = FALSE)
 }
 \arguments{
 \item{df}{Data to copy to RDIP}
 
 \item{dest}{Impala implyr connection}
 
-\item{chrom_as_string}{Convert "chrom" col's to character instead of integers}
+\item{chrom_as_string}{[Default = TRUE] TRUE = Override "chrom" cols as character instead of integers}
 
 \item{database}{Name of the database}
 
 \item{table_name}{Name of the table within the database.}
+
+\item{compute_stats}{[Default = FALSE] TRUE = SQL execute COMPUTE STATS}
 }
 \description{
 \strong{big_copy_to() - copy data to RDIP}

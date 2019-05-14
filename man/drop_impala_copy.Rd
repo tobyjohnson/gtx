@@ -4,7 +4,7 @@
 \alias{drop_impala_copy}
 \title{Drop (tmp) impala_copy_to tables.}
 \usage{
-drop_impala_copy(.table = NULL)
+drop_impala_copy(.table = NULL, dest = getOption("gtx.impala", NULL))
 }
 \arguments{
 \item{.table}{Table reference to drop}

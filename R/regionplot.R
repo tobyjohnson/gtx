@@ -3,9 +3,11 @@
 
 #' @export
 regionplot <- function(analysis, # what analysis (entity should be next)
+                       entity, # optional
+                       signal, # optional
                        chrom, pos_start, pos_end, pos,  
-                       hgncid, ensemblid, rs, surround = 500000, # where
-                       entity, 
+                       hgncid, ensemblid, rs, 
+                       surround = 500000, # where
                        maf_ge, rsq_ge, emac_ge, case_emac_ge, # which variants to include
                        priorsd = 1, priorc = 1e-5, cs_size = 0.95, # parameters for finemapping
                        plot_ymax = 300, # plot output control starts here... # 300 is too high FIXME
@@ -15,18 +17,28 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                        dbc = getOption("gtx.dbConnection", NULL)) {
 
   if (isTRUE(getOption('gtx.debug'))) {
-	flog.threshold(DEBUG)
+	futile.logger::flog.threshold(DEBUG)
   }
 
   # check database connection
   gtxdbcheck(dbc)
 
+  # if optional signal argument used, check other arguments for compatibility
+  if (!missing(signal)) {
+    if (!(missing(maf_ge) && missing(rsq_ge) && missing(emac_ge) && missing(case_emac_ge))) {
+      gtx_warn('Variant filtering will have NO EFFECT for conditional results (signal = {signal})')
+    }
+    if ('signals' %in% tolower(style)) {
+      gtx_warn('style = \'signals\' incompatible with conditional results (signal = {signal}), using style = \'signal\' instead')
+      style[tolower(style) == 'signals'] <- 'signal' 
+    }
+  }
+  
   ## Obtain pvals by passing arguments through to regionplot.data()
-  pvals <- regionplot.data(analysis = analysis,
+  pvals <- regionplot.data(analysis = analysis, entity = entity, signal = signal, 
                            chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                           hgncid = hgncid, ensemblid = ensemblid, rs = rs,
-                           surround = surround, 
-                           entity = entity,
+                           hgncid = hgncid, ensemblid = ensemblid, rs = rs, 
+                           surround = surround,                          
                            style = style,
                            priorsd = priorsd, priorc = priorc, cs_size = cs_size, 
                            maf_ge = maf_ge, rsq_ge = rsq_ge,
@@ -44,12 +56,23 @@ regionplot <- function(analysis, # what analysis (entity should be next)
   xentity <- attr(pvals, 'entity')
 
   pvals <- within(pvals, impact[impact == ''] <- NA)
-  pmin <- max(min(pvals$pval), 10^-plot_ymax)
+  ## Use na.rm in min, even though these should not be present,
+  ##   because we want regionplot() to have robust behaviour
+  ## Note, regionplot.data SQL includes pval IS NOT NULL clause
+  ##   (whcih removes NULL but not NaN)
+  ## Also, regionplot.data removes and warns if there are
+  ##   non-finite pval
+  pmin <- max(min(pvals$pval, na.rm = TRUE), 10^-plot_ymax)
 
-  main <- gtxanalysis_label(analysis = analysis, entity = xentity, nlabel = TRUE, dbc = dbc)
+  main <- gtxanalysis_label(analysis = analysis, entity = attr(pvals, 'entity'), signal = signal, nlabel = TRUE, dbc = dbc)
+
   ## in future we may need to pass maf_lt and rsq_lt as well  
-  fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)
-
+  if (missing(signal)) {
+    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)
+  } else {
+    fdesc <- 'All variants (after pre-CLEO filtering)'
+  }
+  
   ## Highlight index SNP(s) if pos or rs argument was used
   gp <- data.frame(NULL)
   if (!missing(pos)) {
@@ -67,15 +90,16 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 
   ## set par to ensure large enough margins, internal xaxs, regular yaxs,
   ## should apply for all plots generated
-  oldpar <- par(mar = pmin(c(4, 4, 4, 4) + 0.1, par('mar')), 
-                xaxs = 'i', yaxs = 'r') # xaxs='i' stops R expanding x axis
+  oldpar <- par(mar = pmax(c(4, 4, 4, 4) + 0.1, par('mar')), 
+                xaxs = 'i', yaxs = 'i') # xaxs='i' stops R expanding x axis; manual *1.04 for yaxs in regionplot.new
 
-  if ('classic' %in% style) {
-    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+  if ('classic' %in% tolower(style)) {
+    gl <- regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
+    if (!missing(signal)) mtext(paste0('conditional for signal #', signal), 2, 2)
     ## best order for plotting
     ## Plot all variants with VEP annotation as blue diamonds in top layer
     pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
@@ -86,12 +110,13 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                                   bg = ifelse(!is.na(impact), rgb(.5, .5, 1, .75), rgb(.67, .67, .67, .5))))
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
-  if ('ld' %in% style) {
-    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+  if ('ld' %in% tolower(style)) {
+    gl <- regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
+    if (!missing(signal)) mtext(paste0('conditional for signal #', signal), 2, 2) # DRY should this go into regionplot.new?
     ## best order for plotting
     ## Plot variants shaded by LD
     pvals <- pvals[order(!is.na(pvals$impact), -log10(pvals$pval)), ]
@@ -115,12 +140,13 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                                        rgb(1, 0, 0, alpha = 1))))
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
-  if ('signal' %in% style) {
-    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+  if ('signal' %in% tolower(style)) {
+    gl <- regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
+    if (!missing(signal)) mtext(paste0('conditional for signal #', signal), 2, 2) # DRY should this go into regionplot.new?
     ## best order for plotting is highest pp on top, with impact on top of that
     pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_signal), ]
     pvals <- within(pvals, {
@@ -137,25 +163,41 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                                                      rgb(.33*pprel + .67, (1 - pprel)*.67, (1 - pprel)*.67, alpha)),
                                               rgb(.67, .67, .67, .5))))
     regionplot.highlight(gp, highlight_style = highlight_style)
+    # Add extra annotation to indicate CLEO conditional signal is being plotted
+    if (!missing(signal)) {
+      with(pvals[which.max(pvals$pp_signal), ], {
+        #arrows(x0 = pos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
+        #       y1 = -log10(pval), 
+        #       length = 0, lty = 'dotted') 
+        text(pos, -log10(max(pval, pmin)), labels = paste0('#', signal), pos = 3, cex = 0.75)
+        # FIXME this may not work when yaxis truncation is on
+      })
+    }
   }
-  if ('signals' %in% style) {
-    regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
+  if ('signals' %in% tolower(style)) {
+    gl <- regionplot.new(chrom = xregion$chrom, pos_start = xregion$pos_start, pos_end = xregion$pos_end,
                  pmin = pmin, 
                  main = main, fdesc = fdesc, 
                  protein_coding_only = protein_coding_only, 
                  dbc = dbc)
 
-    signals <- unique(na.omit(pvals$signal))
-    if (length(signals) == 0L) {
-        flog.debug('No CLEO results, using single signal results instead')
-        ## no signals, so use single signal results as if they were the CLEO results
-        pvals <- within(pvals, {
-            cs_cleo <- cs_signal
-            pp_cleo <- pp_signal
-            signal <- ifelse(cs_signal, 'default', NA)
-        })
-        signals <- 'default'
+    ## catch situation where CLEO results are present but no signals
+    if ('signal' %in% names(pvals)) {
+      signals <- sort(unique(na.omit(pvals$signal)))
+    } else {
+      signals <- NULL
     }
+    if (length(signals) == 0L) {
+      futile.logger::flog.warn('No CLEO results, using single signal results instead')
+      ## no signals, so use single signal results as if they were the CLEO results
+      pvals <- within(pvals, {
+        cs_cleo <- cs_signal
+        pp_cleo <- pp_signal
+        signal <- ifelse(cs_signal, 'default', NA)
+      })
+      signals <- 'default'
+    }
+    
     ## best order for plotting
     ## Plot variants coloured/sized by credible set, with VEP annotation is diamond shape in top layer
     pvals <- pvals[order(!is.na(pvals$impact), pvals$pp_cleo), ]
@@ -187,9 +229,33 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                                   col = ifelse(!is.na(impact), rgb(0, 0, 0, .5), rgb(.33, .33, .33, .5))))
 
     ## legend indicating signals
-    legend("bottomleft", pch = 21, col = rgb(.33, .33, .33, .5),
-           pt.bg = colvec, legend=paste0('#', signals),
-           horiz=T, bty="n", cex=.5)
+    ## ssi = summary stats for index variants
+    ssi <- attr(pvals, 'index_cleo')
+    if (!is.null(ssi) && nrow(ssi) > 1) {
+      ssi <- ssi[match(signals, ssi$signal), ] # order to match signals and colvec
+      ssi$keypos <- seq(from = xregion$pos_start, to = xregion$pos_end, length.out = nrow(ssi) + 2)[rank(ssi$pos) + 1]
+      arrows(x0 = ssi$keypos, y0 = .75*gl$yline[5] + .25*gl$yline[4], 
+             y1 = .5*gl$yline[5] + .5*gl$yline[4], 
+             length = 0, lty = 'dotted')
+      arrows(x0 = ssi$keypos, y0 = .5*gl$yline[5] + .5*gl$yline[4],
+             x1 = ssi$pos, y1 = .25*gl$yline[5] + .75*gl$yline[4],
+             length = 0, lty = 'dotted')
+      arrows(x0 = ssi$pos, y0 = .25*gl$yline[5] + .75*gl$yline[4],
+             y1 = pmin(-log10(ssi$pval), plot_ymax), # FIXME still not quite right
+             length = 0, lty = 'dotted')
+      points(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+             pch = 21, col = rgb(.33, .33, .33, .5), bg = colvec, cex = 1)
+      text(ssi$keypos, rep(.75*gl$yline[5] + .25*gl$yline[4], nrow(ssi)),
+           labels = paste0('#', signals), pos = 4, cex = 0.75)
+      text(mean(ssi$keypos), .75*gl$yline[5] + .25*gl$yline[4],
+           labels = 'CLEO index variants', pos = 3, cex = 0.75)
+      #legend("bottomleft", pch = 21, ,
+      #       pt.bg = colvec, legend=paste0('#', signals),
+      #       horiz=T, bty="n", cex=.5)
+    } else {
+      text((xregion$pos_start + xregion$pos_end)/2., .75*gl$yline[5] + .25*gl$yline[4],
+           labels = 'No CLEO index variants', pos = 3, cex = 0.75)
+    }
     regionplot.highlight(gp, highlight_style = highlight_style)
   } 
 
@@ -202,10 +268,10 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 }
 
 #' @export
-regionplot.data <- function(analysis,
+regionplot.data <- function(analysis, entity, signal, 
                             chrom, pos_start, pos_end, pos, 
-                            hgncid, ensemblid, rs, surround = 500000,
-                            entity, 
+                            hgncid, ensemblid, rs, 
+                            surround = 500000,
                             style = 'signals',
                             priorsd = 1, priorc = 1e-5, cs_size = 0.95, 
                             maf_ge, rsq_ge,
@@ -218,7 +284,9 @@ regionplot.data <- function(analysis,
     
     ## Determine x-axis range from arguments
     xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
-                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
+                         hgncid = hgncid, ensemblid = ensemblid, rs = rs, 
+                         signal = signal, analysis = analysis, entity = entity, 
+                         surround = surround,
                          dbc = dbc)
     chrom = xregion$chrom # note, overwriting command line arguments
     pos_start = xregion$pos_start
@@ -229,27 +297,54 @@ regionplot.data <- function(analysis,
     
     ## always query marginal p-values
     ## seems more flexible to query CLEO results separately and merge within R code
-    flog.debug('Querying marginal p-values')
-    t0 <- as.double(Sys.time())
-    pvals <- sqlWrapper(dbc,
-                        sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
-                                if (any(c('signal', 'signals') %in% style)) ', beta, se, rsq, freq' else '', 
-                                gtxanalysisdb(analysis), 
-                                gtxwhat(analysis1 = analysis),
-                                xentity$entity_where, # (entity=...) or (True)
-                                gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
-                        uniq = FALSE)
-    t1 <- as.double(Sys.time())
-    flog.debug(paste0('Query returned ', nrow(pvals), ' variants in query region ', xregion$label, ' in ', round(t1 - t0, 3), 's.'))
-
-    if (any(c('signal', 'signals') %in% style)) {
-        flog.debug('Finemapping under single signal assumption')
+    if (missing(signal)) {
+      gtx_info('Querying marginal p-values')
+      t0 <- as.double(Sys.time())
+      pvals <- sqlWrapper(dbc,
+                          sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
+                                  if (any(c('signal', 'signals') %in% tolower(style))) ', beta, se, rsq, freq' else '', 
+                                  gtxanalysisdb(analysis), 
+                                  gtxwhat(analysis1 = analysis),
+                                  xentity$entity_where, # (entity=...) or (True)
+                                  gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
+                                  gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
+                          uniq = FALSE)
+      t1 <- as.double(Sys.time())
+      gtx_info('Query returned {nrow(pvals)} variants in query region {xregion$label} in {round(t1 - t0, 3)}s.')
+    } else {
+      gtx_info('Querying conditional p-values')
+      t0 <- as.double(Sys.time())
+      pvals <- sqlWrapper(dbc,
+                          sprintf('SELECT gwas_results_cond.chrom, gwas_results_cond.pos, 
+                                          gwas_results_cond.ref, gwas_results_cond.alt, 
+                                          beta_cond AS beta, se_cond AS se, impact 
+                                   FROM %sgwas_results_cond 
+                                   LEFT JOIN vep 
+                                   USING (chrom, pos, ref, alt) 
+                                   WHERE %s AND %s AND %s;',
+                                  gtxanalysisdb(analysis), 
+                                  where_from(analysisu = analysis, signalu = signal, tablename = 'gwas_results_cond'), 
+                                  xentity$entity_where, # (entity=...) or (True)
+                                  gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results_cond')),
+                          uniq = FALSE)
+      t1 <- as.double(Sys.time())
+      gtx_info('Query returned {nrow(pvals)} variants in query region {xregion$label} in {round(t1 - t0, 3)}s.')
+      pvals$pval <- with(pvals, pchisq((beta/se)^2, df = 1, lower.tail = FALSE))
+    }
+      
+    if (any(!is.finite(pvals$pval))) {
+      gtx_warn('Removing {sum(!is.finite(pvals$pval))} variants with non-finite P-values')
+      pvals <- pvals[is.finite(pvals$pval), ]      
+      gtx_debug('After non-finite P-values removed, {nrow(pvals)} variants in query region {xregion$label}')
+    }
+    
+    if (any(c('signal', 'signals') %in% tolower(style))) {
+        futile.logger::flog.debug('Finemapping under single signal assumption')
         ## cs_only = FALSE since we still want to plot/return variants not in the credible set
         pvals <- fm_signal(pvals, priorsd = priorsd, priorc = priorc, cs_size = cs_size, cs_only = FALSE)
     }
     
-    if ('signals' %in% style) {
+    if ('signals' %in% tolower(style)) {
         ## get CLEO credible sets only, since we effectively left join with this, for plot colouring
         fmres <- fm_cleo(analysis = analysis, chrom = chrom, pos_start = pos_start, pos_end = pos_end,
                          priorsd = priorsd, priorc = priorc, cs_size = cs_size, cs_only = TRUE)
@@ -270,12 +365,14 @@ regionplot.data <- function(analysis,
             ## but then cbind with the *marginal* pp's from aggregating over signals
             pvals$pp_cleo[is.na(pvals$pp_cleo)] <- 0. # make zero to be safe with sorting/plotting
             pvals$cs_cleo[is.na(pvals$cs_cleo)] <- FALSE # make FALSE to be safe with tables/plotting
+            ## Propagate CLEO index variants as attr()ibute
+            attr(pvals, 'index_cleo') <- attr(fmres, 'index_cleo')
         } else {
             # do nothing
         }
     }
 
-    if ('ld' %in% style) {
+    if ('ld' %in% tolower(style)) {
         # merge with LD information in userspace code since we need to
         # pull the p-values first to find the top hit or otherwise chosen variant
 
@@ -380,10 +477,10 @@ regionplot.data <- function(analysis,
 regionplot.new <- function(chrom, pos_start, pos_end, pos, 
                            hgncid, ensemblid, rs, surround = 500000, 
                            pmin = 1e-10, main, fdesc, 
-			   protein_coding_only = TRUE,   
+                           protein_coding_only = TRUE,   
                            dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
-    
+
   ## Determine x-axis range from arguments
   xregion <- gtxregion(chrom = chrom, pos_start = pos_start, pos_end = pos_end, pos = pos, 
                        hgncid = hgncid, ensemblid = ensemblid, rs = rs, surround = surround,
@@ -393,20 +490,22 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   pos_end = xregion$pos_end
 
   ## Determine y-axis upper limit
-  ymax <- ceiling(-log10(pmin) + 0.5)
+  ## removed +0.5 since space above allocated by regionplot.genelayout()
+  ymax <- ceiling(-log10(pmin))
 
   ## Determine amount of y-axis space needed for gene annotation
   gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only)
-  
+  gtx_debug('gene layout set up for ymax={gl$ymax} yline[1]={gl$yline[1]} yline[4]={gl$yline[4]} yline[5]={gl$yline[5]}')
   ## Set up plotting area
   plot.new()
-  plot.window(c(pos_start, pos_end), range(gl$yline, na.rm=TRUE))
-  
+  plot.window(c(pos_start, pos_end), range(gl$yline * 1.04, na.rm=TRUE)) # y axis *1.04 adjustment for using par(yaxs='i')
+
   ## Draw axes, and axis labels
   abline(h = 0, col = "grey")
   with(list(xpretty = pretty(c(pos_start, pos_end)*1e-6)),
        axis(1, at = xpretty*1e6, labels = xpretty))
-  axis(2, at = pretty(c(0, ymax)), las = 1)
+  with(list(ypretty = pretty(c(0, ymax))),
+       axis(2, at = ypretty[ypretty <= ymax], las = 1))
   mtext(paste0("chr", chrom, " position (Mb)"), 1, 3)
   mtext(expression(paste("Association ", -log[10](paste(P, "-value")))), 2, 3)
 
@@ -429,7 +528,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   ## Draw box last to overdraw any edge marks
   box()
 
-  return(invisible(NULL))
+  return(invisible(gl))
 }
 
 #' @export
@@ -444,6 +543,15 @@ regionplot.genedraw <- function(gl) {
   return(invisible(NULL))
 }
 
+# each gene is assigned to a line (iline) such that the horizontal line
+# and label will not overlap neighboring genes.  The y positions are
+# then evenly distributed [add more explanation]
+#
+# returns a list with elements:
+# cex:  value of cex used when computing the layout
+# ymax: value of ymax used when computing the layout
+# yline:  vector of length 5 delimiting the regions for the genes track, 
+#                   zero [min for points], max for points, max for whole plot   
 #' @export
 regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75, 
 				   protein_coding_only = TRUE, 
@@ -479,51 +587,72 @@ regionplot.genelayout <- function (chrom, pos_start, pos_end, ymax, cex = 0.75,
                     }
                   }
                 }
-                fy <- 0
+                fy <- 0 # fraction of total figure y space needed
                 if (length(iline) > 0) {
                   fy <- max(iline + 1)*2*strheight("M", units = "figure", cex = cex)/yplt # fraction of total figure region needed
-                  if (fy > 0.6) {
-                    warning('Squashing gene annotation to fit within .6 of plot area')
-                    fy <- 0.6
+                  if (fy > 0.5) {
+                    futile.logger::flog.warn('Squashing gene annotation to fit within .5 of plot area')
+                    fy <- 0.5
                   }
                 }
-                yd1 = ymax/(0.9-fy) * 0.1
-                yd2 = ymax/(0.9-fy) * fy
-                yline <- c(-(yd1 + yd2), -yd1, 0, ymax)
+                yd1 = ymax/(0.8-fy) * 0.1
+                yd2 = ymax/(0.8-fy) * fy
+                yline <- c(-(yd1 + yd2), -yd1, 0, ymax, ymax + yd1)
                 y <- numeric(0)
                 if (length(iline) > 0) {
                   y <- -(iline/max(iline + 1)*yd2 + yd1)
                 }
-                list(cex = cex, yline = yline, genelayout = data.frame(label, pos_start, pos_end, pos_mid, iline, y))
+                list(cex = cex, ymax = ymax, yline = yline, 
+                     genelayout = data.frame(label, pos_start, pos_end, pos_mid, iline, y))
               }))
 }
 
-regionplot.points <- function(pos, pval,
+regionplot.points <- function(pos, pval, labels, 
                               pch = 21, bg = rgb(.67, .67, .67, .5), col = rgb(.33, .33, .33, .5), cex = 1, 
+                              pos.labels = 3, col.labels = rgb(0, 0, 0), cex.labels = 0.5, 
+                              ymax, 
                               suppressWarning = FALSE) {
-  ymax <- floor(par("usr")[4])
+  # auto-detecting ymax (==yline[4]), works because:
+  # par('usr')[5] == yline[5] # true since changed to par(yaxs='i')
+  # par('usr')[4] == yline[1] # ibid
+  # yline[5]-yline[4] is 10% of plot always (by genelayout())
+  # reverse the *1.04 applied in regionplot.new plus
+  # plus a 0.5 'epsilon' to avoid effect of numerical imprecision on floor()  
+  if (missing(ymax)) ymax <- floor(sum(par('usr')[c(3, 4)]*c(.1, .9)/1.04) + 0.5)
   y <- -log10(pval)
   f <- y > ymax
-  points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg, cex = cex)
+  if (missing(labels)) {
+    points(pos, ifelse(f, ymax, y), pch = pch, col = col, bg = bg, cex = cex)
+  } else {
+    text(x = pos, y = ifelse(f, ymax, y), labels = labels, 
+         pos = pos.labels, col = col.labels, cex = cex.labels)
+  }
   if (any(f) && !suppressWarning) {
     # would be nice to more cleanly overwrite y axis label
     axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)
-    text(mean(range(pos[f])), ymax, 'Plot truncated', adj = c(0.5, 0), cex = 0.5)
+    # draw at left edge, otherwise multiple regionplot.points() generate 
+    # partly overlapping  (and hence illegible) warnings
+    text(par('usr')[1] + strwidth('M', cex = 0.5), 
+         ymax, '(plot truncated)', adj = c(0, 0.5), cex = 0.5)
     return(FALSE)
   }
   return(ifelse(f, ymax, y))
 }
 
 regionplot.highlight <- function(pvals, highlight_style) {
-    stopifnot(is.data.frame(pvals))
-    if (all(c('pos', 'pval') %in% names(pvals))) {
+  stopifnot(is.data.frame(pvals))
+  if (all(c('pos', 'pval') %in% names(pvals))) {
         pvals <- subset(pvals, !is.na(pos) & !is.na(pval))
         if (nrow(pvals) > 0) {
-            if ('circle' %in% highlight_style) {
-                regionplot.points(pvals$pos, pvals$pval, pch = 1, cex = 2, col = rgb(0, 0, 0, .75))
+            if ('circle' %in% tolower(highlight_style)) {
+                regionplot.points(pvals$pos, pvals$pval, 
+                                  pch = 1, cex = 2, col = rgb(0, 0, 0, .75),
+                                  suppressWarning = TRUE) # suppress since points already drawn
             }
-            if ('pos' %in% highlight_style) {
-                text(pvals$pos, -log10(pvals$pval), pvals$pos, pos = 3, cex = 0.5)
+            if ('pos' %in% tolower(highlight_style)) {
+                regionplot.points(pvals$pos, pvals$pval, 
+                                  labels = pvals$pos,
+                                  suppressWarning = TRUE) # suppress since points already drawn
             }
             ## in future will add options if 'rs' %in% highlight_style etc.
         }
@@ -548,7 +677,7 @@ regionplot.recombination <- function(chrom, pos_start, pos_end, yoff = -.5,
 		uniq = FALSE, zrok = TRUE),
        {
          abline(h = yoff, col = "grey")
-         yscale <- (par("usr")[4] - yoff)*.9/max(recombination_rate)
+         yscale <- (par("usr")[4] - yoff)*.75/max(recombination_rate)
          lines(c(pos_start, pos_end[length(pos_end)]),
                yoff + c(recombination_rate, recombination_rate[length(recombination_rate)])*yscale,
                type = "s", col = "cyan3")

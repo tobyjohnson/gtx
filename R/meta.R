@@ -2,6 +2,7 @@
 ## GWAS meta-analysis, on the fly
 
 ## FIXME would be more flexible to allow the option of different rsq_ge, maf_ge, emac_ge, case_emac_ge for each analysis
+#' @import data.table
 
 meta <- function(analysis1, analysis2,
                  entity, entity1, entity2,
@@ -66,7 +67,7 @@ meta <- function(analysis1, analysis2,
                             xentity2$entity_where 
                             ),
                     uniq = FALSE) # expect >=1 rows
-  res <- data.table(res)
+  res <- data.table::data.table(res)
 
   ## Compute precision of meta-analysis result (=1/Variance)
   res[ , prec := se1^-2 + se2^-2] # a sum over input GWAS, can be kept as a running total with vector add for each input GWAS in turn
