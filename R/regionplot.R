@@ -130,14 +130,36 @@ regionplot <- function(analysis, # what analysis (entity should be next)
                                               rgb((1 - r^2)*.67, (1 - r^2)*.67, .33*r^2 + .67, alpha),
                                               rgb(.33*r^2 + .67, (1 - r^2)*.67, (1 - r^2)*.67, alpha))))
     ## (re)draw the index variant for pairwise LD over the top, in larger size and with no transparency
-    with(merge(attr(pvals, "index_ld"), pvals), 
-         regionplot.points(pos, pval, 
-                           cex = 1.25, 
+    pval1 <- merge(pvals, attr(pvals, 'index_ld')[ , c('chrom', 'pos', 'ref', 'alt')])
+    if (!is.null(pval1) && !is.na(pval1) && nrow(pval1) > 0) {
+      with(pval1, {
+        text((xregion$pos_start + xregion$pos_end)*0.5, 
+              .75*gl$yline[5] + .25*gl$yline[4],
+            labels = glue('Pairwise LD with index chr{chrom}:{pos}:{ref}>{alt}'),
+            pos = 3, cex = 0.75)
+        arrows(x0 = (xregion$pos_start + xregion$pos_end)*0.5, 
+               y0 = .75*gl$yline[5] + .25*gl$yline[4], 
+               y1 = .5*gl$yline[5] + .5*gl$yline[4], 
+               length = 0, lty = 'dotted')
+        arrows(x0 = (xregion$pos_start + xregion$pos_end)*0.5, 
+               y0 = .5*gl$yline[5] + .5*gl$yline[4],
+               x1 = pos, 
+               y1 = .25*gl$yline[5] + .75*gl$yline[4],
+               length = 0, lty = 'dotted')
+        arrows(x0 = pos, 
+               y0 = .25*gl$yline[5] + .75*gl$yline[4],
+               y1 = pmin(-log10(pval), plot_ymax), # FIXME still not quite right
+               length = 0, lty = 'dotted')
+        regionplot.points(pos, pval, 
+                           cex = 1.5, 
                            pch = ifelse(!is.na(impact), 23, 21),
                            col = ifelse(!is.na(impact), rgb(0, 0, 0, alpha = 1), rgb(.33, .33, .33, alpha = 1)),
                            bg = ifelse(!is.na(impact), 
                                        rgb(0, 0, 1, alpha = 1),
-                                       rgb(1, 0, 0, alpha = 1))))
+                                       rgb(1, 0, 0, alpha = 1)))
+      })
+    }
+
     regionplot.highlight(gp, highlight_style = highlight_style)
   }
   if ('signal' %in% tolower(style)) {
@@ -383,35 +405,41 @@ regionplot.data <- function(analysis, entity, signal,
         pval1 <- NULL # will be used to store chrom/pos/ref/alt of the index variant
                       # and using NULL to indicate not successfully selected
         # First, if a single pos argument was provided, try to use this as index variant
-        if (!missing(pos) && length(pos) == 1L) {
-          ## funny syntax to avoid subset(pvals, pos %in% pos)
-          pval1 <- pvals[pvals$pos == pos, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
-
-          if (identical(nrow(pval1), 1L)) {
-            pval1$r <- 1
-            gtx_debug('Querying pairwise LD with index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (selected by pos argument)')
+        if (!missing(pos)) {
+          if (identical(length(pos), 1L)) {
+            ## funny syntax to avoid subset(pvals, pos %in% pos)
+            pval1 <- pvals[pvals$pos == pos, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+            if (identical(nrow(pval1), 1L)) {
+              pval1$r <- 1
+              gtx_debug('Selected pairwise LD index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (selected by pos argument)')
+            } else {
+              gtx_warn('Skipping pos argument [ {paste(pos, collapse = \', \')} ] for pairwise LD index selection because {nrow(pval1)} variants match')
+              pval1 <- NULL
+            }
           } else {
-            gtx_warn('Skipping pos argument [ {paste(pos, collapse = \', \')} ] for pairwise LD index selection because matches {nrow(pval1)} variants')
-            pval1 <- NULL
+            gtx_warn('Skipping pos argument [ {paste(pos, collapse = \', \')} ] for pairwise LD index selection because multiple values')
           }
         }
         # Next, if a single rs argument was provided, try to use this as index variant
-        if (is.null(pval1) && !missing(rs) && length(rs) == 1L) {
-          # query this rs id
-          qrs <- sqlWrapper(dbc,
+        if (is.null(pval1) && !missing(rs)) {
+          if (identical(length(rs), 1L)) {
+            # query this rs id
+            qrs <- sqlWrapper(dbc,
                        sprintf('SELECT chrom, pos, ref, alt FROM sites WHERE %s;',
                                gtxwhere(chrom = chrom, rs = rs)),
                         uniq = FALSE, zrok = TRUE)
-          # use merge as a way to subset on match by all of chrom/pos/ref/alt
-          # note default merge is all.x = FALSE, all.y = FALSE
-          pval1 <- merge(pvals, qrs)[ , c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
-          
-          if (identical(nrow(pval1), 1L)) {
-            pval1$r <- 1
-            gtx_debug('Querying pairwise LD with index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (selected by rs argument)')
+            # use merge as a way to subset on match by all of chrom/pos/ref/alt
+            # note default merge is all.x = FALSE, all.y = FALSE
+            pval1 <- merge(pvals, qrs)[ , c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
+            if (identical(nrow(pval1), 1L)) {
+              pval1$r <- 1
+              gtx_debug('Selected pairwise LD index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (selected by rs argument)')
+            } else {
+              gtx_warn('Skipping rs argument [ {paste(rs, collapse = \', \')} ] for pairwise LD index selection because {nrow(pval1)} variants match')
+              pval1 <- NULL
+            }
           } else {
-            gtx_warn('Skipping rs argument [ {paste(rs, collapse = \', \')} ] for pairwise LD index selection because matches {nrow(pval1)} variants')
-            pval1 <- NULL
+            gtx_warn('Skipping rs argument [ {paste(rs, collapse = \', \')} ] for pairwise LD index selection because multiple values')            
           }
         }
         # Next, pick variant with at least one ld value and with smallest P-value 
@@ -432,7 +460,7 @@ regionplot.data <- function(analysis, entity, signal,
           has_ld <- within(merge(has_ld, pvals[ , c('chrom', 'pos', 'ref', 'alt', 'pval'), drop = FALSE],
                                  all.x = FALSE, all.y = TRUE),
                            has_ld[is.na(has_ld)] <- FALSE)
-          if (all(!has_ld$has_ld) || nrow(has_ld) == 0L) {
+          if (nrow(has_ld) == 0L || all(!has_ld$has_ld)) {
             gtx_warn('Skipping pairwise LD index selection because no variants have pairwise LD data')
           } else {
             # order so we can warn how many smaller P-value variants were skippedcount 
@@ -441,27 +469,37 @@ regionplot.data <- function(analysis, entity, signal,
               # smallest P-value variant has LD, so okay to use this
               pval1 <- has_ld[1, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
               pval1$r <- 1
-              gtx_debug('Querying pairwise LD with index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (smallest P-value)')
+              gtx_debug('Selected pairwise LD index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (smallest P-value)')
             } else {
               w_has_ld <- which(has_ld$has_ld)[1] # guaranteed length >=1 by checks above
               pval1 <- has_ld[w_has_ld, c('chrom', 'pos', 'ref', 'alt'), drop = FALSE]
               pval1$r <- 1
               gtx_warn('Pairwise LD index selection skipped {w_has_ld - 1} variants with -log10(p)<={round(log10(has_ld$pval[w_has_ld]/has_ld$pval[1]), 2)} smaller, with no pairwise LD data')
-              gtx_debug('Querying pairwise LD with index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (smallest P-value)')
+              gtx_debug('Selected pairwise LD index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} (smallest P-value with pairwise LD data)')
             }
           }
         }
-        stopifnot(identical(nrow(pval1), 1L)) # This will fail if has_ld was all FALSE or had zero rows, see above
-        ld1 <- sqlWrapper(dbc, 
+        if (!is.null(pval1)) {
+          stopifnot(identical(nrow(pval1), 1L)) # This will fail if has_ld was all FALSE or had zero rows, see above
+          gtx_debug('Querying pairwise LD with index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt}')
+          ld1 <- sqlWrapper(dbc, 
                           sprintf('SELECT chrom2 AS chrom, pos2 AS pos, ref2 AS ref, alt2 AS alt, r FROM ld
                                    WHERE chrom1=\'%s\' AND pos1=%s AND ref1=\'%s\' AND alt1=\'%s\';',
                                   pval1$chrom, pval1$pos, pval1$ref, pval1$alt), # should we sanitize
-                          uniq = FALSE)
-        pvals <- merge(pvals, rbind(pval1, ld1), all.x = TRUE, all.y = FALSE)
-        # sort by decreasing r^2 (will be resorted for plotting, so makes 
-        # a .data() call work as a useful proxy search
-        pvals <- pvals[order(pvals$r^2, decreasing = TRUE), ]
-        attr(pvals, 'index_ld') <- pval1
+                          uniq = FALSE, zrok = TRUE)
+          pvals <- merge(pvals, rbind(pval1, ld1), all.x = TRUE, all.y = FALSE)
+          # sort by decreasing r^2 (will be resorted for plotting, so makes 
+          # a .data() call work as a useful proxy search
+          pvals <- pvals[order(pvals$r^2, decreasing = TRUE), ]
+          attr(pvals, 'index_ld') <- pval1
+          if (mean(is.na(pvals$r)) > 0.25) { # threshold seems high but pairwise LD often missing form low frequency variants
+            gtx_warn('Pairwise LD with index chr{pval1$chrom}:{pval1$pos}:{pval1$ref}>{pval1$alt} missing for {round(mean(is.na(pvals$r))*100)}% of variants, check warnings and debugging messages for possible cause')
+          }
+        } else {
+          gtx_warn('Selection of pairwise LD index failed, check warnings and debugging messages for possible cause')
+          pvals$r <- NA
+          attr(pvals, 'index_ld') <- NA
+        }
     } else {
         ## sort by increasing pval
         pvals <- pvals[order(pvals$pval), ]
