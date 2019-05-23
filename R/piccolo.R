@@ -42,6 +42,9 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
      }else{
        stop("piccolo1 | the length of each input is different.", call. = FALSE)
      }
+    # exclude any duplicated input
+    input <- input %>% distinct(snpID, indication, .keep_all = TRUE)
+    
   }else if(!missing(chrom) & !missing(pos)){
     if(missing(ancestry)) { ancestry <- c(rep("EUR", length(pos))) }
     if(missing(indication)) { indication <- c(rep(NA_character_, length(pos)))}
@@ -52,6 +55,9 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
     }else{
       stop("piccolo2 | the length of each input is different.", call. = FALSE)
     }
+    # exclude any duplicated input
+    input <- input %>% distinct(snpID, indication, .keep_all = TRUE)
+    
   }
   #print(input)
   input$ancestry <- ifelse(!is.na(input$ancestry) , as.character(input$ancestry),"EUR")
@@ -101,8 +107,8 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
     for(k in unique(x$ID)){
       dta2 <- subset(x, ID %in% k)
       dta2 <- dta2[order(-dta2$pics),]
-      dta2 <- dta2[,c("pos","pics","rsid_idx","tissue","hgncid","entity","pmid_idx")]
-      names(dta2) <- c("pos2","pics2","eqtl_rsid","tissue","hgnc_symbol","ensembl_ID","pubmed_ID")
+      dta2 <- dta2[,c("pos","pics","rsid_idx","pval_idx","tissue","hgncid","entity","pmid_idx")]
+      names(dta2) <- c("pos2","pics2","eqtl_rsid","eqtl_pval","tissue","hgnc_symbol","ensembl_ID","pubmed_ID")
       tmp <- int_coloc_pics_lite(dta1,dta2,pics1="pics1",pics2="pics2",rsid1="pos1",rsid2="pos2")
       tmp01[[n2]] <- bind_cols(dta1[1,],dta2[1,],tmp)
       n2 <- n2+1
@@ -111,8 +117,8 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
     n1 <- n1+1
   }
   res <- do.call("rbind",tmp00)
-  res <- res[,c("snpID","rsid","pval","chrom","pos1","ancestry","indication","eqtl_rsid","pos2","hgnc_symbol","ensembl_ID","tissue","pubmed_ID","H3","H4")]
-  names(res) <- c("gwas_input","gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","qtl_rsid","qtl_pos","hgncid","ensemblid","tissue","pmid","H3","H4")
+  res <- res[,c("snpID","rsid","pval","chrom","pos1","ancestry","indication","eqtl_rsid","eqtl_pval","pos2","hgnc_symbol","ensembl_ID","tissue","pubmed_ID","H3","H4")]
+  names(res) <- c("gwas_input","gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","qtl_rsid","qtl_pval","qtl_pos","hgncid","ensemblid","tissue","pmid","H3","H4")
   check.missing.gwas.snp <- subset(input, !(input$snpID %in% unique(res$gwas_input)),c("snpID","pval","ancestry","indication") )
   names(check.missing.gwas.snp) <- c("gwas_input","gwas_pval","ancestry","indication")
   if(nrow(check.missing.gwas.snp) >= 1) res <- int_sbind(check.missing.gwas.snp,res)
@@ -201,16 +207,25 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   tmp.ld <- tmp.ld[,c("snpID","rsid1","pval","chrom","pos","chrom2","pos2","ancestry","indication","r","r2")]
   names(tmp.ld) <- c("snpID","rsid1","pval","chrom1","pos1","chrom2","pos2","ancestry","indication","r","r2")
   
-  tmp <- list()
-  n <- 1
+  tmp00 <- list()
   for(i in unique(index.data$chrom)){
     sub.dta <- subset(index.data, chrom %in% i)
-    sub.ld=sqlWrapper(dbc,paste0("SELECT * FROM ld WHERE pos1 IN (",paste(sub.dta$pos,collapse=","),") and chrom1='",i,"'"),uniq = F, zrok = FALSE)
-    sub.ld[!duplicated(sub.ld[,c("pos2","pos1")]),]
-    tmp[[n]] <- sub.ld
-    n <- n+1
+    if(length(unique(sub.dta$pos)) > 1000){
+      pos1List <- split(unique(sub.dta$pos),cut(1:length(unique(sub.dta$pos)),ceiling(length(unique(sub.dta$pos))/1000),F))
+    }else{
+      pos1List <- split(unique(sub.dta$pos),1)
+    }
+    tmp01 <- list()
+    n <- 1
+    for(j in 1:length(pos1List)){
+      sub.ld=sqlWrapper(dbc,paste0("SELECT * FROM ld WHERE pos1 IN (",paste(pos1List[[j]],collapse=","),") and chrom1='",i,"'"),uniq = F, zrok = FALSE)
+      sub.ld[!duplicated(sub.ld[,c("pos2","pos1")]),]
+      tmp01[[n]] <- sub.ld
+      n <- n+1
+    }
+    tmp00[[i]] <- int_fastDoCall("rbind",tmp01)
   }
-  all.ld <- do.call("rbind",tmp)
+  all.ld <- int_fastDoCall("rbind",tmp00)
   
   # calculate PICS
   all.ld$r2 <- all.ld$r^2
