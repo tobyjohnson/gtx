@@ -252,7 +252,7 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
       pos2List <- split(unique(sub.dta$pos2),1)
     }
     tmp01 <- list()
-    n <- 1
+    n <- 1 
     for(j in 1:length(pos2List)){
       tmp<-sqlWrapper(dbc,paste0("SELECT chrom,pos,rsid FROM sites WHERE pos IN (",paste(pos2List[[j]],collapse=","),") and chrom='",i,"'"),uniq = F, zrok = FALSE)
       tmp1 <- subset(tmp, !is.na(rsid))
