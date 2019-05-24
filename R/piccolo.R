@@ -225,6 +225,9 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
     stop("pics_calc: all rs's are missing, carefully check the input data, specially rs.", 
          call. = FALSE)
   }
+  # exclude chrom = "X" and "XY" 
+    index.data <- subset(index.data, chrom %in% as.character(seq(1,22))) 
+    
   tmp.ld <- index.data
   tmp.ld$chrom2 <- tmp.ld$chrom
   tmp.ld$pos2 <- tmp.ld$pos
