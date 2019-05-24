@@ -154,7 +154,7 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   rs.snpid <- subset(index.data, grepl("rs", index.data$snpID))
   rs.snpid.tmp <- gsub("rs", "", rs.snpid$snpID)
   rs.snpid.tmp <- gsub("[^[:alnum:][:blank:]+?&/\\-].*", "",rs.snpid.tmp)
-  .snpid <- subset(index.data, !grepl("rs", index.data$snpID))
+  .snpid <- subset(index.data, !grepl("rs", index.data$snpID) & grepl(":",index.data$snpID))
   dta.ext <- NULL
   if (length(rs.snpid.tmp) > 0) {
     if (length(unique(rs.snpid.tmp)) > 1000) {
