@@ -25,7 +25,7 @@
 piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbConnection", NULL)){
  
   # check database connection
-  gtxdbcheck(dbc) 
+  gtxdbcheck(dbc)
   
   # Check input columns
   gtx_debug("piccolo | validating input.")
