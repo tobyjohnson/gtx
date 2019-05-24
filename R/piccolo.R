@@ -23,7 +23,7 @@
 #' @export
 
 piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbConnection", NULL)){
- 
+  
   # check database connection
   gtxdbcheck(dbc)
   
@@ -36,12 +36,21 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
     if(missing(ancestry)) { ancestry <- c(rep("EUR", length(rs))) }
     if(missing(indication)) { indication <- c(rep(NA_character_, length(rs)))}
     tmp.list <- list(rs,pval,ancestry,indication)
+<<<<<<< HEAD
      if(all(sapply(tmp.list,length)==length(tmp.list[[1]]))){
        snpID <- rs
        input <- tibble(snpID, pval, ancestry, indication)
      }else{
        stop("piccolo1 | the length of each input is different.", call. = FALSE)
      }
+=======
+    if(all(sapply(tmp.list,length)==length(tmp.list[[1]]))){
+      snpID <- rs
+      input <- tibble(snpID, pval, ancestry, indication)
+    }else{
+      stop("piccolo1 | the length of each input is different.", call. = FALSE)
+    }
+>>>>>>> develop
     # exclude any duplicated input
     input <- input %>% distinct(snpID, indication, .keep_all = TRUE)
     
@@ -159,8 +168,12 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
     if (length(unique(rs.snpid.tmp)) > 1000) {
       rsList <- split(unique(rs.snpid.tmp), cut(1:length(unique(rs.snpid.tmp)), 
                                                 ceiling(length(unique(rs.snpid.tmp))/1000), F))
+<<<<<<< HEAD
     }
     else {
+=======
+    } else {
+>>>>>>> develop
       rsList <- split(unique(rs.snpid.tmp), 1)
     }
     tmp01 <- list()
@@ -226,6 +239,12 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
     stop("pics_calc: all rs's are missing, carefully check the input data, specially rs.", 
          call. = FALSE)
   }
+<<<<<<< HEAD
+=======
+  # exclude chrom = "X" and "XY" 
+    index.data <- subset(index.data, chrom %in% as.character(seq(1,22))) 
+    
+>>>>>>> develop
   tmp.ld <- index.data
   tmp.ld$chrom2 <- tmp.ld$chrom
   tmp.ld$pos2 <- tmp.ld$pos
@@ -327,6 +346,7 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
 
 
 int_coloc_pics_lite <- function(data1,
+<<<<<<< HEAD
                             data2,
                             pics1    = "PICS_probability", # column header for poster probabilities in data1
                             pics2    = "PICS_probability", # column header for poster probabilities in data2
@@ -336,6 +356,17 @@ int_coloc_pics_lite <- function(data1,
                             priorc1  = 1e-4, 
                             priorc2  = 1e-4, 
                             priorc12 = 1e-5
+=======
+                                data2,
+                                pics1    = "PICS_probability", # column header for poster probabilities in data1
+                                pics2    = "PICS_probability", # column header for poster probabilities in data2
+                                rsid1    = "Linked_SNP",       # column header for snps in LD in data1
+                                rsid2    = "Linked_SNP",       # column header for snps in LD in data2
+                                rounded  = 6,
+                                priorc1  = 1e-4, 
+                                priorc2  = 1e-4, 
+                                priorc12 = 1e-5
+>>>>>>> develop
 ) {
   stopifnot(exists("data1") & exists("data2"))
   if(is.logical(data1)){
@@ -351,8 +382,8 @@ int_coloc_pics_lite <- function(data1,
     }
   }
   pics <- int_harmonize_pics(data1, 
-                          data2, 
-                          opts <- data.frame(rsid1 = rsid1, rsid2 = rsid2, pics1 = pics1, pics2 = pics2, stringsAsFactors = FALSE))
+                             data2, 
+                             opts <- data.frame(rsid1 = rsid1, rsid2 = rsid2, pics1 = pics1, pics2 = pics2, stringsAsFactors = FALSE))
   
   nv <- dim(pics)[1]
   res <- data.frame(prior = norm1(c(priorc1*priorc2*nv*(nv - 1), priorc12*nv)),
@@ -370,12 +401,21 @@ int_coloc_pics_lite <- function(data1,
 #' 
 
 int_harmonize_pics <- function(data1,
+<<<<<<< HEAD
                             data2, 
                             opts = data.frame(pics1 = "PICS_probability",
                                               pics2 = "PICS_probability",
                                               rsid1 = "Linked_SNP",
                                               rsid2 = "Linked_SNP",
                                               stringsAsFactors = FALSE)
+=======
+                               data2, 
+                               opts = data.frame(pics1 = "PICS_probability",
+                                                 pics2 = "PICS_probability",
+                                                 rsid1 = "Linked_SNP",
+                                                 rsid2 = "Linked_SNP",
+                                                 stringsAsFactors = FALSE)
+>>>>>>> develop
 ){
   ids <- unique(c(data1[[opts$rsid1]], data2[[opts$rsid2]]))
   tmp <- as.data.frame(matrix(data = NA, nrow = length(ids), ncol = 2))
