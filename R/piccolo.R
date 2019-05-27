@@ -183,8 +183,8 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
                                zrok = FALSE), error = function(e) NULL)
       if (!is.null(x)) {
         x = x[!duplicated(x$rsid), ]
-        x$rsid1 <- paste("rs", dta.ext$rsid, sep = "")
-        x$snpID <- dta.ext$rsid1
+        x$rsid1 <- paste("rs", x$rsid, sep = "")
+        x$snpID <- x$rsid1
         x$rsid <- NULL
         tmp01[[i]] <- x
       } else {
