@@ -63,6 +63,20 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
   input$ancestry <- ifelse(!is.na(input$ancestry) , as.character(input$ancestry),"EUR")
   input <- input[!is.na(input$snpID) & !is.na(input$pval) ,]
   
+  # Filtering out the strange input data and report the list of snpIDs to the log file  
+  input$inputID <- input$snpID
+  input.check4rs <- subset(input, grepl("rs", input$snpID))
+  input.check4rs$snpID <- gsub("[^[:alnum:][:blank:]+?&/\\-].*","",input.check4rs$snpID)
+  input.check4chrpos <- subset(input, !grepl("rs", input$snpID) & grepl(":",input$snpID))
+  excluded.snpID <- subset(input, !(inputID %in% input.check4rs$inputID) & !(inputID %in% input.check4chrpos$inputID))
+  
+  # print if there is an exluded snpsID
+  if(!is.null(excluded.snpID)){
+     write.csv(excluded.snpID,"Exluded_inputSNPs.csv",row.names=F)
+  }
+  # Create the final input data
+  input <- rbind(input.check4rs,input.check4chrpos)
+  
   gwas.pics <- tryCatch(pics_calc(input),error=function(e) NULL)
   if(is.null(gwas.pics)) { stop("All SNP IDs are not available in the current LD reference", call. = FALSE)}
   
@@ -96,9 +110,9 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
   tmp00 <- list()
   n1 <- 1
   for(j in unique(idx.nearst.genes$ID)){
-    dta1 <- subset(gwas.pics, paste(chrom_idx,pos_idx,pval_idx,sep="_") == j, c("pos","pics","snpID_idx","rsid_idx","pval_idx","chrom_idx","ancestry","indication"))
+    dta1 <- subset(gwas.pics, paste(chrom_idx,pos_idx,pval_idx,sep="_") == j, c("pos","pics","inputID_idx","snpID_idx","rsid_idx","pval_idx","chrom_idx","ancestry","indication"))
     dta1 <- dta1[order(-dta1$pics),]
-    names(dta1) <- c("pos1","pics1","snpID","rsid","pval","chrom","ancestry","indication")
+    names(dta1) <- c("pos1","pics1","inputID","snpID","rsid","pval","chrom","ancestry","indication")
     
     tmp <- subset(idx.nearst.genes, ID == j)
     x <- subset(pics.qtls, entity %in% tmp$ensemblid)
@@ -117,10 +131,10 @@ piccolo <- function(chrom,pos,rs,pval,ancestry,indication,dbc=getOption("gtx.dbC
     n1 <- n1+1
   }
   res <- do.call("rbind",tmp00)
-  res <- res[,c("snpID","rsid","pval","chrom","pos1","ancestry","indication","eqtl_rsid","eqtl_pval","pos2","hgnc_symbol","ensembl_ID","tissue","pubmed_ID","H3","H4")]
-  names(res) <- c("gwas_input","gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","qtl_rsid","qtl_pval","qtl_pos","hgncid","ensemblid","tissue","pmid","H3","H4")
-  check.missing.gwas.snp <- subset(input, !(input$snpID %in% unique(res$gwas_input)),c("snpID","pval","ancestry","indication") )
-  names(check.missing.gwas.snp) <- c("gwas_input","gwas_pval","ancestry","indication")
+  res <- res[,c("inputID","snpID","rsid","pval","chrom","pos1","ancestry","indication","eqtl_rsid","eqtl_pval","pos2","hgnc_symbol","ensembl_ID","tissue","pubmed_ID","H3","H4")]
+  names(res) <- c("gwas_input_original","gwas_input","gwas_rsid","gwas_pval","gwas_chrom","gwas_pos","ancestry","indication","qtl_rsid","qtl_pval","qtl_pos","hgncid","ensemblid","tissue","pmid","H3","H4")
+  check.missing.gwas.snp <- subset(input, !(input$snpID %in% unique(res$gwas_input)),c("inputID","snpID","pval","ancestry","indication") )
+  names(check.missing.gwas.snp) <- c("gwas_input_original","gwas_input","gwas_pval","ancestry","indication")
   if(nrow(check.missing.gwas.snp) >= 1) res <- int_sbind(check.missing.gwas.snp,res)
   
   return(res)
@@ -153,8 +167,7 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   gtx_debug("pics_calc | starting pics calc")
   rs.snpid <- subset(index.data, grepl("rs", index.data$snpID))
   rs.snpid.tmp <- gsub("rs", "", rs.snpid$snpID)
-  rs.snpid.tmp <- gsub("[^[:alnum:][:blank:]+?&/\\-].*", "",rs.snpid.tmp)
-  .snpid <- subset(index.data, !grepl("rs", index.data$snpID) & grepl(":",index.data$snpID))
+  .snpid <- subset(index.data, !grepl("rs", index.data$snpID))
   dta.ext <- NULL
   if (length(rs.snpid.tmp) > 0) {
     if (length(unique(rs.snpid.tmp)) > 1000) {
@@ -234,9 +247,9 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   tmp.ld$pos2 <- tmp.ld$pos
   tmp.ld$r <- 1
   tmp.ld$r2 <- 1
-  tmp.ld <- tmp.ld[, c("snpID", "rsid1", "pval", "chrom", "pos", 
+  tmp.ld <- tmp.ld[, c("inputID","snpID", "rsid1", "pval", "chrom", "pos", 
                        "chrom2", "pos2", "ancestry", "indication", "r", "r2")]
-  names(tmp.ld) <- c("snpID", "rsid1", "pval", "chrom1", "pos1", 
+  names(tmp.ld) <- c("inputID","snpID", "rsid1", "pval", "chrom1", "pos1", 
                      "chrom2", "pos2", "ancestry", "indication", "r", "r2")
   tmp00 <- list()
   n <- 1
@@ -307,10 +320,10 @@ pics_calc <- function(index.data,dbc=getOption("gtx.dbConnection", NULL)){
   names(snp.anno) <- c("chrom2", "pos2", "rsid", "snp2")
   pics.result <- merge(all.ld, snp.anno, by = c("chrom2", "pos2"))
   pics.result <- pics.result[order(pics.result$snpID, -pics.result$r2), 
-                             c("chrom2", "pos2", "snp2", "pics", "ancestry", "indication", 
+                             c("chrom2", "pos2", "snp2", "pics", "ancestry", "indication", "inputID",
                                "snpID", "rsid1", "pval", "chrom1", "pos1")]
   names(pics.result) <- c("chrom", "pos", "rsid", "pics", "ancestry", 
-                          "indication", "snpID_idx", "rsid_idx", "pval_idx", "chrom_idx", 
+                          "indication", "inputID_idx","snpID_idx", "rsid_idx", "pval_idx", "chrom_idx", 
                           "pos_idx")
   return(pics.result)}
 
