@@ -268,10 +268,24 @@ int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, cpu =
   marg_hits <- input %>% filter(is.na(signal))
   cleo_hits <- input %>% filter(!is.na(signal))
   
-  marg_rc <- int_ht_regional_context_analysis(input = marg_hits, style = 'signal',  cpu = cpu)
-  cleo_rc <- int_ht_regional_context_analysis(input = cleo_hits, style = 'signals', cpu = cpu)
+  if(nrow(marg_hits) > 0){
+    marg_rc <- int_ht_regional_context_analysis(input = marg_hits, style = 'signal',  cpu = cpu)  
+  } else {
+    marg_rc = NULL;
+  }
+  if(nrow(cleo_hits) > 0){
+    cleo_rc <- int_ht_regional_context_analysis(input = cleo_hits, style = 'signals', cpu = cpu)
+  } else {
+    cleo_rc = NULL;
+  }
   
-  ret <- union(marg_rc, cleo_rc)
+  if(nrow(marg_hits) > 0 & nrow(cleo_hits) > 0){
+    ret <- union(marg_rc, cleo_rc)
+  } else if(nrow(marg_hits) > 0){
+    ret <- marg_rc
+  } else if(nrow(cleo_hits) > 0){
+    ret <- cleo_rc
+  }
   
   return(ret)
 }
@@ -295,23 +309,27 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
   }
   
   # --- Remove database connections if making multi-threaded
+  # futile.logger::flog.threshold(ERROR)
   if(nrow(input) > 1 & cpu > 1){
-    options(gtx.dbConnection = NULL);  
+    options("gtx.dbConnection" = NULL);  
     gtxcache(disconnect = TRUE);
     plan(multiprocess, workers = as.integer(cpu))
   } else {
     plan(sequential)
   }
-  futile.logger::flog.threshold(ERROR)
+  
   
   if(style == 'signal'){
     ret <- 
       input %>% 
+      mutate(tile = ntile(row_number())) %>% 
+      group_by(tile) %>% 
       mutate(cs = future_pmap(list(analysis, chrom, pos), 
                               ~int_ht_cred_set_wrapper(analysis = ..1, 
                                                        chrom    = ..2, 
                                                        pos      = ..3,
-                                                       style    = 'signal')))
+                                                       style    = 'signal'))) %>% 
+      ungroup()
     
   } else if(style == 'signals'){
     ret <- 
@@ -321,7 +339,7 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
                                                        chrom    = ..2, 
                                                        pos      = ..3,
                                                        style    = 'signals',
-                                                       signal   = ..4))) 
+                                                       signal   = ..4)))
   } else {
     gtx_fatal_stop("int_ht_regional_context_analysis | Unable to determine style type.")
   }
@@ -362,7 +380,13 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, style, ...){
   if(missing(chrom) | missing(pos) | missing(analysis) | missing(style)){
     gtx_fatal_stop("int_ht_cred_set_wrapper | missing input arguement(s).")
   }
-  gtxconnect(use_database = config_db(), cache = FALSE)
+  
+  if(is_null(getOption("gtx.dbConnection", NULL))){
+    gtx_info("int_ht_cred_set_wrapper | Establishing gtxconnection.")
+    gtxconnect(use_database = config_db(), cache = FALSE)
+  } else {
+    gtx_info("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
+  }
   
   if(style == 'signal'){
     ret <- 
