@@ -270,18 +270,24 @@ int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, cpu =
   
   if(nrow(marg_hits) > 0){
     marg_rc <- int_ht_regional_context_analysis(input = marg_hits, style = 'signal',  cpu = cpu)  
-  } 
+  } else {
+    marg_rc = NULL
+  }
   
   if(nrow(cleo_hits) > 0){
     cleo_rc <- int_ht_regional_context_analysis(input = cleo_hits, style = 'signals', cpu = cpu)
-  } 
+  } else {
+    cleo_rc = NULL
+  }
   
-  if(nrow(marg_hits) > 0 & nrow(cleo_hits) > 0){
+  if(!is_null(marg_rc) & !is_null(cleo_rc)){
     ret <- union(marg_rc, cleo_rc)
-  } else if(nrow(marg_hits) > 0){
+  } else if(!is_null(marg_rc) & is_null(cleo_rc)){
     ret <- marg_rc
-  } else if(nrow(cleo_hits) > 0){
+  } else if(is_null(marg_rc) & !is_null(cleo_rc)){
     ret <- cleo_rc
+  } else {
+    gtx_fatal_stop("int_ht_regional_context_analysis | Unable to determine how properly determine & merge results.")
   }
   
   return(ret)
