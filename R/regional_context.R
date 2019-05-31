@@ -193,16 +193,19 @@ int_ht_phewas <- function(input, ignore_ukb_neale = TRUE, ignore_ukb_cane = TRUE
   
   # --- Remove any GWAS we don't want
   if(isTRUE(ignore_qtls)){
+    gtx_debug("int_ht_phewas | Ignoring eQTLs in PheWAS")
     marg_tbl <- marg_tbl %>% filter(is.na(entity))
     # cleo_tbl <- cleo_tbl %>% filter(is.na(entity)) # Will need to undo this in the future?
   }
   
   if(isTRUE(ignore_ukb_neale)){
+    gtx_debug("int_ht_phewas | Ignoring Neale UKB GWAS in PheWAS")
     marg_tbl <- marg_tbl %>% filter(!regexp_like(analysis, "neale"))
     cleo_tbl <- cleo_tbl %>% filter(!regexp_like(analysis, "neale"))
   }
   
   if(isTRUE(ignore_ukb_cane)){
+    gtx_debug("int_ht_phewas | Ignoring canelaxandri17 UKB GWAS in PheWAS")
     marg_tbl <- marg_tbl %>% filter(!regexp_like(analysis, "canelaxandri17"))
     cleo_tbl <- cleo_tbl %>% filter(!regexp_like(analysis, "canelaxandri17"))
   }
@@ -318,8 +321,8 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
     gtx_fatal_stop("int_ht_regional_context_analysis | Must use style = 'signal' OR 'signals'.")
   }
   
-  # --- Remove database connections if making multi-threaded
-  # futile.logger::flog.threshold(ERROR)
+  # --- Remove database connections
+  futile.logger::flog.threshold(ERROR)
   options("gtx.dbConnection" = NULL);
   gtxcache(disconnect = TRUE);
   if(nrow(input) > 1 & cpu > 1){
@@ -389,10 +392,10 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, style, ...){
   }
   
   if(is_null(getOption("gtx.dbConnection", NULL))){
-    gtx_info("int_ht_cred_set_wrapper | Establishing gtxconnection.")
+    gtx_debug("int_ht_cred_set_wrapper | Establishing gtxconnection.")
     gtxconnect(use_database = config_db(), cache = FALSE)
   } else {
-    gtx_info("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
+    gtx_debug("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
   }
   
   if(style == 'signal'){
