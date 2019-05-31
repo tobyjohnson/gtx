@@ -38,6 +38,7 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
   }
   
   # --- Harmonize inputs to a table reference in RDIP
+  gtx_info("regional_context_analysis | Gathering variants for PheWAS ...")
   input_tbl <- int_input_tbl(hgnc   = hgnc,  hgncid = hgncid, 
                              rs     = rs,    rsid   = rsid,
                              chrom  = chrom, pos    = pos, 
@@ -45,6 +46,7 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
                              impala = impala_dbc)
   
   # --- Perform PheWAS on each input
+  gtx_info("regional_context_analysis | Performing PheWAS on {tally(input_tbl)} variants.")
   phewas_hits <- int_ht_phewas(input = input_tbl, impala = impala_dbc,
                                ignore_ukb_neale = ignore_ukb_neale, 
                                ignore_ukb_cane = ignore_ukb_cane, 
@@ -75,6 +77,7 @@ int_input_tbl <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   impala_dbc <- validate_impala(impala = impala)
   
   if(!missing(hgnc) | !missing(hgncid)){
+    gtx_debug("int_input_tbl | hgnc symbol input - finding all VEP variants for gene(s).")
     vep_tbl   <- tbl(impala_dbc, glue("{config_db()}.vep"))
     
     if(!missing(hgncid)){    input <- tibble(input = hgncid) }
@@ -95,6 +98,7 @@ int_input_tbl <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
       select(input = hgncid, chrom, pos, ref, alt)
     
   } else if(!missing(rs) | !missing(rsid)){
+    gtx_debug("int_input_tbl | rs ID input - finding all genomic coordinates.")
     if(!missing(rsid))   { input <- tibble(input = rsid) }
     else if(!missing(rs)){ input <- tibble(input = rs)   }
     
@@ -111,6 +115,7 @@ int_input_tbl <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
       select(input, chrom, pos, ref, alt)
     
   } else if(!missing(ref)){
+    gtx_debug("int_input_tbl | chrom,pos,ref,alt input - confirming genomic coordinates.")
     input <- tibble(chrom = chrom, pos = pos, ref = ref, alt = alt)
     
     input <- 
@@ -130,6 +135,7 @@ int_input_tbl <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
       select(input, chrom, pos, ref, alt)
     
   } else if(!missing(chrom)) { 
+    gtx_debug("int_input_tbl | chrom,pos,ref - ID all genomic coordinates.")
     input <- tibble(chrom = chrom, pos = pos)
     
     input <- 
@@ -287,7 +293,8 @@ int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, cpu =
   } else if(is_null(marg_rc) & !is_null(cleo_rc)){
     ret <- cleo_rc
   } else {
-    gtx_fatal_stop("int_ht_regional_context_analysis | Unable to determine how properly determine & merge results.")
+    gtx_fatal_stop("int_ht_regional_context_analysis | Unable to determine how to ",
+                   "properly merge results.")
   }
   
   return(ret)
@@ -313,9 +320,9 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
   
   # --- Remove database connections if making multi-threaded
   # futile.logger::flog.threshold(ERROR)
+  options("gtx.dbConnection" = NULL);
+  gtxcache(disconnect = TRUE);
   if(nrow(input) > 1 & cpu > 1){
-    options("gtx.dbConnection" = NULL);  
-    gtxcache(disconnect = TRUE);
     plan(multiprocess, workers = as.integer(cpu))
   } else {
     plan(sequential)
@@ -325,14 +332,11 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
   if(style == 'signal'){
     ret <- 
       input %>% 
-      mutate(tile = ntile(row_number())) %>% 
-      group_by(tile) %>% 
       mutate(cs = future_pmap(list(analysis, chrom, pos), 
                               ~int_ht_cred_set_wrapper(analysis = ..1, 
                                                        chrom    = ..2, 
                                                        pos      = ..3,
-                                                       style    = 'signal'))) %>% 
-      ungroup()
+                                                       style    = 'signal')))
     
   } else if(style == 'signals'){
     ret <- 
