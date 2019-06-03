@@ -50,7 +50,7 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
   
   
   # --- Perform PheWAS on each input
-  input_tbl_nvars <- tally(input_tbl);
+  input_tbl_nvars <- tally(input_tbl) %>% collect() %>% pull(n);
   gtx_info("regional_context_analysis | Performing PheWAS on {input_tbl_nvars} variants.")
   phewas_hits <- int_ht_phewas(input = input_tbl, impala = impala_dbc,
                                ignore_ukb_neale = ignore_ukb_neale, 
@@ -96,7 +96,6 @@ int_input_tbl <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     select_statement <-
       glue('SELECT * FROM {config_db()}.genes WHERE ',
            glue_collapse(input$where_clause, sep = " OR "))
-    
     
     input_tbl <- 
       tbl(impala_dbc, sql(select_statement)) %>% 
@@ -193,11 +192,11 @@ int_ht_phewas <- function(input, ignore_ukb_neale = TRUE, ignore_ukb_cane = TRUE
   # --- Make references to both GWAS tables for marginal and CLEO results
   marg_tbl  <- 
     tbl(impala_dbc, glue("{config_db()}.gwas_results")) %>% 
-    filter(pval <= phewas_pval_le) 
+    filter(pval <= phewas_pval_le & !is.na(pval)) 
   
   cleo_tbl <- 
     tbl(impala_dbc, glue("{config_db()}.gwas_results_cond")) %>% 
-    filter(pval_cond <= phewas_pval_le) 
+    filter(pval_cond <= phewas_pval_le & !is.na(pval)) 
   
   # --- Remove any GWAS we don't want
   if(isTRUE(ignore_qtls)){
@@ -384,6 +383,8 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, drop_cs = TR
     ret = ret %>% select(-cs)
   }
   
+  # Re-establish DB connection
+  gtxconnect(use_database = config_db(), cache = TRUE)
   return(ret)
 }
 
