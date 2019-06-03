@@ -253,7 +253,7 @@ int_ht_phewas <- function(input, ignore_ukb_neale = TRUE, ignore_ukb_cane = TRUE
 #' @param alt TODO
 #' @param analysis TODO
 #' @return tibble 
-int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, cpu = 8){
+int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, cpu = 8, drop_cs = TRUE){
   # --- Verify inputs
   if(missing(input) & (missing(chrom) & missing(pos) & missing(ref) & missing(alt) & missing(analysis))){
     gtx_fatal_stop("int_ht_regional_context_analysis | missing input arguement(s).")
@@ -278,13 +278,13 @@ int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, cpu =
   cleo_hits <- input %>% filter(!is.na(signal))
   
   if(nrow(marg_hits) > 0){
-    marg_rc <- int_ht_regional_context_analysis(input = marg_hits, style = 'signal',  cpu = cpu)  
+    marg_rc <- int_ht_regional_context_analysis(input = marg_hits, style = 'signal',  cpu = cpu, drop_cs = drop_cs)  
   } else {
     marg_rc = NULL
   }
   
   if(nrow(cleo_hits) > 0){
-    cleo_rc <- int_ht_regional_context_analysis(input = cleo_hits, style = 'signals', cpu = cpu)
+    cleo_rc <- int_ht_regional_context_analysis(input = cleo_hits, style = 'signals', cpu = cpu, drop_cs = drop_cs)
   } else {
     cleo_rc = NULL
   }
@@ -312,7 +312,7 @@ int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, cpu =
 #' @param style TODO
 #' @param cpu [Default=8]
 #' @return tibble 
-int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
+int_ht_regional_context_analysis <- function(input, style, cpu = 8, drop_cs = TRUE, ...){
   if(missing(input) | nrow(input) == 0){
     gtx_fatal_stop("int_ht_regional_context_analysis | missing input arguement(s) or data.")
   }
@@ -322,7 +322,6 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
   }
   
   # --- Remove database connections
-  futile.logger::flog.threshold(ERROR)
   options("gtx.dbConnection" = NULL);
   gtxcache(disconnect = TRUE);
   if(nrow(input) > 1 & cpu > 1){
@@ -368,10 +367,13 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
     mutate(cs_th_pp   = map_dbl(cs, ~max(.$pp_signal))) %>% 
     mutate(cs_th_cord = map(cs, ~top_n(., 1, pp_signal) %>% select(pos, ref, alt))) %>% 
     unnest(cs_th_cord) %>% 
-    rename(th_pos = pos1, th_ref = ref1, th_alt = alt1) %>% 
-    select(-cs)
+    rename(th_pos = pos1, th_ref = ref1, th_alt = alt1) 
   
-  futile.logger::flog.threshold(INFO)
+  # Drop the cred sets. TRUE by default
+  if(isTRUE(drop_cs)){
+    ret = ret %>% select(-cs)
+  }
+  
   return(ret)
 }
 
@@ -397,6 +399,8 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, style, ...){
   } else {
     gtx_debug("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
   }
+  
+  futile.logger::flog.threshold(ERROR) # Turn off regionplot INFO msgs. 
   
   if(style == 'signal'){
     ret <- 
