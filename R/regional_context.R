@@ -21,10 +21,12 @@ regional_context_query <- function(hgnc, hgncid){
 #' @param alt alt allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
 #' @param impala [getOption("gtx.impala", NULL)] Implyr impala connection
 regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt, 
-                                      dbc = getOption("gtx.dbConnection", NULL),
+                                      dbc    = getOption("gtx.dbConnection", NULL),
                                       impala = getOption("gtx.impala", NULL),
-                                      ignore_ukb_neale = TRUE, ignore_ukb_cane = TRUE,
-                                      ignore_qtls = TRUE, phewas_pval_le = 1e-7,
+                                      ignore_ukb_neale = TRUE, 
+                                      ignore_ukb_cane  = TRUE,
+                                      ignore_qtls      = TRUE, 
+                                      phewas_pval_le = 1e-7,
                                       cpu = 8){
   # --- Check inputs
   gtx_debug("regional_context_analysis | validating GTX odbc connection.")
@@ -49,12 +51,15 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
   gtx_info("regional_context_analysis | Performing PheWAS on {tally(input_tbl)} variants.")
   phewas_hits <- int_ht_phewas(input = input_tbl, impala = impala_dbc,
                                ignore_ukb_neale = ignore_ukb_neale, 
-                               ignore_ukb_cane = ignore_ukb_cane, 
-                               ignore_qtls = ignore_qtls, 
-                               phewas_pval_le = phewas_pval_le)
+                               ignore_ukb_cane  = ignore_ukb_cane, 
+                               ignore_qtls      = ignore_qtls, 
+                               phewas_pval_le   = phewas_pval_le)
   
   # --- Perform regional_context analysis for each sig PheWAS hit
+  gtx_info("regional_context_analysis | Performing regional context analysis on {nrow(phewas_hits)} variants.")
+  region_context_data <- int_ht_regional_context(input = phewas_hits, cpu = cpu, drop_cs = drop_cs)
   
+  return(region_context_data)
   
 }
 
@@ -393,14 +398,14 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, style, ...){
     gtx_fatal_stop("int_ht_cred_set_wrapper | missing input arguement(s).")
   }
   
+  futile.logger::flog.threshold(ERROR) # Turn off gtxconnect & regionplot INFO msgs
+  
   if(is_null(getOption("gtx.dbConnection", NULL))){
     gtx_debug("int_ht_cred_set_wrapper | Establishing gtxconnection.")
     gtxconnect(use_database = config_db(), cache = FALSE)
   } else {
     gtx_debug("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
   }
-  
-  futile.logger::flog.threshold(ERROR) # Turn off regionplot INFO msgs. 
   
   if(style == 'signal'){
     ret <- 
