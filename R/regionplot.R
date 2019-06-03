@@ -293,7 +293,7 @@ regionplot.data <- function(analysis, entity, signal,
     pos_end = xregion$pos_end
     
     ## If required, determine entity and associated info including entity_label
-    xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
+    xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid, dbc = dbc)
     
     ## always query marginal p-values
     ## seems more flexible to query CLEO results separately and merge within R code
@@ -301,13 +301,13 @@ regionplot.data <- function(analysis, entity, signal,
       gtx_info('Querying marginal p-values')
       t0 <- as.double(Sys.time())
       pvals <- sqlWrapper(dbc,
-                          sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
+                          sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results."ref", gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
                                   if (any(c('signal', 'signals') %in% tolower(style))) ', beta, se, rsq, freq' else '', 
-                                  gtxanalysisdb(analysis), 
+                                  gtxanalysisdb(analysis, dbc = dbc), 
                                   gtxwhat(analysis1 = analysis),
                                   xentity$entity_where, # (entity=...) or (True)
                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                  gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
+                                  gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis, dbc = dbc)),
                           uniq = FALSE)
       t1 <- as.double(Sys.time())
       gtx_info('Query returned {nrow(pvals)} variants in query region {xregion$label} in {round(t1 - t0, 3)}s.')
@@ -322,7 +322,7 @@ regionplot.data <- function(analysis, entity, signal,
                                    LEFT JOIN vep 
                                    USING (chrom, pos, ref, alt) 
                                    WHERE %s AND %s AND %s;',
-                                  gtxanalysisdb(analysis), 
+                                  gtxanalysisdb(analysis, dbc = dbc), 
                                   where_from(analysisu = analysis, signalu = signal, tablename = 'gwas_results_cond'), 
                                   xentity$entity_where, # (entity=...) or (True)
                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results_cond')),

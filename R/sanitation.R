@@ -76,6 +76,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
       currdb <- paste0(Sys.getenv('USER'), '@', Sys.getenv('HOSTNAME'), ' <Impala>')
   } else if ('SQLiteConnection' %in% class(dbc)) {
       currdb <- '<SQLite>'
+  } else if ('KineticaConnection' %in% class(dbc)) {
+      currdb <- '<Kinetica>'
   } else {
       if (do_stop) {
           stop('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')
@@ -84,8 +86,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
                       status = paste0('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')))
       }
   }
-      
-  ##
+
+    ##
   ## If check_databases requested and we know how, check we can access them
   ## (i.e. check whether a later USE statement should be successful)
   if (!missing(check_databases)) {
@@ -119,6 +121,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
           }
       } else if ('SQLiteConnection' %in% class(dbc)) {
           stop('check_databases not possible for SQLiteConnection')    
+      } else if ('KineticaConnection' %in% class(dbc)) {
+         stop('check_databases not possible for KineticaConnection')    
       } else {
           stop('gtxdbcheck internal error')
       }
@@ -147,6 +151,8 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
                        paste(scdb[ , 'current_database()'], collapse = ', '), '>')    
   } else if ('SQLiteConnection' %in% class(dbc)) {
       currdb <- paste0('<SQLite:', dbc@dbname, '>')
+  } else if ('KineticaConnection' %in% class(dbc)) {
+      currdb <- '<KineticaConnection>'    
   } else {
       stop('gtxdbcheck internal error')
   }  
@@ -177,6 +183,9 @@ gtxdbcheck <- function(dbc = getOption("gtx.dbConnection", NULL),
       tables <- tables$name
   } else if ('SQLiteConnection' %in% class(dbc)) {
       tables <- RSQLite::dbListTables(dbc)
+  } else if ('KineticaConnection' %in% class(dbc)) {
+      tables <- c('analyses', 'gwas_results', 'genes') # spoof return without checking, for interim hack
+      # FIXME Tessella make this do an actual check
   }
 
   if (!is.null(tables_required) && !all(tables_required %in% tables)) {
@@ -224,9 +233,9 @@ gtxanalysisdb <- function(analysis,
             dbs <- sqlWrapper(dbc, 'SHOW DATABASES;', uniq = FALSE)
             options(gtx.dbConnection_SHOW_DATABASES = dbs)
         }
-    } else if ('SQLiteConnection' %in% class(dbc)) {
-        ## When dbc is an SQLite handle, there is no concept of a database
-        dbs <- NULL
+    } else if ('KineticaConnection' %in% class(dbc)) {
+      ## When dbc is a Kinetica handle, there is no concept of a database
+      dbs <- NULL
     } else {
         stop('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')
     }
@@ -419,7 +428,7 @@ sanitize1 <- function(x, values, type) {
 sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     ## Note this function is for generic SQL usage
     ## and therefore does NOT take dbc from options('gtx.dbConnection')
-    if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc)) {
+    if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc) && ! 'KineticaConnection' %in% class(dbc)) {
         stop('dbc is not an odbc database connection of class Impala or SQLiteConnection')
     }
     flog.debug(paste0(class(dbc), ' query: ', sql))

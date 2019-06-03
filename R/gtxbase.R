@@ -163,24 +163,33 @@ gtxwhat <- function(analysis1, # rename to analysis_u or analysis_uniq FIXME
         if (missing(analysis)) NULL
         else {
             if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
-                sprintf("analysis='%s'", sanitize(analysis, type = "alphanum"))
+                sprintf("%sanalysis='%s'", 
+                        tablename, 
+                        sanitize(analysis, type = "alphanum"))
             } else {
-                sprintf("analysis=%s", sanitize1(analysis, type = "count")) # note no quotes
+                sprintf("%sanalysis=%s", 
+                        tablename, 
+                        sanitize1(analysis, type = "count")) # note no quotes
             }
         },
         
         if (missing(description_contains)) NULL
-        else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "text")), # Sanitation may be too restrictive, should do something intelligent with whitespace
+        else sprintf("lower(%sdescription) LIKE '%%%s%%'", 
+                     tablename, 
+                     sanitize(tolower(description_contains), type = "text")), # Sanitation may be too restrictive, should do something intelligent with whitespace
 
         if (missing(phenotype_contains)) NULL
-        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "text")), # Sanitation may be too restrictive
+        else sprintf("lower(%sphenotype) LIKE '%%%s%%'", 
+                     tablename, 
+                     sanitize(phenotype_contains, type = "text")), # Sanitation may be too restrictive
 
         if (missing(has_tag)) NULL
-        else sprintf("tag='%s'", sanitize(has_tag, type = "alphanum")) # Sanitation may be too restrictive
+        else sprintf("%stag='%s'", tablename, 
+                     sanitize(has_tag, type = "alphanum")) # Sanitation may be too restrictive
     )
     ## format
     ws1f <- paste0("(", 
-                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(x, collapse = " OR "))), 
                   ")", collapse = " OR ")
 
     ##
@@ -600,6 +609,9 @@ gtxanalyses <- function(analysis, analysis_not,
     } else if ('SQLiteConnection' %in% class(dbc)) {
         ## When dbc is an SQLite handle, there is no concept of a database
         dbs <- NULL
+    } else if ('KineticaConnection' %in% class(dbc)) {
+      ## When dbc is a Kinetica handle, there is no concept of a database
+      dbs <- NULL
     } else {
         stop('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')
     }
