@@ -27,7 +27,8 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
                                       ignore_ukb_cane  = TRUE,
                                       ignore_qtls      = TRUE, 
                                       phewas_pval_le = 1e-7,
-                                      cpu = 8){
+                                      cpu = 8, 
+                                      drop_cs = TRUE){
   # --- Check inputs
   gtx_debug("regional_context_analysis | validating GTX odbc connection.")
   gtxdbcheck(dbc)
@@ -47,8 +48,10 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
                              ref    = ref,   alt    = alt, 
                              impala = impala_dbc)
   
+  
   # --- Perform PheWAS on each input
-  gtx_info("regional_context_analysis | Performing PheWAS on {tally(input_tbl)} variants.")
+  input_tbl_nvars <- tally(input_tbl);
+  gtx_info("regional_context_analysis | Performing PheWAS on {input_tbl_nvars} variants.")
   phewas_hits <- int_ht_phewas(input = input_tbl, impala = impala_dbc,
                                ignore_ukb_neale = ignore_ukb_neale, 
                                ignore_ukb_cane  = ignore_ukb_cane, 
@@ -327,8 +330,10 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, drop_cs = TR
   }
   
   # --- Remove database connections
+  futile.logger::flog.threshold(ERROR);
   options("gtx.dbConnection" = NULL);
   gtxcache(disconnect = TRUE);
+  futile.logger::flog.threshold(INFO);
   if(nrow(input) > 1 & cpu > 1){
     plan(multisession, workers = as.integer(cpu))
   } else {
