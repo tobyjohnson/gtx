@@ -326,7 +326,7 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, ...){
   options("gtx.dbConnection" = NULL);
   gtxcache(disconnect = TRUE);
   if(nrow(input) > 1 & cpu > 1){
-    plan(multiprocess, workers = as.integer(cpu))
+    plan(multisession, workers = as.integer(cpu))
   } else {
     plan(sequential)
   }
