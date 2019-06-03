@@ -196,7 +196,7 @@ int_ht_phewas <- function(input, ignore_ukb_neale = TRUE, ignore_ukb_cane = TRUE
   
   cleo_tbl <- 
     tbl(impala_dbc, glue("{config_db()}.gwas_results_cond")) %>% 
-    filter(pval_cond <= phewas_pval_le & !is.na(pval)) 
+    filter(pval_cond <= phewas_pval_le & !is.na(pval_cond)) 
   
   # --- Remove any GWAS we don't want
   if(isTRUE(ignore_qtls)){
