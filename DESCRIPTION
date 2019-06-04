@@ -31,4 +31,4 @@ Description: Assorted tools for genetic and pharmacogenetic association
 	analysis tools.
 URL: https://cran.r-project.org/web/packages/gtx/index.html, 
 	https://github.com/tobyjohnson/gtx
-RoxygenNote: 6.1.0
+RoxygenNote: 6.1.1
