@@ -173,10 +173,12 @@ coloc.data <- function(analysis1, analysis2,
   ## Determine entity, if required, for each analysis
   xentity1 <- gtxentity(analysis1, 
                         entity = entity1, hgncid = hgncid, ensemblid = ensemblid,
-                        tablename = 't1')
+                        tablename = 't1',
+                        dbc = dbc)
   xentity2 <- gtxentity(analysis2, 
                         entity = entity2, hgncid = hgncid, ensemblid = ensemblid,
-                        tablename = 't2')
+                        tablename = 't2',
+                        dbc = dbc)
 
   ## Get association statistics
   res <- sqlWrapper(dbc, 
@@ -187,7 +189,7 @@ coloc.data <- function(analysis1, analysis2,
                                  %sgwas_results%s AS t1 
                              FULL JOIN 
                                  %sgwas_results%s AS t2 
-                             USING (chrom, pos, ref, alt) 
+                             USING (chrom, pos, "ref", alt) 
                              WHERE 
                                  %s AND %s AND %s %s AND 
                                  %s AND %s AND %s %s 
@@ -196,9 +198,9 @@ coloc.data <- function(analysis1, analysis2,
                             if (missing(signal1)) '' else '_cond', 
                             if (missing(signal2)) '' else '_cond', 
                             if (missing(signal2)) '' else '_cond', 
-                            gtxanalysisdb(analysis1), 
+                            gtxanalysisdb(analysis1, dbc = dbc), 
                             if (missing(signal1)) '' else '_cond', 
-                            gtxanalysisdb(analysis2), 
+                            gtxanalysisdb(analysis2, dbc = dbc), 
                             if (missing(signal2)) '' else '_cond', 
                             where_from(analysisu = analysis1, signalu = signal1, tablename = 't1'), 
                             gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end, tablename = 't1'), 
