@@ -95,7 +95,7 @@ gtxwhere <- function(chrom,
         else sprintf("pos_end<=%s", sanitize(pos_end_le, type = "int")),
         
         if (missing(ref)) NULL
-        else sprintf("ref='%s'", sanitize(ref, type = "ACGT+")),
+        else sprintf("\"ref\"='%s'", sanitize(ref, type = "ACGT+")),
         
         if (missing(alt)) NULL
         else sprintf("alt='%s'", sanitize(alt, type = "ACGT+")),

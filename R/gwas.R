@@ -26,10 +26,10 @@ gwas <- function(analysis,
     
     t0 <- as.double(Sys.time())
     res <- sqlWrapper(dbc,
-                      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
+                      sprintf('SELECT chrom, pos, "ref", alt, pval, rsq, freq, beta, se
                                FROM %sgwas_results
                                WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
-                              gtxanalysisdb(analysis),
+                              gtxanalysisdb(analysis, dbc = dbc),
                               gtxwhat(analysis1 = analysis),
                               gtxfilter(pval_le = pval_thresh,
                                         maf_ge = maf_ge, rsq_ge = rsq_ge,
@@ -61,7 +61,10 @@ gwas <- function(analysis,
         gtx_info('Pruned to {nrow(res)} separate signals in {round(t1 - t0, 3)}s.')
         if (gene_annotate) {
             t0 <- as.double(Sys.time())
-            res[ , gene_annotation := gene.annotate(chrom, pos_index)]
+            ## consider calling gene.annotate() with
+            ##   dbc = getOption('gtx.dbConnection_cache_genes', dbc)
+            ##   - but unclear at what "level" to replace default dbc with the cache
+            res[ , gene_annotation := gene.annotate(chrom, pos_index, dbc = dbc)]
             t1 <- as.double(Sys.time())
             gtx_info('Gene annotation added in {round(t1 - t0, 3)}s.')
             if (is.null(getOption('gtx.dbConnection_cache_genes', NULL)) && (t1 - t0) > 1.) {
@@ -82,7 +85,7 @@ gwas <- function(analysis,
     ## in future we may need to pass maf_lt and rsq_lt as well  
     fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge,
                              emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
-                             analysis = analysis)
+                             analysis = analysis, dbc = dbc)
     
     if ('manhattan' %in% style || 'qqplot' %in% style) {
         ## Make single query for either case
@@ -91,7 +94,7 @@ gwas <- function(analysis,
                             sprintf('SELECT chrom, pos, pval
                                FROM %sgwas_results
                                WHERE %s AND %s AND pval IS NOT NULL;',
-                               gtxanalysisdb(analysis),
+                               gtxanalysisdb(analysis, dbc = dbc),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_le = 10^-plot_fastbox,
                                          maf_ge = maf_ge, rsq_ge = rsq_ge,
@@ -101,7 +104,7 @@ gwas <- function(analysis,
                             uniq = FALSE)
         t1 <- as.double(Sys.time())
         gtx_info('Manhattan/QQplot results query returned {nrow(pvals)} rows in {round(t1 - t0, 3)}s.')
-        ymax <- max(10, ceiling(-log10(min(pvals$pval))))
+        ymax <- max(10, ceiling(-log10(min(pvals$pval, na.rm = TRUE)))) # na.rm=TRUE for safety with db systems such as Kinetica that can return NA's despite pval IS NOT NULL predicate 
         if (ymax > plot_ymax) { # Hard coded threshold makes sense for control of visual display
             ymax <- plot_ymax
             warning('Truncating P-values at 1e-', ymax)
@@ -118,7 +121,7 @@ gwas <- function(analysis,
                             sprintf('SELECT chrom, min(pos) AS minpos, max(pos) AS maxpos
                                FROM %sgwas_results
                                WHERE %s GROUP BY chrom;', 
-                               gtxanalysisdb(analysis), 
+                               gtxanalysisdb(analysis, dbc = dbc), 
                                gtxwhat(analysis1 = analysis)),
                             uniq = FALSE)
         mmpos <- mmpos[order_chrom(mmpos$chrom), ]
@@ -185,11 +188,11 @@ gwas <- function(analysis,
 
     if ('qqplot' %in% style) {
         t0 <- as.double(Sys.time())
-        nump <- as.integer(sqlWrapper(getOption('gtx.dbConnection'),
+        nump <- as.integer(sqlWrapper(dbc,
                                       sprintf('SELECT count(1) AS nump
                                FROM %sgwas_results
                                WHERE %s AND %s AND pval IS NOT NULL;',
-                               gtxanalysisdb(analysis),
+                               gtxanalysisdb(analysis, dbc = dbc),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_gt = 10^-plot_fastbox,
                                          maf_ge = maf_ge, rsq_ge = rsq_ge,

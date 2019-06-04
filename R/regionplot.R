@@ -68,7 +68,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 
   ## in future we may need to pass maf_lt and rsq_lt as well  
   if (missing(signal)) {
-    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)
+    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis, dbc = dbc)
   } else {
     fdesc <- 'All variants (after pre-CLEO filtering)'
   }
@@ -301,7 +301,7 @@ regionplot.data <- function(analysis, entity, signal,
       gtx_info('Querying marginal p-values')
       t0 <- as.double(Sys.time())
       pvals <- sqlWrapper(dbc,
-                          sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results."ref", gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
+                          sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results."ref", gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, "ref", alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
                                   if (any(c('signal', 'signals') %in% tolower(style))) ', beta, se, rsq, freq' else '', 
                                   gtxanalysisdb(analysis, dbc = dbc), 
                                   gtxwhat(analysis1 = analysis),
@@ -497,7 +497,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   ymax <- ceiling(-log10(pmin))
 
   ## Determine amount of y-axis space needed for gene annotation
-  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only)
+  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only, dbc = dbc)
   gtx_debug('gene layout set up for ymax={gl$ymax} yline[1]={gl$yline[1]} yline[4]={gl$yline[4]} yline[5]={gl$yline[5]}')
   ## Set up plotting area
   plot.new()
@@ -514,7 +514,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
 
   ## Add recombination rate and gene annotation
   ##  regionplot.recombination determines position range from par("usr")
-  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]))
+  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]), dbc = dbc)
   ##  regionplot.genedraw uses previously determined layout
   regionplot.genedraw(gl)
 
