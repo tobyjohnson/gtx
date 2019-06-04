@@ -30,9 +30,6 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
                                       cpu = 8, 
                                       drop_cs = TRUE){
   # --- Check inputs
-  gtx_debug("regional_context_analysis | validating GTX odbc connection.")
-  gtxdbcheck(dbc)
-  
   gtx_debug("regional_context_analysis | validating impala connection.")
   impala_dbc <- validate_impala(impala = impala)
   
