@@ -45,8 +45,6 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
   }
   
   # --- Perform PheWAS on each input
-  input_tbl_nvars <- tally(input_tbl) %>% collect() %>% pull(n);
-  gtx_info("regional_context_analysis | Performing PheWAS on {input_tbl_nvars} variants~GWAS pairs.")
   phewas_hits <- int_ht_phewas(hgnc   = hgnc,  hgncid = hgncid, 
                                rs     = rs,    rsid   = rsid,
                                chrom  = chrom, pos    = pos, 
@@ -127,7 +125,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   }
   
   # --- PheWAS on marginal GWAS results
-  gtx_debug("int_ht_phewas | starting PheWAS on marginal GWAS results . . .")
+  gtx_info("Starting PheWAS of marginal GWAS results . . .")
   tictoc::tic.clearlog();
   tictoc::tic();
   
@@ -150,7 +148,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   gtx_debug("int_ht_phewas | PheWAS on marginal GWAS results: {tictoc::tic.log(format = TRUE)}.")
   
   # --- PheWAS on conditional GWAS results
-  gtx_debug("int_ht_phewas | starting PheWAS on CLEO GWAS results . . .")
+  gtx_info("Starting PheWAS of CLEO GWAS results . . .")
   tictoc::tic.clearlog();
   tictoc::tic();
   
