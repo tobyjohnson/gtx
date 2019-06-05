@@ -125,7 +125,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   }
   
   # --- PheWAS on marginal GWAS results
-  gtx_info("Starting PheWAS of marginal GWAS results . . .")
+  gtx_info("Starting PheWAS of marginal GWAS results.")
   tictoc::tic.clearlog();
   tictoc::tic();
   
@@ -148,7 +148,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   gtx_debug("int_ht_phewas | PheWAS on marginal GWAS results: {tictoc::tic.log(format = TRUE)}.")
   
   # --- PheWAS on conditional GWAS results
-  gtx_info("Starting PheWAS of CLEO GWAS results . . .")
+  gtx_info("Starting PheWAS of CLEO GWAS results.")
   tictoc::tic.clearlog();
   tictoc::tic();
   
@@ -214,12 +214,14 @@ int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, signa
   cleo_hits <- input %>% dplyr::filter(!is.na(signal))
   
   if(nrow(marg_hits) > 0){
+    gtx_info("Starting regional context analysis for all marginal GWAS results.")
     marg_rc <- int_ht_regional_context_analysis(input = marg_hits, style = 'signal',  cpu = cpu, drop_cs = drop_cs)  
   } else {
     marg_rc = NULL
   }
   
   if(nrow(cleo_hits) > 0){
+    gtx_info("Starting regional context analysis for all CLEO GWAS results.")
     cleo_rc <- int_ht_regional_context_analysis(input = cleo_hits, style = 'signals', cpu = cpu, drop_cs = drop_cs)
   } else {
     cleo_rc = NULL
@@ -265,9 +267,9 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, drop_cs = TR
   gtxcache(disconnect = TRUE);
   futile.logger::flog.threshold(INFO);
   if(nrow(input) > 1 & cpu > 1){
-    future::plan(multisession, workers = as.integer(cpu))
+    future::plan(future::multisession, workers = as.integer(cpu))
   } else {
-    future::plan(sequential)
+    future::plan(future::sequential)
   }
   
   if(style == 'signal'){
