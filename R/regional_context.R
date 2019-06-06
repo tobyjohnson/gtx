@@ -355,7 +355,7 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, style, ...){
   
   if(is.null(getOption("gtx.dbConnection", NULL))){
     gtx_debug("int_ht_cred_set_wrapper | Establishing gtxconnection.")
-    gtxconnect(use_database = config_db(), cache = FALSE)
+    gtxconnect(use_database = config_db(), cache = TRUE)
   } else {
     gtx_debug("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
   }
