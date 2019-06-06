@@ -96,6 +96,9 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
                                           chrom = chrom, pos    = pos, 
                                           ref   = ref,   alt    = alt)
   
+  phewas_vars <- sqlWrapper(dbc, vars_sql, uniq = FALSE, zrok = FALSE)
+  gtx_info("{nrow(phewas_vars)} variants identified for PheWAS.")
+  
   # --- Second, create select sql for GWAS
   marg_sql <- 
     glue::glue('SELECT * FROM gwas_results
@@ -237,9 +240,6 @@ int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, signa
     gtx_fatal_stop("int_ht_regional_context_analysis | Unable to determine how to properly merge results.")
   }
   
-  # Re-establish DB connection
-  gtxconnect(use_database = config_db())
-  
   return(as_tibble(ret))
 }
 
@@ -315,7 +315,12 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, drop_cs = TR
   if(isTRUE(drop_cs)){
     ret = ret %>% dplyr::select(-cs)
   }
-
+  
+  # Re-establish DB connection
+  futile.logger::flog.threshold(ERROR);
+  gtxconnect(use_database = config_db())
+  futile.logger::flog.threshold(INFO);
+  
   return(ret)
 }
 
@@ -343,7 +348,6 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, style, ...){
   } else {
     gtx_debug("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
   }
-  gtxdbcheck(getOption("gtx.dbConnection", NULL))
   
   if(style == 'signal'){
     ret <- 
