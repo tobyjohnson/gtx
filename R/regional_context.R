@@ -98,15 +98,26 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   
   phewas_vars <- sqlWrapper(dbc, vars_sql, uniq = FALSE, zrok = FALSE)
   gtx_info("{nrow(phewas_vars)} variant(s) identified for PheWAS.")
+  # Impala isn't smart enough to limit the partitions searched for only the actual chroms used in
+  # the "join on (chrom)". Manually build WHERE clause to explicitly limit partitions searched.
+  phewas_chroms <- phewas_vars %>% distinct(chrom)
+  phewas_chroms_where_clause <- 
+    glue::glue('(',
+               glue::glue_collapse(glue::glue("(chrom=\"{phewas_chroms$chrom}\")"), sep = " OR "),
+               ')')
   
   # --- Second, create select sql for GWAS
-  marg_sql <- 
-    glue::glue('SELECT * FROM gwas_results
-            WHERE pval <= {phewas_pval_le} AND pval IS NOT NULL')
+  marg_sql <- glue::glue('
+    SELECT * FROM gwas_results
+      WHERE pval <= {phewas_pval_le} 
+      AND pval IS NOT NULL
+      AND {phewas_chroms_where_clause}')
   
-  cleo_sql <- 
-    glue::glue('SELECT * FROM gwas_results_cond
-            WHERE pval_cond <= {phewas_pval_le} AND pval_cond IS NOT NULL')
+  cleo_sql <- glue::glue('
+    SELECT * FROM gwas_results_cond
+      WHERE pval_cond <= {phewas_pval_le} 
+      AND pval_cond IS NOT NULL
+      AND {phewas_chroms_where_clause}')
   
   # --- Remove any GWAS we don't want
   if(isTRUE(ignore_qtls)){
@@ -117,14 +128,14 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   
   if(isTRUE(ignore_ukb_neale)){
     gtx_debug('int_ht_phewas | Ignoring Neale UKB GWAS in PheWAS')
-    marg_sql <- glue::glue('{marg_sql}\n AND !regexp_like(analysis, "neale")')
-    cleo_sql <- glue::glue('{cleo_sql}\n AND !regexp_like(analysis, "neale")')
+    marg_sql <- glue::glue('{marg_sql} AND !regexp_like(analysis, "neale")')
+    cleo_sql <- glue::glue('{cleo_sql} AND !regexp_like(analysis, "neale")')
   }
   
   if(isTRUE(ignore_ukb_cane)){
     gtx_debug("int_ht_phewas | Ignoring canelaxandri17 UKB GWAS in PheWAS")
-    marg_sql <- glue::glue('{marg_sql}\n AND !regexp_like(analysis, "canelaxandri17")')
-    cleo_sql <- glue::glue('{cleo_sql}\n AND !regexp_like(analysis, "canelaxandri17")')
+    marg_sql <- glue::glue('{marg_sql} AND !regexp_like(analysis, "canelaxandri17")')
+    cleo_sql <- glue::glue('{cleo_sql} AND !regexp_like(analysis, "canelaxandri17")')
   }
   
   # --- PheWAS on marginal GWAS results
@@ -142,7 +153,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref,
            gwas_q.alt, cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval
       FROM gwas_q
-      INNER JOIN /* +SHUFFLE */ vars_q
+      INNER JOIN /* +BROADCAST */ vars_q
       USING (chrom, pos, ref, alt)')
   
   phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = FALSE)
