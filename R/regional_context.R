@@ -97,7 +97,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
                                           ref   = ref,   alt    = alt)
   
   phewas_vars <- sqlWrapper(dbc, vars_sql, uniq = FALSE, zrok = FALSE)
-  gtx_info("{nrow(phewas_vars)} variants identified for PheWAS.")
+  gtx_info("{nrow(phewas_vars)} variant(s) identified for PheWAS.")
   
   # --- Second, create select sql for GWAS
   marg_sql <- 
@@ -142,7 +142,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref,
            gwas_q.alt, cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval
       FROM gwas_q
-      INNER JOIN /* +BROADCAST */ vars_q
+      INNER JOIN /* +SHUFFLE */ vars_q
       USING (chrom, pos, ref, alt)')
   
   phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = FALSE)
@@ -165,7 +165,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, 
            gwas_q.alt, gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval
       FROM gwas_q
-      INNER JOIN /* +BROADCAST */ vars_q
+      INNER JOIN /* +SHUFFLE */ vars_q
       USING (chrom, pos, ref, alt)')
   
   phewas_cleo <- sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = FALSE)
