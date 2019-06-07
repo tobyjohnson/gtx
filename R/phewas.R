@@ -244,7 +244,13 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     loop_clean_db <- sapply(unique(a1$results_db), function(x) {
       return(if (is.na(x) || x == '') '' else sanitize1(paste0(x, '.'), type = 'alphanum.'))
     })
-
+    other_db_check <- setdiff(loop_clean_db, "")
+    if (length(other_db_check) > 0) {
+      gtx_warn('Non-NULL results_db [{paste(other_db_check, collapse = ";")}] will be deprecated in future')
+      # FIXME in future we will not allow empty strings and this will be an error
+      #       then in further future we will not even query the results_db column
+    }
+    
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
                      missing(description_contains) && missing(has_tag) && 
                      missing(ncase_ge) && missing(ncohort_ge))
