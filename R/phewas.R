@@ -350,6 +350,19 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     res$pos <- v1$pos
     res$ref <- v1$ref
     res$alt <- v1$alt
+    
+    # Fix labels for entities, finding labels for the NA ones then pasting on
+    tmpl <- within(annot(na.omit(res[ , c('entity', 'entity_type')])), {
+      entity_label <- paste0(label, ' ')
+      label <- NULL
+    })
+    res <- within(merge(res, 
+                        tmpl[ , c('entity', 'entity_type', 'entity_label')], 
+                        all.x = TRUE, all.y = FALSE), 
+                  {
+                    label <- paste0(ifelse(is.na(entity_label), '', entity_label), label)
+                  })
+
     # add attribute, used for plot labelling etc., FIXME should we do this when multiple variants matched hence no query was run?
     attr(res, 'variant') <- v1_label
     return(res)
