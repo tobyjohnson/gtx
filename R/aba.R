@@ -82,9 +82,10 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   if(any(aid_filter$filter_val == TRUE)){
     regex_for_aids <- 
       glue::glue_collapse(aid_filter %>% 
-                      dplyr::filter(filter_val == TRUE) %>% 
-                      dplyr::pull(regex_str), 
-                    sep = " OR ")
+                            dplyr::filter(filter_val == TRUE) %>% 
+                            dplyr::pull(regex_str), 
+                          sep = " OR ")
+    
     sql_query <- glue('{sql_query} WHERE {regex_for_aids}')
   }
     
@@ -197,14 +198,17 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     input_raw_tbl  <- impala_copy_to(df = input_proc_tmp, dest = impala)
     input_proc_tbl <- input_raw_tbl;
   }
+  else if(!missing(chrom) & (!missing(pos) | (!missing(pos_start) & !missing(pos_end)))){
+    input_proc_tbl <- input_raw_tbl;
+  }
   
   # ---
   gtx_debug("aba.query | prelim filter colocs")
   colocs_tbl <- 
     aba_tbl %>% 
     dplyr::filter(p12      >= p12_ge & 
-           minpval1 <= minpval1_le &
-           minpval2 <= minpval2_le) %>% 
+                  minpval1 <= minpval1_le &
+                  minpval2 <= minpval2_le) %>% 
     dplyr::inner_join(.,
                genes_tbl %>% 
                  dplyr::select(ensemblid, gene_start = pos_start, gene_end = pos_end, genetype, hgncid, chrom),

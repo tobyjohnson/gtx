@@ -136,9 +136,9 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @export
 #' @param df Data to copy to RDIP
 #' @param dest Impala implyr connection
-#' @param database Defaults to user's database: \code{whoami}.
-#' @param table_name [Default = "tmp_data4join"] Specify table name, overrides random_name = TRUE
-#' @param random_name [Default = FALSE] TRUE = ~random number name for the table. 
+#' @param database Defaults to gtx::config_tmp_write_db().
+#' @param table_name [Default = NULL] Specify table name, overrides random_name = TRUE. If random = FALSE & table_name is NULL, then defaults to tmp_whoami()_data4join
+#' @param random_name [Default = TRUE] TRUE = tmp_whoami()_timestamp. FALSE & is.null(table_name) = tmp_whoami()_data4join. 
 #' @return table reference to the \code{df} in RDIP
 #' @import dplyr
 #' @import glue
@@ -147,13 +147,12 @@ validate_impala <- function(impala = getOption("gtx.impala", NULL)){
 #' @import futile.logger
 impala_copy_to <- function(df, dest    = getOption("gtx.impala", NULL), 
                            database    = gtx::config_tmp_write_db(), 
-                           table_name  = glue("tmp_{gtx::whoami()}_data4join"), 
+                           table_name  = NULL, 
                            random_name = TRUE ){
   safely_dbExecute  <- purrr::safely(implyr::dbExecute)
   safely_dbGetQuery <- purrr::safely(implyr::dbGetQuery)
   # Validate input has rows
-  if(nrow(df) == 0){ gtx_error("tidy_connections::impala_copy_to | \\
-                                               The data has no rows.") }
+  if(nrow(df) == 0){ gtx_error("tidy_connections::impala_copy_to | The data has no rows.") }
   
   # Validate impala connection
   impala = validate_impala(impala = dest)
@@ -164,13 +163,16 @@ impala_copy_to <- function(df, dest    = getOption("gtx.impala", NULL),
     database <- user_name
     if(is.null(database)){ 
       gtx_error("tidy_connections::impala_copy_to | \\
-                                Unable to determine user name for database.") 
+                 Unable to determine user name for database.") 
       stop()
     }
   }
 
-  # If old tmp table, clean it up. 
-  if(database == user_name & table_name == glue("tmp_{user_name}_data4join") & random_name == FALSE){
+  # If old tmp table in the user's home directory, delete and "overwrite"
+  if(is.null(table_name) & random_name == FALSE){
+    # With table_name = NULL & random_name = FALSE, set the table_name to the default.
+    table_name <- glue("tmp_{user_name}_data4join")
+    
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbGetQuery(impala, sql_statement)
@@ -178,34 +180,35 @@ impala_copy_to <- function(df, dest    = getOption("gtx.impala", NULL),
     if (is.null(exec$error) & nrow(exec$result) >= 1){
       gtx_debug("tidy_connections::impala_copy_to | \\
                 dropping {database}.{table_name}")
-    }
     
-    sql_statement <- glue::glue("INVALIDATE METADATA {database}.{table_name}")
-    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
-    exec <- safely_dbExecute(impala, sql_statement)
+      sql_statement <- glue::glue("INVALIDATE METADATA {database}.{table_name}")
+      gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
+      exec <- safely_dbExecute(impala, sql_statement)
+      
+      if (!is.null(exec$error)){
+        gtx_error("tidy_connections::impala_copy_to | unable to invalidate metadata \\
+                  {database}.{table_name} because:\n{exec$error}")
+        stop()
+      }
     
-    if (!is.null(exec$error)){
-      gtx_error("tidy_connections::impala_copy_to | unable to remove \\
-                {database}.{table_name} because:\n{exec$error}")
-      stop()
-    }
-    
-    sql_statement <- glue::glue("DROP TABLE IF EXISTS {database}.{table_name} PURGE")
-    gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
-    exec <- safely_dbExecute(impala, sql_statement)
-    
-    if (!is.null(exec$error)){
-      gtx_error("tidy_connections::impala_copy_to | unable to remove \\
-                {database}.{table_name} because:\n{exec$error}")
-      stop()
+      sql_statement <- glue::glue("DROP TABLE IF EXISTS {database}.{table_name} PURGE")
+      gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
+      exec <- safely_dbExecute(impala, sql_statement)
+      
+      if (!is.null(exec$error)){
+        gtx_error("tidy_connections::impala_copy_to | unable to remove \\
+                  {database}.{table_name} because:\n{exec$error}")
+        stop()
+      }
     }
   }
   # If a new table, determine if the table already exists
-  else if(table_name != glue("tmp_{user_name}_data4join") & random_name == FALSE){
+  else if(!is.null(table_name)){
     sql_statement <- glue::glue('SHOW TABLES IN {`database`} LIKE "{table_name}"')
     gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
     exec <- safely_dbGetQuery(impala, sql_statement)
     
+    # The error report should be NULL w/o errors
     if (!is.null(exec$error)){ 
       gtx_error("tidy_connections::impala_copy_to | \\
                 failed to determine if {database}.{table_name} \\
@@ -219,7 +222,7 @@ impala_copy_to <- function(df, dest    = getOption("gtx.impala", NULL),
       stop();
     }
   }
-  else if(random_name == TRUE){
+  else if(is.null(table_name) & random_name == TRUE){
     time_stamp <- as.integer(Sys.time())
     table_name <- glue::glue("tmp_{user_name}_{time_stamp}")
     
@@ -328,12 +331,12 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
     gtx_error("tidy_connections::big_copy_to | Unable to create ~/tmp because: {exec$error}")
     stop();
   }
-  # Export data to tmp.csv in user's home directory
-  gtx_debug("tidy_connections::big_copy_to | write data to tmp csv")
-  safely_write_csv <- purrr::safely(readr::write_csv)
-  exec <- safely_write_csv(df, path = glue::glue("~/tmp/{table_name}.csv"))
+  # Export data to tmp.tsv in user's home directory
+  gtx_debug("tidy_connections::big_copy_to | write data to tmp tsv")
+  safely_write_tsv <- purrr::safely(readr::write_tsv)
+  exec <- safely_write_tsv(df, path = glue::glue("~/tmp/{table_name}.tsv"))
   if(!is.null(exec$error)){
-    gtx_error("tidy_connections::big_copy_to | Unable to export data to: ~/tmp/{table_name}.csv because: {exec$error}")
+    gtx_error("tidy_connections::big_copy_to | Unable to export data to: ~/tmp/{table_name}.tsv because: {exec$error}")
     stop();
   }
   
@@ -348,7 +351,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   
   # Move data to HDFS
   gtx_debug("tidy_connections::big_copy_to | move data to hdfs")
-  exec <- safely_system(glue::glue("hdfs dfs -put -f ~/tmp/{table_name}.csv /user/{user_name}/staging/"))
+  exec <- safely_system(glue::glue("hdfs dfs -put -f ~/tmp/{table_name}.tsv /user/{user_name}/staging/"))
   if(!is.null(exec$error)){
     gtx_error("tidy_connections::big_copy_to | Unable to put data on HDFS because: {exec$error}")
     stop();
@@ -356,7 +359,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   
   # Remove tmp data in user's home directory
   gtx_debug("tidy_connections::big_copy_to | remove tmp file on edge node")
-  exec <- safely_system(glue::glue("rm ~/tmp/{table_name}.csv"))
+  exec <- safely_system(glue::glue("rm ~/tmp/{table_name}.tsv"))
   if(!is.null(exec$error)){
     gtx_error("tidy_connections::big_copy_to | \\
               Unable to remove tmp data in ~/tmp because: {exec$error}")
@@ -396,7 +399,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
                     sep = ", ", 
                     last = ""),
       glue::glue(") \\
-           ROW FORMAT DELIMITED FIELDS TERMINATED BY \",\" \\
+           ROW FORMAT DELIMITED FIELDS TERMINATED BY \"\\t\" \\
            STORED AS TEXTFILE \\
            TBLPROPERTIES(\"skip.header.line.count\"=\"1\")"))
   
@@ -411,7 +414,7 @@ big_copy_to <- function(df, dest = getOption("gtx.impala", NULL),
   # Load data from tmp HDFS file into table
   gtx_debug("tidy_connections::big_copy_to | Load data into new table: {database}.{table_name}")
   sql_statement <- 
-    glue::glue("LOAD DATA INPATH '/user/{`user_name`}/staging/{table_name}.csv' \\
+    glue::glue("LOAD DATA INPATH '/user/{`user_name`}/staging/{table_name}.tsv' \\
                 INTO TABLE {`database`}.{`table_name`}")
   gtx_debug("tidy_connections::impala_copy_to | {sql_statement}")
   exec <- safely_dbExecute(dest, sql_statement)
@@ -526,17 +529,17 @@ whoami <- function(){
 #' @import stringr
 drop_impala_copy <- function(.table = NULL, dest = getOption("gtx.impala", NULL)){
   if(is.null(.table)){
-    gtx_error("tidy_connections::drop_tmp_impala_tbl | no .table specified.")
+    gtx_error("tidy_connections::drop_impala_copy | no .table specified.")
     return();
   } 
   if(is.null(dest)){
-    gtx_error("tidy_connections::drop_tmp_impala_tbl | no dest specified.")
+    gtx_error("tidy_connections::drop_impala_copy | no dest specified.")
     return();
   }
   
   table_path <- purrr::pluck(.table, "ops") %>% purrr::pluck("x", 1)
   if(!stringr::str_detect(table_path, stringr::regex("\\w+\\.\\w+"))){
-    gtx_error("tidy_connections::drop_tmp_impala_tbl | \\
+    gtx_error("tidy_connections::drop_impala_copy | \\
                {table_path} path doesn't match database.table convention.")
   }
   
@@ -551,35 +554,34 @@ drop_impala_copy <- function(.table = NULL, dest = getOption("gtx.impala", NULL)
         
         exec <- safely_dbExecute(dest, sql_statement)
         if (!is.null(exec$error)){
-          gtx_fatal_stop("tidy_connections::drop_tmp_impala_tbl | \\
-                          unable to: \n {sql_query} \n because: \n {exec$error}")
+          gtx_fatal_stop("tidy_connections::drop_impala_copy | \\
+                          unable to: \n {sql_statement} \n because: \n {exec$error}")
         }
         
         sql_statement <- glue::glue("DROP TABLE IF EXISTS {`table_path`} PURGE")
         
         exec <- safely_dbExecute(dest, sql_statement)
         if (!is.null(exec$error)){
-          gtx_error("tidy_connections::drop_tmp_impala_tbl | \\
-                     unable to remove {`table_path`} because:\n{exec$error}")
-          stop();
+          gtx_fatal_stop("tidy_connections::drop_impala_copy | \\
+                          unable to remove {`table_path`} because:\n{exec$error}")
         }
         else {
-          gtx_debug("tidy_connections::drop_tmp_impala_tbl | \\
+          gtx_debug("tidy_connections::drop_impala_copy | \\
                     Successfully removed {`table_path`}")
         }
       }
       else{
-        gtx_warn("tidy_connections::drop_tmp_impala_tbl | \\
+        gtx_warn("tidy_connections::drop_impala_copy | \\
                  This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
       }
     }
     else{
-      gtx_warn("tidy_connections::drop_tmp_impala_tbl | \\
+      gtx_warn("tidy_connections::drop_impala_copy | \\
                This is not a tbl flagged as tmp by impala_copy_to. Skipping.")
     }
   }
   else{
-    gtx_warn("tidy_connections::drop_tmp_impala_tbl | \\
+    gtx_warn("tidy_connections::drop_impala_copy | \\
              This is not an impala tbl. Skipping.")
   }
 }

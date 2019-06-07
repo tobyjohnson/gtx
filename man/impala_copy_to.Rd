@@ -5,8 +5,7 @@
 \title{Copy data to user's home database for joins with impala tables.}
 \usage{
 impala_copy_to(df, dest = getOption("gtx.impala", NULL),
-  database = gtx::config_tmp_write_db(),
-  table_name = glue("tmp_{gtx::whoami()}_data4join"),
+  database = gtx::config_tmp_write_db(), table_name = NULL,
   random_name = TRUE)
 }
 \arguments{
@@ -14,11 +13,11 @@ impala_copy_to(df, dest = getOption("gtx.impala", NULL),
 
 \item{dest}{Impala implyr connection}
 
-\item{database}{Defaults to user's database: \code{whoami}.}
+\item{database}{Defaults to gtx::config_tmp_write_db().}
 
-\item{table_name}{[Default = "tmp_data4join"] Specify table name, overrides random_name = TRUE}
+\item{table_name}{[Default = NULL] Specify table name, overrides random_name = TRUE. If random = FALSE & table_name is NULL, then defaults to tmp_whoami()_data4join}
 
-\item{random_name}{[Default = FALSE] TRUE = ~random number name for the table.}
+\item{random_name}{[Default = TRUE] TRUE = tmp_whoami()_timestamp. FALSE & is.null(table_name) = tmp_whoami()_data4join.}
 }
 \value{
 table reference to the \code{df} in RDIP
