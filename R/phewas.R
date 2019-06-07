@@ -342,8 +342,6 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         has_access <- NULL
     })
     
-    res <- res[!is.na(res$pval),]
-    res <- res[order(res$pval), ]
     # add chrom/pos/ref/alt columns to make easier to pass through to other functions, or to help interpretation if saved to a file
     # (note, not added if v1<-NULL above)
     res$chrom <- v1$chrom
@@ -363,6 +361,10 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
                     label <- paste0(ifelse(is.na(entity_label), '', entity_label), label)
                   })
 
+    # need to sort AFTER merge with labels
+    res <- res[!is.na(res$pval), ]
+    res <- res[order(res$pval), ]
+    
     # add attribute, used for plot labelling etc., FIXME should we do this when multiple variants matched hence no query was run?
     attr(res, 'variant') <- v1_label
     return(res)
