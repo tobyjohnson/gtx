@@ -4,7 +4,7 @@
 \alias{int_ht_cred_set_wrapper}
 \title{int_ht_cred_set_wrapper}
 \usage{
-int_ht_cred_set_wrapper(analysis, chrom, pos, style, ...)
+int_ht_cred_set_wrapper(analysis, chrom, pos, signal, use_database, ...)
 }
 \arguments{
 \item{analysis}{analysis ID}
@@ -13,13 +13,23 @@ int_ht_cred_set_wrapper(analysis, chrom, pos, style, ...)
 
 \item{pos}{position}
 
+\item{signal}{CLEO signal or NA}
+
+\item{use_database}{Database for gtxconnect}
+
 \item{...}{Additional arguements for regionplot.data}
 }
 \value{
-tibble
+tibble with the credible set AND the variant queried
 }
 \description{
 int_ht_cred_set_wrapper
+}
+\examples{
+ret <- tibble(analysis = "GSK500KV3lin_HES_Asthma", chrom = "9", pos = 6255967, signal = 4) \%>\%  
+       mutate(cs = future_pmap(list(analysis, chrom, pos, signal), 
+                               ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
+                                                        signal = ..4, use_database = config_db())))
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

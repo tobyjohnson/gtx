@@ -18,6 +18,9 @@ Read in a default config file and identify the named database to use to write te
 This is useful in different projects where you want the code to point to different databses.
 The config file is csv, 2 cols (key, value), and config_tmp_write_db uses key=tmp_write_db
 }
+\examples{
+example_tbl <- impala_copy_to(df = your_df, dest = validate_impala(), database = config_tmp_write_db())
+}
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 }

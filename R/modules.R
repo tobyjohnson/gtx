@@ -199,13 +199,12 @@ add_ssh_known_host <- function(known_host){
 #' @export
 #' @param file [Default = ~/.gtx_config.csv] Path to the config file to read in
 #' @return String of the database name
-#' @example
-#' impala_copy_to(df = your_df, dest = validate_impala(), database = config_tmp_write_db())
+#' @examples
+#' example_tbl <- impala_copy_to(df = your_df, dest = validate_impala(), database = config_tmp_write_db())
 #' @import futile.logger
 #' @import glue
 #' @import purrr
 #' @import readr
-
 config_tmp_write_db <- function(file = "~/.gtx_config.csv"){
   # Check the file exists
   if(!file.exists(file)){

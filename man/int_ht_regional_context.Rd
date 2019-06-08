@@ -4,23 +4,23 @@
 \alias{int_ht_regional_context}
 \title{int_ht_regional_context}
 \usage{
-int_ht_regional_context(input, chrom, pos, ref, alt, analysis, signal,
-  cpu = 8, drop_cs = TRUE)
+int_ht_regional_context(input, chrom, pos, analysis, signal, cpu = 8,
+  drop_cs = TRUE, dbc = getOption("gtx.dbConnection", NULL), ...)
 }
 \arguments{
-\item{input}{data.frame with chrom, pos, ref, alt, analysis, signal; likely from phewas.}
+\item{input}{data.frame with chrom, pos, analysis, signal; likely & suggested input from int_ht_phewas. Other cols will be kept.}
 
-\item{chrom}{chromosome}
+\item{chrom}{chromosome (Mandatory)}
 
-\item{pos}{position}
+\item{pos}{position (Mandatory)}
 
-\item{ref}{reference allele}
+\item{analysis}{analysis ID (Mandatory)}
 
-\item{alt}{alt allele}
+\item{signal}{CLEO signal OR NA. (Mandatory)}
 
-\item{analysis}{analysis ID}
+\item{dbc}{[Default = getOption("gtx.dbConnection", NULL)] gtxconnection.}
 
-\item{signal}{CLEO signal}
+\item{...}{Params to pass to regionplot.data (e.g. surround = 1e6)}
 }
 \value{
 tibble

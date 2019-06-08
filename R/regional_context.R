@@ -10,9 +10,13 @@ regional_context_query <- function(hgnc, hgncid){
 #' regional_context_analysis
 #' 
 #' Calculate regional_context on-the-fly. Run PheWAS for all variants, identifying GWAS at
-#' pval <= phewas_pval_le (1e-7 by default). For each variant+GWAS pair, generate credible sets
-#' for each GWAS and determine if the variant is in the credible set and gather others stats on each 
-#' credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results.
+#' pval <= phewas_pval_le (1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
+#' variants from the VEP table. In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
+#' and all QTL data. For each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
+#' others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results. Due to the 
+#' high-throughput nature of this function, it is suggested to reduce logging info when running this function using: 
+#' futile.logger::flog.threshold(ERROR).
+#' 
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
@@ -27,14 +31,15 @@ regional_context_query <- function(hgnc, hgncid){
 #' @param ignore_ukb_cane [Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS
 #' @param ignore_qtls [Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)
 #' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
+#' @param ... regionplot.data params
 #' @return tibble (data.frame)
 regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt, 
-                                      dbc = getOption("gtx.dbConnection", NULL),
                                       ignore_ukb_neale = TRUE, 
                                       ignore_ukb_cane  = TRUE,
+                                      ignore_qtls      = TRUE, 
                                       phewas_pval_le = 1e-7,
-                                      cpu = 8, 
-                                      drop_cs = TRUE){
+                                      cpu = 8, drop_cs = TRUE, 
+                                      dbc = getOption("gtx.dbConnection", NULL), ...){
   # --- Check gtx db connection
   gtx_debug("regional_context_analysis | validating gtx DB connection.")
   gtxdbcheck(dbc)
@@ -51,11 +56,12 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
                                ref    = ref,   alt    = alt,
                                ignore_ukb_neale = ignore_ukb_neale, 
                                ignore_ukb_cane  = ignore_ukb_cane, 
-                               phewas_pval_le   = phewas_pval_le)
+                               phewas_pval_le   = phewas_pval_le, 
+                               dbc = dbc)
   
   # --- Perform regional_context analysis for each PheWAS hit
-  gtx_info("regional_context_analysis | Performing regional context analysis on {nrow(phewas_hits)} variants.")
-  region_context_data <- int_ht_regional_context(input = phewas_hits, cpu = cpu, drop_cs = drop_cs)
+  gtx_info("Performing regional context analysis on {nrow(phewas_hits)} variants+GWAS pairs.")
+  region_context_data <- int_ht_regional_context(input = phewas_hits, cpu = cpu, dbc = dbc, drop_cs = drop_cs, ...)
   
   return(region_context_data)
 }
@@ -82,7 +88,6 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
                           ignore_qtls = TRUE, 
                           phewas_pval_le = 1e-7, 
                           dbc = getOption("gtx.dbConnection", NULL)){
-  gtxdbcheck(dbc)
   # --- Verify inputs
   gtx_debug("int_ht_phewas | Checking for input params.")
   if(missing(hgnc) & missing(hgncid) & missing(rs) & missing(rsid) & missing(chrom)){
@@ -150,13 +155,13 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     -- Define gwas_q
       gwas_q AS ({marg_sql})
     -- PheWAS by inner joining gwas_results and variants
-    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref,
-           gwas_q.alt, cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval
+    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
+           cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
       FROM gwas_q
       INNER JOIN /* +BROADCAST */ vars_q
       USING (chrom, pos, ref, alt)')
   
-  phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = FALSE)
+  phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = TRUE)
   
   tictoc::toc(log = TRUE, quiet = TRUE)
   gtx_debug("int_ht_phewas | PheWAS on marginal GWAS results: {tictoc::tic.log(format = TRUE)}.")
@@ -173,13 +178,13 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     -- Define gwas_q
       gwas_q AS ({cleo_sql})
     -- PheWAS by inner joining gwas_results_cond and variants
-    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, 
-           gwas_q.alt, gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval
+    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
+           gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
       FROM gwas_q
-      INNER JOIN /* +SHUFFLE */ vars_q
+      INNER JOIN /* +BROADCAST */ vars_q
       USING (chrom, pos, ref, alt)')
   
-  phewas_cleo <- sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = FALSE)
+  phewas_cleo <- sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE)
   
   tictoc::toc(log = TRUE, quiet = TRUE)
   gtx_debug("int_ht_phewas | PheWAS on CLEO GWAS results: {tictoc::tic.log(format = TRUE)}.")
@@ -193,148 +198,98 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
 #' High-Throughput regional_context.
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @param input data.frame with chrom, pos, ref, alt, analysis, signal; likely from phewas. 
-#' @param chrom chromosome
-#' @param pos position
-#' @param ref reference allele
-#' @param alt alt allele
-#' @param analysis analysis ID
-#' @param signal CLEO signal
+#' @param input data.frame with chrom, pos, analysis, signal; likely & suggested input from int_ht_phewas. Other cols will be kept. 
+#' @param chrom chromosome (Mandatory)
+#' @param pos position (Mandatory)
+#' @param analysis analysis ID (Mandatory)
+#' @param signal CLEO signal OR NA. (Mandatory)
+#' @param ... Params to pass to regionplot.data (e.g. surround = 1e6)
+#' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
 #' @return tibble 
-int_ht_regional_context <- function(input, chrom, pos, ref, alt, analysis, signal, cpu = 8, drop_cs = TRUE){
+int_ht_regional_context <- function(input, chrom, pos, analysis, signal, 
+                                    cpu = 8, drop_cs = TRUE, 
+                                    dbc = getOption("gtx.dbConnection", NULL), ...){
   # --- Verify inputs
-  if(missing(input) & (missing(chrom) & missing(pos) & missing(ref) & missing(alt) & missing(analysis))){
+  # confirm input params are declared
+  if(missing(input) & ((missing(chrom) | missing(pos) | missing(analysis) | missing(signal)))){
     gtx_fatal_stop("int_ht_regional_context_analysis | missing input arguement(s).")
   }
-  
+  # if input param used, verify it has the proper cols
   if(!missing(input)){
-    required_cols <- c("chrom", "pos", "analysis")
+    required_cols <- c("chrom", "pos", "analysis", "signal")
     if(!all(required_cols %in% (names(input)))){
       gtx_fatal_stop('int_ht_regional_context_analysis | input is missing required cols. ',
                      'Required cols include: {paste(required_cols, collapse = ", ")}')
     }
-  } else if(!(missing(analysis) & !missing(chrom) & !missing(pos) & missing(signal))){
+  }
+  # else create input table
+  else if(!(missing(analysis) & !missing(chrom) & !missing(pos) & missing(signal))){
     input = dplyr::tibble(analysis = analysis, chrom = chrom, pos = pos, ref = ref, alt = alt, signal = NA)
-  } else if(!(missing(analysis) & !missing(chrom) & !missing(pos) & !missing(signal))){
-    input = dplyr::tibble(analysis = analysis, chrom = chrom, pos = pos, ref = ref, alt = alt, signal = signal)
+  } else {
+   gtx_fatal_stop("int_ht_regional_context | unable to process input properly.") 
   }
-  
   if(nrow(input) == 0){
-    gtx_fatal_stop("int_ht_regional_context_analysis | input has no data.")
+    gtx_warn("int_ht_regional_context_analysis | input has no data.")
+    return(NA)
   }
   
-  # --- Split marginal and conditional GWAS results for analysis
-  marg_hits <- input %>% dplyr::filter(is.na(signal))
-  cleo_hits <- input %>% dplyr::filter(!is.na(signal))
-  
-  if(nrow(marg_hits) > 0){
-    gtx_info("Starting regional context analysis for all marginal GWAS results.")
-    marg_rc <- int_ht_regional_context_analysis(input = marg_hits, style = 'signal',  cpu = cpu, drop_cs = drop_cs)  
-  } else {
-    marg_rc = NULL
-  }
-  
-  if(nrow(cleo_hits) > 0){
-    gtx_info("Starting regional context analysis for all CLEO GWAS results.")
-    cleo_rc <- int_ht_regional_context_analysis(input = cleo_hits, style = 'signals', cpu = cpu, drop_cs = drop_cs)
-  } else {
-    cleo_rc = NULL
-  }
-  
-  if(!is.null(marg_rc) & !is.null(cleo_rc)){
-    ret <- dplyr::union(marg_rc, cleo_rc)
-  } else if(!is.null(marg_rc) & is.null(cleo_rc)){
-    ret <- marg_rc
-  } else if(is.null(marg_rc) & !is.null(cleo_rc)){
-    ret <- cleo_rc
-  } else {
-    gtx_fatal_stop("int_ht_regional_context_analysis | Unable to determine how to properly merge results.")
-  }
-  
-  return(as_tibble(ret))
-}
-
-#' int_ht_regional_context_analysis
-#' 
-#' High-throughput regional_context_analysis
-#' 
-#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
-#' @param input int_ht_phewas object 
-#' @param style CLEO style {'signal'|'signals'}
-#' @param cpu [Default=8]
-#' @return tibble 
-int_ht_regional_context_analysis <- function(input, style, cpu = 8, drop_cs = TRUE, ...){
-  if(missing(input) | nrow(input) == 0){
-    gtx_fatal_stop("int_ht_regional_context_analysis | missing input arguement(s) or data.")
-  }
-  
-  if(missing(style) | (style != 'signal' & style != 'signals')){
-    gtx_fatal_stop("int_ht_regional_context_analysis | Must use style = 'signal' OR 'signals'.")
-  }
-  
-  # --- Remove database connections
-  futile.logger::flog.threshold(ERROR);
-  options("gtx.dbConnection" = NULL);
-  gtxcache(disconnect = TRUE);
-  futile.logger::flog.threshold(INFO);
-  if(nrow(input) > 1 & cpu > 1){
+  # --- Setup multi-threading
+  if(nrow(input) > 3 & cpu > 1){
+    current_database <- sqlWrapper(dbc, 'SELECT current_database() AS current_table;') %>% pull(current_table)
+    # Remove global variables for dbc 
+    options("gtx.dbConnection" = NULL);
+    gtxcache(disconnect = TRUE)
+    DBI::dbDisconnect(dbc)
     future::plan(future::multisession, workers = as.integer(cpu))
   } else {
     future::plan(future::sequential)
+    current_database <- config_db()
   }
   
-  if(style == 'signal'){
-    ret <- 
-      input %>% 
-      dplyr::mutate(cs = furrr::future_pmap(list(analysis, chrom, pos), 
-                                     ~int_ht_cred_set_wrapper(analysis = ..1, 
-                                                              chrom    = ..2, 
-                                                              pos      = ..3,
-                                                              style    = 'signal')))
-    
-  } else if(style == 'signals'){
-    ret <- 
-      input %>% 
-      dplyr::mutate(cs = furrr::future_pmap(list(analysis, chrom, pos, signal), 
-                              ~int_ht_cred_set_wrapper(analysis = ..1, 
-                                                       chrom    = ..2, 
-                                                       pos      = ..3,
-                                                       style    = 'signals',
-                                                       signal   = ..4)))
-  } else {
-    gtx_fatal_stop("int_ht_regional_context_analysis | Unable to determine style type.")
-  }
+  # Get cred sets
+  gtx_info("Starting regional context analysis for all CLEO GWAS results.")
+  ret <- 
+    input %>% 
+    dplyr::mutate(cs = 
+      furrr::future_pmap(list(analysis, chrom, pos, signal), 
+                        ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
+                                                 signal = ..4, use_database = current_database)))
   
+  # Annotate critical data (e.g. variant in the cred set)
   ret <- 
     ret %>% 
+    dplyr::as_tibble() %>% 
+    # queried variant in the cred set
     dplyr::mutate(var_in_cs  = purrr::pmap_lgl(list(cs, chrom, pos, ref, alt), 
-                                 ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
-                                           ref == ..4 & alt == ..5 & cs_signal == TRUE) %>% 
-                                   nrow >= 1)) %>% 
+                                               ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & ref == ..4 & 
+                                                                alt == ..5 & cs_signal == TRUE) %>% 
+                                                 nrow >= 1)) %>% 
+    # queried variant posterior probability
     dplyr::mutate(var_pp     = purrr::pmap_dbl(list(cs, chrom, pos, ref, alt), 
-                                 ~dplyr::filter(..1, chrom == ..2 & pos == ..3 &
-                                           ref == ..4 & alt == ..5 ) %>% 
-                                   dplyr::pull(pp_signal))) %>% 
-    dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, nrow)) %>% 
+                                               ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
+                                                                ref == ..4 & alt == ..5 ) %>% 
+                                                 dplyr::pull(pp_signal))) %>% 
+    # number of snps in the cred set
+    dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs_signal == TRUE) %>% nrow)) %>% 
+    # cred set top hit posterior probability
     dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp_signal))) %>% 
-    dplyr::mutate(cs_th_pval = purrr::map_dbl(cs, ~min(.$pval, na.rm = TRUE))) %>% 
-    dplyr::mutate(cs_th_cord = purrr::map(cs, ~top_n(., 1, pp_signal) %>% dplyr::select(pos, ref, alt))) %>% 
-    tidyr::unnest(cs_th_cord) %>% 
-    dplyr::rename(th_pos = pos1, th_ref = ref1, th_alt = alt1) 
+    # dplyr::mutate(cs_alpha = map_dbl(cs, ~dplyr::filter(cs_signal == TRUE) %>%
+                                         # summarize(alpha = sum(beta * lnabf)/sum(lnabf)) %>% # REVIEW WITH TOBY
+                                         # pull(alpha))) %>% 
+    dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
+                                                dplyr::select(pos, ref, alt, pval))) %>% 
+    tidyr::unnest(cs_th_data) %>% 
+    dplyr::rename(th_pos = pos1, th_ref = ref1, th_alt = alt1, th_pval = pval1) 
   
-  # Drop the cred sets. TRUE by default
   if(isTRUE(drop_cs)){
-    ret = ret %>% dplyr::select(-cs)
+    ret <- ret %>% dplyr::select(-cs)
   }
   
-  # Re-establish DB connection
-  futile.logger::flog.threshold(ERROR);
-  gtxconnect(use_database = config_db())
-  futile.logger::flog.threshold(INFO);
+  # reconnect to DB
+  gtxconnect(use_database = current_database)
   
   return(ret)
 }
-
 
 #' int_ht_cred_set_wrapper
 #' 
@@ -344,33 +299,45 @@ int_ht_regional_context_analysis <- function(input, style, cpu = 8, drop_cs = TR
 #' @param chrom chromosome
 #' @param pos position
 #' @param analysis analysis ID
+#' @param signal CLEO signal or NA
+#' @param use_database Database for gtxconnect
 #' @param ... Additional arguements for regionplot.data
-#' @return tibble 
-int_ht_cred_set_wrapper <- function(analysis, chrom, pos, style, ...){
-  if(missing(chrom) | missing(pos) | missing(analysis) | missing(style)){
+#' @examples 
+#' ret <- tibble(analysis = "GSK500KV3lin_HES_Asthma", chrom = "9", pos = 6255967, signal = 4) %>%  
+#'        mutate(cs = future_pmap(list(analysis, chrom, pos, signal), 
+#'                                ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
+#'                                                         signal = ..4, use_database = config_db())))
+#' @return tibble with the credible set AND the variant queried
+int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, ...){
+  if(missing(chrom) | missing(pos) | missing(analysis) | missing(signal) | missing(use_database)){
     gtx_fatal_stop("int_ht_cred_set_wrapper | missing input arguement(s).")
   }
-  
-  futile.logger::flog.threshold(ERROR) # Turn off gtxconnect & regionplot INFO msgs
-  
+
   if(is.null(getOption("gtx.dbConnection", NULL))){
     gtx_debug("int_ht_cred_set_wrapper | Establishing gtxconnection.")
-    gtxconnect(use_database = config_db(), cache = TRUE)
+    gtxconnect(use_database = use_database, cache = TRUE)
+    gtxdbcheck(getOption("gtx.dbConnection"))
   } else {
     gtx_debug("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
   }
   
-  if(style == 'signal'){
+  if(is.na(signal)){
     ret <- 
-      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = style, ...)
-  } else if(style == 'signals'){
+      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signal', ...) %>% 
+      dplyr::select(-freq, -rsq)
+  } else if(!is.na(signal)){
     ret <- 
-      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = style, ...) %>% # Pass signal in ...
+      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signals', signal = signal, ...) %>% 
       dplyr::select(-dplyr::matches("signal")) %>% 
       dplyr::rename(pp_signal = pp_cleo, cs_signal = cs_cleo)
+  } else {
+    gtx_fatal_stop("int_ht_cred_set_wrapper | Unable to determine type of signal to process.")
   }
   
-  ret <- ret %>% dplyr::filter(cs_signal == TRUE | (chrom == !! chrom & pos == !! pos))
+  ret <- 
+    ret %>% 
+    dplyr::filter(cs_signal == TRUE | (chrom == !! chrom & pos == !! pos)) %>% 
+    dplyr::as_tibble()
   
   return(ret)
 }

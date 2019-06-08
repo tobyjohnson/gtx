@@ -5,9 +5,9 @@
 \title{regional_context_analysis}
 \usage{
 regional_context_analysis(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
-  dbc = getOption("gtx.dbConnection", NULL), ignore_ukb_neale = TRUE,
-  ignore_ukb_cane = TRUE, phewas_pval_le = 1e-07, cpu = 8,
-  drop_cs = TRUE)
+  ignore_ukb_neale = TRUE, ignore_ukb_cane = TRUE,
+  ignore_qtls = TRUE, phewas_pval_le = 1e-07, cpu = 8,
+  drop_cs = TRUE, dbc = getOption("gtx.dbConnection", NULL), ...)
 }
 \arguments{
 \item{hgnc}{Analyze all moderate/high impact VEP variants overlapping gene position.}
@@ -22,24 +22,29 @@ regional_context_analysis(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
 
 \item{alt}{alt allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.}
 
-\item{dbc}{[Default = getOption("gtx.dbConnection", NULL)] gtxconnection.}
-
 \item{ignore_ukb_neale}{[Default = TRUE] TRUE = ignore Neale UKB GWAS in PheWAS}
 
 \item{ignore_ukb_cane}{[Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS}
 
+\item{ignore_qtls}{[Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)}
+
 \item{cpu}{[Default = 8] Number of cpus to use for regional context analysis (i.e. regionplot.data's)}
 
-\item{ignore_qtls}{[Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)}
+\item{dbc}{[Default = getOption("gtx.dbConnection", NULL)] gtxconnection.}
+
+\item{...}{regionplot.data params}
 }
 \value{
 tibble (data.frame)
 }
 \description{
 Calculate regional_context on-the-fly. Run PheWAS for all variants, identifying GWAS at
-pval <= phewas_pval_le (1e-7 by default). For each variant+GWAS pair, generate credible sets
-for each GWAS and determine if the variant is in the credible set and gather others stats on each 
-credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results.
+pval <= phewas_pval_le (1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
+variants from the VEP table. In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
+and all QTL data. For each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
+others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results. Due to the 
+high-throughput nature of this function, it is suggested to reduce logging info when running this function using: 
+futile.logger::flog.threshold(ERROR).
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

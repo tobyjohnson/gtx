@@ -32,6 +32,9 @@ data.frame with the inputs used, all the data for each input, and default plots
 \description{
 aba.wrapper - single function to query and plot the aba colocs
 }
+\examples{
+colocs <- aba.wrapper(hgncid = "HMGCR")
+}
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 }
