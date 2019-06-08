@@ -247,7 +247,7 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   }
   
   # Get cred sets
-  gtx_info("Starting regional context analysis for all CLEO GWAS results.")
+  gtx_info("Starting regional context analysis for all GWAS results.")
   ret <- 
     input %>% 
     dplyr::mutate(cs = 
