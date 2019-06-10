@@ -10,13 +10,13 @@ regional_context_analysis(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   drop_cs = TRUE, dbc = getOption("gtx.dbConnection", NULL), ...)
 }
 \arguments{
-\item{hgnc}{Analyze all moderate/high impact VEP variants overlapping gene position.}
+\item{hgnc}{HGNC symbol(s) as string or vector used to analyze all moderate/high impact VEP variants overlapping gene position.}
 
 \item{rs}{RSID(s) to analyze as a string or vector}
 
 \item{chrom}{chromosome(s) to analyze as a string or vector}
 
-\item{pos}{positions(s) to analyze as a single or vector}
+\item{pos}{positions(s) to analyze as an INT or vector}
 
 \item{ref}{ref allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.}
 
@@ -29,6 +29,8 @@ regional_context_analysis(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
 \item{ignore_qtls}{[Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)}
 
 \item{cpu}{[Default = 8] Number of cpus to use for regional context analysis (i.e. regionplot.data's)}
+
+\item{drop_cs}{[Default = TRUE] Drop the credible sets foreach PheWAS hit before returning the object.}
 
 \item{dbc}{[Default = getOption("gtx.dbConnection", NULL)] gtxconnection.}
 
@@ -44,7 +46,7 @@ variants from the VEP table. In the Phewas, the default behavior is to also igno
 and all QTL data. For each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
 others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results. Due to the 
 high-throughput nature of this function, it is suggested to reduce logging info when running this function using: 
-futile.logger::flog.threshold(ERROR).
+futile.logger::flog.threshold(ERROR). This function will also use multiple cores if available.
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

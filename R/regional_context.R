@@ -20,12 +20,13 @@ regional_context_query <- function(hgnc, hgncid){
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param hgnc Analyze all moderate/high impact VEP variants overlapping gene position.
-#' @param rs RSID(s) to analyze as a string or vector
+#' @param hgnc HGNC symbol(s) as string or vector used to analyze all moderate/high impact VEP variants overlapping gene position. 
+#' @param rs RSID(s) to analyze as a string or vector 
 #' @param chrom chromosome(s) to analyze as a string or vector
-#' @param pos positions(s) to analyze as a single or vector
+#' @param pos positions(s) to analyze as an INT or vector
 #' @param ref ref allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
 #' @param alt alt allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
+#' @param drop_cs [Default = TRUE] Drop the credible sets foreach PheWAS hit before returning the object. 
 #' @param cpu [Default = 8] Number of cpus to use for regional context analysis (i.e. regionplot.data's)
 #' @param ignore_ukb_neale [Default = TRUE] TRUE = ignore Neale UKB GWAS in PheWAS
 #' @param ignore_ukb_cane [Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS
