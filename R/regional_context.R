@@ -20,13 +20,12 @@ regional_context_query <- function(hgnc, hgncid){
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @export
-#' @param hgnc HGNC symbol(s) as string or vector used to analyze all moderate/high impact VEP variants overlapping gene position. 
-#' @param rs RSID(s) to analyze as a string or vector 
+#' @param hgnc Analyze all moderate/high impact VEP variants overlapping gene position.
+#' @param rs RSID(s) to analyze as a string or vector
 #' @param chrom chromosome(s) to analyze as a string or vector
-#' @param pos positions(s) to analyze as an INT or vector
+#' @param pos positions(s) to analyze as a single or vector
 #' @param ref ref allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
 #' @param alt alt allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
-#' @param drop_cs [Default = TRUE] Drop the credible sets foreach PheWAS hit before returning the object. 
 #' @param cpu [Default = 8] Number of cpus to use for regional context analysis (i.e. regionplot.data's)
 #' @param ignore_ukb_neale [Default = TRUE] TRUE = ignore Neale UKB GWAS in PheWAS
 #' @param ignore_ukb_cane [Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS
@@ -114,16 +113,16 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   
   # --- Second, create select sql for GWAS
   marg_sql <- glue::glue('
-    SELECT * FROM gwas_results
-      WHERE pval <= {phewas_pval_le} 
-      AND pval IS NOT NULL
-      AND {phewas_chroms_where_clause}')
+                         SELECT * FROM gwas_results
+                         WHERE pval <= {phewas_pval_le} 
+                         AND pval IS NOT NULL
+                         AND {phewas_chroms_where_clause}')
   
   cleo_sql <- glue::glue('
-    SELECT * FROM gwas_results_cond
-      WHERE pval_cond <= {phewas_pval_le} 
-      AND pval_cond IS NOT NULL
-      AND {phewas_chroms_where_clause}')
+                         SELECT * FROM gwas_results_cond
+                         WHERE pval_cond <= {phewas_pval_le} 
+                         AND pval_cond IS NOT NULL
+                         AND {phewas_chroms_where_clause}')
   
   # --- Remove any GWAS we don't want
   if(isTRUE(ignore_qtls)){
@@ -150,17 +149,17 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   tictoc::tic();
   
   phewas_marg_sql <- glue::glue('
-    WITH 
-    -- Define vars_q
-      vars_q AS ({vars_sql}),
-    -- Define gwas_q
-      gwas_q AS ({marg_sql})
-    -- PheWAS by inner joining gwas_results and variants
-    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
-           cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
-      FROM gwas_q
-      INNER JOIN /* +BROADCAST */ vars_q
-      USING (chrom, pos, ref, alt)')
+                                WITH 
+                                -- Define vars_q
+                                vars_q AS ({vars_sql}),
+                                -- Define gwas_q
+                                gwas_q AS ({marg_sql})
+                                -- PheWAS by inner joining gwas_results and variants
+                                SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
+                                cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
+                                FROM gwas_q
+                                INNER JOIN /* +BROADCAST */ vars_q
+                                USING (chrom, pos, ref, alt)')
   
   phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = TRUE)
   
@@ -173,17 +172,17 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   tictoc::tic();
   
   phewas_cleo_sql <- glue::glue('
-    WITH 
-    -- Define vars_q
-      vars_q AS ({vars_sql}),
-    -- Define gwas_q
-      gwas_q AS ({cleo_sql})
-    -- PheWAS by inner joining gwas_results_cond and variants
-    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
-           gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
-      FROM gwas_q
-      INNER JOIN /* +BROADCAST */ vars_q
-      USING (chrom, pos, ref, alt)')
+                                WITH 
+                                -- Define vars_q
+                                vars_q AS ({vars_sql}),
+                                -- Define gwas_q
+                                gwas_q AS ({cleo_sql})
+                                -- PheWAS by inner joining gwas_results_cond and variants
+                                SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
+                                gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
+                                FROM gwas_q
+                                INNER JOIN /* +BROADCAST */ vars_q
+                                USING (chrom, pos, ref, alt)')
   
   phewas_cleo <- sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE)
   
@@ -227,7 +226,7 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   else if(!(missing(analysis) & !missing(chrom) & !missing(pos) & missing(signal))){
     input = dplyr::tibble(analysis = analysis, chrom = chrom, pos = pos, ref = ref, alt = alt, signal = NA)
   } else {
-   gtx_fatal_stop("int_ht_regional_context | unable to process input properly.") 
+    gtx_fatal_stop("int_ht_regional_context | unable to process input properly.") 
   }
   if(nrow(input) == 0){
     gtx_warn("int_ht_regional_context_analysis | input has no data.")
@@ -252,9 +251,9 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   ret <- 
     input %>% 
     dplyr::mutate(cs = 
-      furrr::future_pmap(list(analysis, chrom, pos, signal), 
-                        ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
-                                                 signal = ..4, use_database = current_database)))
+                    furrr::future_pmap(list(analysis, chrom, pos, signal), 
+                                       ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
+                                                                signal = ..4, use_database = current_database)))
   
   # Annotate critical data (e.g. variant in the cred set)
   ret <- 
@@ -275,10 +274,10 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
     # cred set top hit posterior probability
     dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp_signal))) %>% 
     # dplyr::mutate(cs_alpha = map_dbl(cs, ~dplyr::filter(cs_signal == TRUE) %>%
-                                         # summarize(alpha = sum(beta * lnabf)/sum(lnabf)) %>% # REVIEW WITH TOBY
-                                         # pull(alpha))) %>% 
+    # summarize(alpha = sum(beta * lnabf)/sum(lnabf)) %>% # REVIEW WITH TOBY
+    # pull(alpha))) %>% 
     dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
-                                                dplyr::select(pos, ref, alt, pval))) %>% 
+                                            dplyr::select(pos, ref, alt, pval))) %>% 
     tidyr::unnest(cs_th_data) %>% 
     dplyr::rename(th_pos = pos1, th_ref = ref1, th_alt = alt1, th_pval = pval1) 
   
@@ -313,7 +312,7 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, 
   if(missing(chrom) | missing(pos) | missing(analysis) | missing(signal) | missing(use_database)){
     gtx_fatal_stop("int_ht_cred_set_wrapper | missing input arguement(s).")
   }
-
+  
   if(is.null(getOption("gtx.dbConnection", NULL))){
     gtx_debug("int_ht_cred_set_wrapper | Establishing gtxconnection.")
     gtxconnect(use_database = use_database, cache = TRUE)
@@ -329,7 +328,8 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, 
   } else if(!is.na(signal)){
     ret <- 
       regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signals', signal = signal, ...) %>% 
-      dplyr::select(-dplyr::matches("signal")) %>% 
+      dplyr::filter(signal == !! signal) %>%       
+      dplyr::select(-pp_signal, -cs_signal) %>% 
       dplyr::rename(pp_signal = pp_cleo, cs_signal = cs_cleo)
   } else {
     gtx_fatal_stop("int_ht_cred_set_wrapper | Unable to determine type of signal to process.")
@@ -366,14 +366,14 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
     input <- input %>% dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(hgncid = .)))
     
     select_statement <- glue::glue('
-      WITH 
-        t1 as (SELECT * FROM genes 
-               WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")})
-      SELECT hgncid AS input, vep.chrom, vep.pos, vep.ref, vep.alt 
-        FROM vep
-        INNER JOIN /* +BROADCAST */ t1
-        USING (chrom)
-        WHERE pos >= pos_start AND pos <= pos_end')
+                                   WITH 
+                                   t1 as (SELECT * FROM genes 
+                                   WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")})
+                                   SELECT hgncid AS input, vep.chrom, vep.pos, vep.ref, vep.alt 
+                                   FROM vep
+                                   INNER JOIN /* +BROADCAST */ t1
+                                   USING (chrom)
+                                   WHERE pos >= pos_start AND pos <= pos_end')
     
   } else if(!missing(rs) | !missing(rsid)){
     gtx_debug("int_input_tbl | rs ID input - finding all genomic coordinates.")
@@ -383,17 +383,17 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
     input <- input %>% dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(rs = .)))
     
     select_statement <- glue::glue('
-      SELECT CONCAT("rs", cast(rsid as string)) AS input, chrom, pos, ref, alt
-        FROM sites
-        WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")}')
+                                   SELECT CONCAT("rs", cast(rsid as string)) AS input, chrom, pos, ref, alt
+                                   FROM sites
+                                   WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")}')
     
   } else if(!missing(ref)){
     gtx_debug("int_input_tbl | chrom,pos,ref,alt input - confirming genomic coordinates.")
     input <- 
       dplyr::tibble(chrom = chrom, pos = pos, ref = ref, alt = alt) %>% 
       dplyr::mutate(where_clause = purrr::pmap_chr(list(chrom, pos, ref, alt),
-                                     ~gtxwhere(chrom = ..1, pos = ..2, 
-                                               ref   = ..3, alt = ..4)))
+                                                   ~gtxwhere(chrom = ..1, pos = ..2, 
+                                                             ref   = ..3, alt = ..4)))
     
     select_statement <- glue::glue('
       SELECT CONCAT("chr", chrom, "_", cast(pos as string), "_", ref, "_", alt) AS input, chrom, pos, ref, alt
