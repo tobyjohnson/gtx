@@ -50,20 +50,160 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
   }
   
   # --- Perform PheWAS on each input
-  phewas_hits <- int_ht_phewas(hgnc   = hgnc,  hgncid = hgncid, 
-                               rs     = rs,    rsid   = rsid,
-                               chrom  = chrom, pos    = pos, 
-                               ref    = ref,   alt    = alt,
-                               ignore_ukb_neale = ignore_ukb_neale, 
-                               ignore_ukb_cane  = ignore_ukb_cane, 
-                               phewas_pval_le   = phewas_pval_le, 
-                               dbc = dbc)
+  phewas_hits <- 
+    int_ht_phewas_wrapper(hgnc   = hgnc,  hgncid = hgncid, 
+                          rs     = rs,    rsid   = rsid,
+                          chrom  = chrom, pos    = pos, 
+                          ref    = ref,   alt    = alt,
+                          ignore_ukb_neale = ignore_ukb_neale, 
+                          ignore_ukb_cane  = ignore_ukb_cane,
+                          ignore_qtls      = ignore_qtls, 
+                          phewas_pval_le   = phewas_pval_le, 
+                          dbc = dbc)
   
   # --- Perform regional_context analysis for each PheWAS hit
   gtx_info("Performing regional context analysis on {nrow(phewas_hits)} variants+GWAS pairs.")
   region_context_data <- int_ht_regional_context(input = phewas_hits, cpu = cpu, dbc = dbc, drop_cs = drop_cs, ...)
   
   return(region_context_data)
+}
+
+#' int_ht_phewas_wrapper
+#' 
+#' High-throughput PheWAS - high level wrapper pointing to int_ht_phewas. However, due to 
+#' limitations of impala, need to chunk the large phewas joins into smaller chunks. 
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param hgnc Will analyze all moderate/high impact VEP variants overlapping gene position (db.vep)
+#' @param rs RSID(s) to analyze as a string or vector
+#' @param chrom chromosome(s) to analyze as a string or vector
+#' @param pos positions(s) to analyze as a single or vector
+#' @param ref ref allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
+#' @param alt alt allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
+#' @param ignore_ukb_neale [Default = TRUE] TRUE = ignore Neale UKB GWAS in PheWAS
+#' @param ignore_ukb_cane [Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS
+#' @param ignore_qtls [Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)
+#' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
+#' @return tibble with all PheWAS hits
+int_ht_phewas_wrapper <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
+                                  ignore_ukb_neale = TRUE, 
+                                  ignore_ukb_cane = TRUE,
+                                  ignore_qtls = TRUE, 
+                                  phewas_pval_le = 1e-7, 
+                                  chunk_size = 500,
+                                  dbc = getOption("gtx.dbConnection", NULL)){
+  # --- Verify inputs
+  gtx_debug("int_ht_phewas | Checking for input params.")
+  if(missing(hgnc) & missing(hgncid) & missing(rs) & missing(rsid) & missing(chrom)){
+    gtx_fatal_stop("int_ht_phewas | Missing input param(s).")
+  }
+  
+  if(!missing(hgnc) | !missing(hgncid)){
+    if(!missing(hgncid)){    input <- dplyr::tibble(hgncid = hgncid) }
+    else if(!missing(hgnc)){ input <- dplyr::tibble(hgncid = hgnc)   }
+    
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(hgncid = .$hgncid, 
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(hgncid = input$hgncid,
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    }
+  } else if(!missing(rs) | !missing(rsid)){
+    if(!missing(rsid))   { input <- dplyr::tibble(rsid = rsid) }
+    else if(!missing(rs)){ input <- dplyr::tibble(rsid = rs)   }
+    
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(rsid = .$rsid, 
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(rsid = input$rsid, 
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    } 
+  } else if(!missing(ref)){
+    input <- dplyr::tibble(chrom = chrom, pos = pos, ref = ref, alt = alt) 
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(chrom = .$chrom, pos = .$pos, 
+                                                      ref = .$ref, alt = .$alt,
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(chrom = input$chrom, pos = input$pos, 
+                           ref = input$ref, alt = input$alt, 
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    }
+  } else if(!missing(chrom)) { 
+    gtx_debug("int_input_tbl | chrom,pos,ref - ID all genomic coordinates.")
+    input <- dplyr::tibble(chrom = chrom, pos = pos) 
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(chrom = .$chrom, pos = .$pos,
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(chrom = input$chrom, 
+                           pos   = input$pos, 
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    }
+  }
+  return(ret)
 }
 
 #' int_ht_phewas
@@ -113,16 +253,16 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   
   # --- Second, create select sql for GWAS
   marg_sql <- glue::glue('
-                         SELECT * FROM gwas_results
-                         WHERE pval <= {phewas_pval_le} 
-                         AND pval IS NOT NULL
-                         AND {phewas_chroms_where_clause}')
+    SELECT * FROM gwas_results
+      WHERE pval <= {phewas_pval_le} 
+      AND pval IS NOT NULL
+      AND {phewas_chroms_where_clause}')
   
   cleo_sql <- glue::glue('
-                         SELECT * FROM gwas_results_cond
-                         WHERE pval_cond <= {phewas_pval_le} 
-                         AND pval_cond IS NOT NULL
-                         AND {phewas_chroms_where_clause}')
+    SELECT * FROM gwas_results_cond
+      WHERE pval_cond <= {phewas_pval_le} 
+      AND pval_cond IS NOT NULL
+      AND {phewas_chroms_where_clause}')
   
   # --- Remove any GWAS we don't want
   if(isTRUE(ignore_qtls)){
@@ -373,14 +513,14 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
     input <- input %>% dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(hgncid = .)))
     
     select_statement <- glue::glue('
-                                   WITH 
-                                   t1 as (SELECT * FROM genes 
-                                   WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")})
-                                   SELECT hgncid AS input, vep.chrom, vep.pos, vep.ref, vep.alt 
-                                   FROM vep
-                                   INNER JOIN /* +BROADCAST */ t1
-                                   USING (chrom)
-                                   WHERE pos >= pos_start AND pos <= pos_end')
+      WITH 
+        t1 as (SELECT * FROM genes 
+               WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")})
+      SELECT hgncid AS input, vep.chrom, vep.pos, vep.ref, vep.alt 
+        FROM vep
+        INNER JOIN /* +BROADCAST */ t1
+        USING (chrom)
+        WHERE pos >= pos_start AND pos <= pos_end')
     
   } else if(!missing(rs) | !missing(rsid)){
     gtx_debug("int_input_tbl | rs ID input - finding all genomic coordinates.")
@@ -390,9 +530,9 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
     input <- input %>% dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(rs = .)))
     
     select_statement <- glue::glue('
-                                   SELECT CONCAT("rs", cast(rsid as string)) AS input, chrom, pos, ref, alt
-                                   FROM sites
-                                   WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")}')
+      SELECT CONCAT("rs", cast(rsid as string)) AS input, chrom, pos, ref, alt
+        FROM sites
+        WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")}')
     
   } else if(!missing(ref)){
     gtx_debug("int_input_tbl | chrom,pos,ref,alt input - confirming genomic coordinates.")
