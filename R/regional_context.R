@@ -286,7 +286,14 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   }
   
   # reconnect to DB
-  gtxconnect(use_database = current_database)
+  if(nrow(input) > 3 & cpu > 1){
+    options("gtx.dbConnection" = NULL);
+    gtxcache(disconnect = TRUE)
+    DBI::dbDisconnect(dbc)
+    Sys.sleep(1)
+    gtxconnect(use_database = current_database, cache = TRUE)
+    Sys.sleep(1)
+  }
   
   return(ret)
 }
