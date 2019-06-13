@@ -4,5 +4,5 @@ library(futile.logger)
 
 flog.appender(appender.file("unit_tests.log"))
 
-options(gtx.dbConnection = dbConnect(odbc(), dsn = 'impaladsn'))
+options(gtx.dbConnection = dbConnect(odbc::odbc(), dsn = 'impaladsn'))
 dbGetQuery(getOption('gtx.dbConnection'), 'USE ukbiobank;')
