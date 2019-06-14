@@ -405,10 +405,11 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
                                                                 alt == ..5 & cs_signal == TRUE) %>% 
                                                  nrow >= 1)) %>% 
     # queried variant posterior probability
-    dplyr::mutate(var_pp     = purrr::pmap_dbl(list(cs, chrom, pos, ref, alt), 
+    dplyr::mutate(var_pp     = purrr::pmap(list(cs, chrom, pos, ref, alt), 
                                                ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
                                                                 ref == ..4 & alt == ..5 ) %>% 
                                                  dplyr::pull(pp_signal))) %>% 
+    tidyr::unnest(var_pp, .drop = FALSE) %>% 
     # number of snps in the cred set
     dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs_signal == TRUE) %>% nrow)) %>% 
     # cred set top hit posterior probability
@@ -418,7 +419,7 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
     # pull(alpha))) %>% 
     dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
                                             dplyr::select(pos, ref, alt, pval))) %>% 
-    tidyr::unnest(cs_th_data) %>% 
+    tidyr::unnest(cs_th_data, .drop = FALSE) %>% 
     dplyr::rename(th_pos = pos1, th_ref = ref1, th_alt = alt1, th_pval = pval1) 
   
   if(isTRUE(drop_cs)){
@@ -510,7 +511,10 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
     if(!missing(hgncid)){    input <- dplyr::tibble(input = hgncid) }
     else if(!missing(hgnc)){ input <- dplyr::tibble(input = hgnc)   }
     
-    input <- input %>% dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(hgncid = .)))
+    input <- 
+      input %>% 
+      dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(hgncid = .))) %>% 
+      dplyr::mutate(where_clause = glue::glue("({where_clause})"))
     
     select_statement <- glue::glue('
       WITH 
