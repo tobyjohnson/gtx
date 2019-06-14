@@ -1,3 +1,65 @@
+#define s4 class for gwas
+setClass('gwas',
+         representation(queryForPruning = "character",
+                        forPruningData = 'data.frame'),
+         prototype(queryForPruning = NA_character_,
+                   forPruningData = NULL))
+
+validateGwasInputs <- function(connectionType){
+  checkType(connectionType)
+}
+
+#get the sql query string
+#NOTE: We might be able to generalize thi for all the calls
+getSQLQuery <- function(analysis, pval_thresh, maf_ge, rsq_ge, emac_ge, case_emac_ge, dbc){
+  queryText <- sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
+                        FROM %sgwas_results
+                        WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
+          gtxanalysisdb(analysis),
+          gtxwhat(analysis1 = analysis),
+          gtxfilter(pval_le = pval_thresh,
+                    maf_ge = maf_ge, rsq_ge = rsq_ge,
+                    emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
+                    analysis = analysis,
+                    dbc = dbc))
+}
+
+
+#getUnprunedData
+getUnprunedData <- function(connectionType = 'SQL'){
+
+  t0 <- as.double(Sys.time())
+  
+  validateGwasInputsMsg <- validateGwasInputs(connectionType)
+  
+  callArgs <- switch(connectionType,
+                     'SQL' = getSQLQuery(),
+                     stop('Unkown connectionType'))
+  unprunedData <- new('gwas')
+  
+  unprunedData <- getDataFromDB(connectionType = connectionType,
+                       connectionArguments = list(dbc,
+                                                  sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
+                                                          FROM %sgwas_results
+                                                          WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
+                                                            gtxanalysisdb(analysis),
+                                                            gtxwhat(analysis1 = analysis),
+                                                            gtxfilter(pval_le = pval_thresh,
+                                                                      maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                                                      emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
+                                                                      analysis = analysis,
+                                                                      dbc = dbc)),
+                                                    uniq = FALSE,
+                                                    zrok = zrok))
+    
+    res <- data.table::data.table(res) # in future, getDataFromDB will return data.table objects always
+    t1 <- as.double(Sys.time())
+    gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
+    
+    return(unprunedData)
+    
+}
+
 ## functions for reporting and visualizing a complete gwas
 
 ## pval_significance determines the threshold used to declare significance
@@ -24,26 +86,9 @@ gwas <- function(analysis,
     ## FIXME unclear how to handle analysis with entities
     ## FIXME should throw error if entity_type is not NULL
     
-    t0 <- as.double(Sys.time())
-    res <- getDataFromDB(connectionType = 'SQL',
-                         connectionArguments = list(dbc,
-                                                    sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
-                                                             FROM %sgwas_results
-                                                             WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
-                                                            gtxanalysisdb(analysis),
-                                                            gtxwhat(analysis1 = analysis),
-                                                            gtxfilter(pval_le = pval_thresh,
-                                                                      maf_ge = maf_ge, rsq_ge = rsq_ge,
-                                                                      emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
-                                                                      analysis = analysis,
-                                                                      dbc = dbc)),
-                                                    uniq = FALSE,
-                                                    zrok = zrok))
+    unPrunedData <- getUnprunedData()
     
-    res <- data.table::data.table(res) # in future, getDataFromDB will return data.table objects always
-    t1 <- as.double(Sys.time())
-    gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
-    
+    #res is now unPrunedData
     if(nrow(res) == 0){
       res <- data.table::data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
                         pos_end    = NA, num_variants = NA, min_pval   = NA, 

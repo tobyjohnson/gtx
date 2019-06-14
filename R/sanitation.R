@@ -458,10 +458,8 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
 # connectionArguments(list): the arguments required to query the connected database
 # returns queried results from the database in the format specifeid by the appropriate call
 getDataFromDB <- function(connectionType = 'SQL', connectionArguments){
-  isValidType <- checkType(connectionType)
-  if (!is.null(isValidType)){
-    stop(isValidType)
-  }
+  checkType(connectionType)
+  
   connectionResults <- switch(connectionType,
                               'SQL' = do.call(sqlWrapper, connectionArguments),
                               stop('Unknown connection type'))
@@ -472,9 +470,9 @@ getDataFromDB <- function(connectionType = 'SQL', connectionArguments){
 # check the type of connection passed to getDataFromDB()
 checkType <- function(typeDB){
   isValidType <- NULL
-  if (is.null(typeDB)){isValidType <- 'Connection type cannot be NULL'}
-  if (!is.character(typeDB)){isValidType <- 'Connection type cannot must be a character vector'}
-  if (length(typeDB) != 1){isValidType <- 'Please specify only one connection type'}
+  if (is.null(typeDB)){stop('Connection type cannot be NULL')}
+  if (!is.character(typeDB)){stop('Connection type cannot must be a character vector')}
+  if (length(typeDB) != 1){stop('Please specify only one connection type')}
   
   return(isValidType)
 }

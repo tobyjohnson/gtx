@@ -5,3 +5,5 @@
 .Ruserdata
 *~
 .Rbuildignore
+/R/JOSA_testing.R
+/R/JOSA_toDo.R
