@@ -25,19 +25,21 @@ gwas <- function(analysis,
     ## FIXME should throw error if entity_type is not NULL
     
     t0 <- as.double(Sys.time())
-    res <- sqlWrapper(dbc,
-                      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
-                               FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
-                              gtxanalysisdb(analysis),
-                              gtxwhat(analysis1 = analysis),
-                              gtxfilter(pval_le = pval_thresh,
-                                        maf_ge = maf_ge, rsq_ge = rsq_ge,
-                                        emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
-                                        analysis = analysis,
-                                        dbc = dbc)),
-                      uniq = FALSE,
-                      zrok = zrok)
+    res <- getDataFromDB(connectionType = 'SQL',
+                         connectionArguments = list(dbc,
+                                                    sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
+                                                             FROM %sgwas_results
+                                                             WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
+                                                            gtxanalysisdb(analysis),
+                                                            gtxwhat(analysis1 = analysis),
+                                                            gtxfilter(pval_le = pval_thresh,
+                                                                      maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                                                      emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
+                                                                      analysis = analysis,
+                                                                      dbc = dbc)),
+                                                    uniq = FALSE,
+                                                    zrok = zrok))
+    
     res <- data.table::data.table(res) # in future, sqlWrapper will return data.table objects always
     t1 <- as.double(Sys.time())
     gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')

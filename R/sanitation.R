@@ -236,9 +236,11 @@ gtxanalysisdb <- function(analysis,
 
     if (resolve) {
         ## Query results_db for this analysis
-        res <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
-                          sprintf('SELECT results_db FROM analyses WHERE %s;',
-                                  gtxwhat(analysis1 = analysis))) # sanitation by gtxwhat; default uniq = TRUE
+        res <- getDataFromDB(connectionType = 'SQL',
+                             connectionArguments = list(getOption('gtx.dbConnection_cache_analyses', dbc),
+                                                        sprintf('SELECT results_db FROM analyses WHERE %s;',
+                                                                gtxwhat(analysis1 = analysis)))) # sanitation by gtxwhat; default uniq = TRUE
+        
         ## First, if null or empty string, return empty string (hence caller will use unqualified table name)
         ## (note, database nulls are returned as R NAs; following is safe because length(res$results_db)==1)
         if (is.na(res$results_db) || res$results_db == '') {
@@ -260,10 +262,12 @@ gtxanalysisdb <- function(analysis,
         }
     } else {
         ## Query results_db for all analyses requested
-        res <- sqlWrapper(getOption('gtx.dbConnection_cache_analyses', dbc), 
-                          sprintf('SELECT analysis, results_db FROM analyses WHERE %s;',
-                                  gtxwhat(analysis = analysis)), # sanitation by gtxwhat
-                          uniq = FALSE)
+        res <- getDataFromDB(connectionType = 'SQL',
+                             connectionArguments = list(getOption('gtx.dbConnection_cache_analyses', dbc),
+                                                        sprintf('SELECT analysis, results_db FROM analyses WHERE %s;',
+                                                                gtxwhat(analysis = analysis)), # sanitation by gtxwhat
+                                                        uniq = FALSE))
+        
         ## If accessible databases known, add 'has_access' column
         if (!is.null(dbs)) res$has_access <- res$results_db %in% dbs$name
         return(res)
@@ -446,3 +450,31 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     stop('internal error in sqlWrapper()') # should never happen
 }
 
+
+# retrive data from a DB
+# this function wraps around sqlWrapper and allows
+# to implement different types of connections if needed
+# connectionType (character): what kind of connection is required
+# connectionArguments(list): the arguments required to query the connected database
+# returns queried results from the database in the format specifeid by the appropriate call
+getDataFromDB <- function(connectionType = 'SQL', connectionArguments){
+  isValidType <- checkType(connectionType)
+  if (!is.null(isValidType)){
+    stop(isValidType)
+  }
+  connectionResults <- switch(connectionType,
+                              'SQL' = do.call(sqlWrapper, connectionArguments),
+                              stop('Unknown connection type'))
+  return(connectionResults)
+}
+
+
+# check the type of connection passed to getDataFromDB()
+checkType <- function(typeDB){
+  isValidType <- NULL
+  if (is.null(typeDB)){isValidType <- 'Connection type cannot be NULL'}
+  if (!is.character(typeDB)){isValidType <- 'Connection type cannot must be a character vector'}
+  if (length(typeDB) != 1){isValidType <- 'Please specify only one connection type'}
+  
+  return(isValidType)
+}
