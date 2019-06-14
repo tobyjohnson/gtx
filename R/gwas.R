@@ -40,7 +40,7 @@ gwas <- function(analysis,
                                                     uniq = FALSE,
                                                     zrok = zrok))
     
-    res <- data.table::data.table(res) # in future, sqlWrapper will return data.table objects always
+    res <- data.table::data.table(res) # in future, getDataFromDB will return data.table objects always
     t1 <- as.double(Sys.time())
     gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
     
@@ -89,18 +89,20 @@ gwas <- function(analysis,
     if ('manhattan' %in% style || 'qqplot' %in% style) {
         ## Make single query for either case
         t0 <- as.double(Sys.time())
-        pvals <- sqlWrapper(dbc,
-                            sprintf('SELECT chrom, pos, pval
-                               FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL;',
-                               gtxanalysisdb(analysis),
-                               gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_le = 10^-plot_fastbox,
-                                         maf_ge = maf_ge, rsq_ge = rsq_ge,
-                                         emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
-                                         analysis = analysis,
-                                         dbc = dbc)),
-                            uniq = FALSE)
+        pvals <- getDataFromDB(connectionType = 'SQL',
+                               connectionArguments = list(dbc,
+                                                          sprintf('SELECT chrom, pos, pval
+                                                                   FROM %sgwas_results
+                                                                   WHERE %s AND %s AND pval IS NOT NULL;',
+                                                                   gtxanalysisdb(analysis),
+                                                                   gtxwhat(analysis1 = analysis),
+                                                                   gtxfilter(pval_le = 10^-plot_fastbox,
+                                                                             maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                                                             emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
+                                                                             analysis = analysis,
+                                                                             dbc = dbc)),
+                                                          uniq = FALSE)
+                               )
         t1 <- as.double(Sys.time())
         gtx_info('Manhattan/QQplot results query returned {nrow(pvals)} rows in {round(t1 - t0, 3)}s.')
         ymax <- max(10, ceiling(-log10(min(pvals$pval))))
@@ -116,13 +118,14 @@ gwas <- function(analysis,
     if ('manhattan' %in% style) { # nice semantics
         ## get min and max positions by chromosome, should this be a constant instead of lookup every time?
         t0 <- as.double(Sys.time())
-        mmpos <- sqlWrapper(dbc, 
+        mmpos <- getDataFromDB(connectionType = 'SQL',
+                               connectionArguments = list(dbc, 
                             sprintf('SELECT chrom, min(pos) AS minpos, max(pos) AS maxpos
                                FROM %sgwas_results
                                WHERE %s GROUP BY chrom;', 
                                gtxanalysisdb(analysis), 
                                gtxwhat(analysis1 = analysis)),
-                            uniq = FALSE)
+                            uniq = FALSE))
         mmpos <- mmpos[order_chrom(mmpos$chrom), ]
         mmpos$offset <- c(0, cumsum(as.double(mmpos$maxpos - mmpos$minpos + manhattan_interspace)))[1:nrow(mmpos)] - mmpos$minpos + manhattan_interspace
         mmpos$midpt <- 0.5*(mmpos$maxpos + mmpos$minpos) + mmpos$offset
@@ -187,18 +190,20 @@ gwas <- function(analysis,
 
     if ('qqplot' %in% style) {
         t0 <- as.double(Sys.time())
-        nump <- as.integer(sqlWrapper(getOption('gtx.dbConnection'),
-                                      sprintf('SELECT count(1) AS nump
-                               FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL;',
-                               gtxanalysisdb(analysis),
-                               gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_gt = 10^-plot_fastbox,
-                                         maf_ge = maf_ge, rsq_ge = rsq_ge,
-                                         emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
-                                         analysis = analysis,
-                                         dbc = dbc)),
-                               uniq = TRUE)$nump) + nrow(pvals)
+        nump <- as.integer(
+          getDataFromDB(connectionType = 'SQL',
+                        connectionArguments = list(getOption('gtx.dbConnection'),
+                                                   sprintf('SELECT count(1) AS nump
+                                                            FROM %sgwas_results
+                                                            WHERE %s AND %s AND pval IS NOT NULL;',
+                                                            gtxanalysisdb(analysis),
+                                                            gtxwhat(analysis1 = analysis),
+                                                            gtxfilter(pval_gt = 10^-plot_fastbox,
+                                                                      maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                                                      emac_ge = emac_ge, case_emac_ge = case_emac_ge,
+                                                                      analysis = analysis,
+                                                                      dbc = dbc)),
+                                                   uniq = TRUE))$nump) + nrow(pvals)
         pe <- (rank(pvals$pval) - 0.5)/nump # expected p-values
         t1 <- as.double(Sys.time())
         gtx_info('Counted truncated P-values and computed expected P-values in {round(t1 - t0, 3)}s.')
