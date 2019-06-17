@@ -486,26 +486,32 @@ gwas <- function(analysis,
                  zrok = FALSE,
                  dbc = getOption("gtx.dbConnection", NULL),
                  connectionType = 'SQL') {
-    gtxdbcheck(dbc)
+  gtxdbcheck(dbc)
     
-    ## FIXME unclear how to handle analysis with entities
-    ## FIXME should throw error if entity_type is not NULL
+  ## FIXME unclear how to handle analysis with entities
+  ## FIXME should throw error if entity_type is not NULL
     
-  
-    #get unpruned data
-    gwasObj <- getUnprunedData(connectionType = connectionType, analysis, pval_thresh,
+  #deal with optional arguments
+  optionalArgs <- list() 
+  if (!missung(maf_ge)){optionalArgs$maf_ge <- maf_ge}
+  if (!missung(rsq_ge)){optionalArgs$rsq_ge <- rsq_ge}
+  if (!missung(emac_ge)){optionalArgs$emac_ge <- emac_ge}
+  if (!missung(case_emac_ge)){optionalArgs$case_emac_ge <- case_emac_ge}
+    
+  #get unpruned data
+  gwasObj <- getUnprunedData(connectionType = connectionType, analysis, pval_thresh,
                                maf_ge, rsq_ge, emac_ge, case_emac_ge, dbc)
     
-    #prune the data
-    gwasObj <- pruneData(gwasObj, prune_dist, gene_annotate)
+  #prune the data
+  gwasObj <- pruneData(gwasObj, prune_dist, gene_annotate)
     
-    if(style == 'none'){
-      gwasObj <- prepareGwasPlot(gwasObj, dbc, analysis, maf_ge, rsq_ge, emac_ge,
-                                 case_emac_ge, plot_fastbox, style)
+  if(style == 'none'){
+    gwasObj <- prepareGwasPlot(gwasObj, dbc, analysis, maf_ge, rsq_ge, emac_ge,
+                               case_emac_ge, plot_fastbox, style)
       
-      plot(gwasObj, style, qqplot_alpha, qqplot_col, plot_fastbox)
-    }
+    plot(gwasObj, style, qqplot_alpha, qqplot_col, plot_fastbox)
+  }
 
-    return(as.data.frame(res)) # don't return as a data.table   
+  return(as.data.frame(gwasObj@prunedData))  
 }
 
