@@ -491,13 +491,6 @@ gwas <- function(analysis,
   ## FIXME unclear how to handle analysis with entities
   ## FIXME should throw error if entity_type is not NULL
     
-  #deal with optional arguments
-  optionalArgs <- list() 
-  if (!missung(maf_ge)){optionalArgs$maf_ge <- maf_ge}
-  if (!missung(rsq_ge)){optionalArgs$rsq_ge <- rsq_ge}
-  if (!missung(emac_ge)){optionalArgs$emac_ge <- emac_ge}
-  if (!missung(case_emac_ge)){optionalArgs$case_emac_ge <- case_emac_ge}
-    
   #get unpruned data
   gwasObj <- getUnprunedData(connectionType = connectionType, analysis, pval_thresh,
                                maf_ge, rsq_ge, emac_ge, case_emac_ge, dbc)
