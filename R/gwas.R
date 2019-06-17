@@ -484,14 +484,16 @@ gwas <- function(analysis,
                  qqplot_alpha = 0.01,
                  plot_fastbox = 2, 
                  zrok = FALSE,
-                 dbc = getOption("gtx.dbConnection", NULL)) {
+                 dbc = getOption("gtx.dbConnection", NULL),
+                 connectionType = 'SQL') {
     gtxdbcheck(dbc)
     
     ## FIXME unclear how to handle analysis with entities
     ## FIXME should throw error if entity_type is not NULL
     
+  
     #get unpruned data
-    gwasObj <- getUnprunedData(connectionType = 'SQL', analysis, pval_thresh,
+    gwasObj <- getUnprunedData(connectionType = connectionType, analysis, pval_thresh,
                                maf_ge, rsq_ge, emac_ge, case_emac_ge, dbc)
     
     #prune the data
