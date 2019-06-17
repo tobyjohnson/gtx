@@ -469,10 +469,9 @@ getDataFromDB <- function(connectionType = 'SQL', connectionArguments){
 
 # check the type of connection passed to getDataFromDB()
 checkType <- function(typeDB){
-  isValidType <- NULL
+
   if (is.null(typeDB)){stop('Connection type cannot be NULL')}
   if (!is.character(typeDB)){stop('Connection type cannot must be a character vector')}
   if (length(typeDB) != 1){stop('Please specify only one connection type')}
   
-  return(isValidType)
 }
