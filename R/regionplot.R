@@ -368,8 +368,10 @@ regionplot.data <- function(analysis, entity, signal,
     
     if ('signals' %in% tolower(style)) {
         ## get CLEO credible sets only, since we effectively left join with this, for plot colouring
+        futile.logger::flog.debug('Finemapping under multiple signals (CLEO) assumptions')
         fmres <- fm_cleo(analysis = analysis, chrom = chrom, pos_start = pos_start, pos_end = pos_end,
-                         priorsd = priorsd, priorc = priorc, cs_size = cs_size, cs_only = TRUE)
+                         priorsd = priorsd, priorc = priorc, cs_size = cs_size, cs_only = TRUE,
+                         dbc = dbc)
         ## note fm_cleo already prints logging messages about number of signals
         if (nrow(fmres) > 0) {
             ## sort by decreasing posterior probability, match each
@@ -532,7 +534,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   ymax <- ceiling(-log10(pmin))
 
   ## Determine amount of y-axis space needed for gene annotation
-  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only)
+  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only, dbc = dbc)
   gtx_debug('gene layout set up for ymax={gl$ymax} yline[1]={gl$yline[1]} yline[4]={gl$yline[4]} yline[5]={gl$yline[5]}')
   ## Set up plotting area
   plot.new()
@@ -549,7 +551,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
 
   ## Add recombination rate and gene annotation
   ##  regionplot.recombination determines position range from par("usr")
-  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]))
+  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]), dbc = dbc)
   ##  regionplot.genedraw uses previously determined layout
   regionplot.genedraw(gl)
 
