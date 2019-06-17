@@ -369,7 +369,15 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
 
     # need to sort AFTER merge with labels
     res <- res[!is.na(res$pval), ]
-    res <- res[order(res$pval), ]
+    if (with_tags) {
+      # res has column tags iff with_tags=TRUE was passed to gtxanalyses() above
+      # Currently expect pval, label, tag, to provide a deterministic sort order
+      res <- res[order(res$pval, res$label, res$tag), ]
+    } else {
+      # If no tags, currently expect pval, label, to provide a deterministic sort order
+      res <- res[order(res$pval, res$label), ]
+    }
+    row.names(res) <- 1:nrow(res) # otherwise preserved from prior to ordering and fails identical() test
     
     # add attribute, used for plot labelling etc., FIXME should we do this when multiple variants matched hence no query was run?
     attr(res, 'variant') <- v1_label
