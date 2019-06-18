@@ -28,7 +28,7 @@ gwas <- function(analysis,
     res <- sqlWrapper(dbc,
                       sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
                                FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
+                               WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos, ref, alt;', 
                               gtxanalysisdb(analysis, dbc = dbc),
                               gtxwhat(analysis1 = analysis),
                               gtxfilter(pval_le = pval_thresh,
@@ -93,7 +93,8 @@ gwas <- function(analysis,
         pvals <- sqlWrapper(dbc,
                             sprintf('SELECT chrom, pos, pval
                                FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL;',
+                               WHERE %s AND %s AND pval IS NOT NULL
+                               ORDER BY chrom, pos, ref, alt;',
                                gtxanalysisdb(analysis, dbc = dbc),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_le = 10^-plot_fastbox,
