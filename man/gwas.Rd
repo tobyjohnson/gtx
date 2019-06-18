@@ -10,10 +10,12 @@ gwas(analysis, style = c("manhattan", "qqplot"), pval_thresh = 5e-08,
   manhattan_col = c("#064F7C", "#6D97BD"),
   manhattan_interspace = 5e+07, qqplot_col = "#064F7C",
   qqplot_alpha = 0.01, plot_fastbox = 2, zrok = FALSE,
-  dbc = getOption("gtx.dbConnection", NULL))
+  dbc = getOption("gtx.dbConnection", NULL), connectionType = "SQL")
 }
 \arguments{
 \item{gene_annotate}{(logical): whether to annotate top hits with gene names}
+
+\item{connectionType}{(character): The type of connection. Only SQL allowed for now}
 
 \item{analysis:}{The key value for the GWAS analysis to summarize}
 
@@ -49,8 +51,6 @@ or 'qqplot'. style = 'none' will produce no plot.}
 \item{zrok:}{UNDEFINED}
 
 \item{dbc:}{Database connection}
-
-\item{connectionType}{(character): The type of connection. Only SQL allowed for now}
 }
 \value{
 Data frame of pruned data and pplot of style 'manhattan' and/or 'qqplot'

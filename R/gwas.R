@@ -493,7 +493,9 @@ gwas <- function(analysis,
     
   #get unpruned data
   gwasObj <- getUnprunedData(connectionType = connectionType, analysis, pval_thresh,
-                               maf_ge, rsq_ge, emac_ge, case_emac_ge, dbc)
+                             maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge,
+                             case_emac_ge = case_emac_ge,
+                             dbc)
     
   #prune the data
   gwasObj <- pruneData(gwasObj, prune_dist, gene_annotate)
