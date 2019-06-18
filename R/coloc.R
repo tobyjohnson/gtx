@@ -465,7 +465,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   pos_end = xregion$pos_end
 
   ## Currently only works if analysis1 all in the same db table
-  db1 <- unique(sapply(analysis1, gtxanalysisdb))
+  db1 <- unique(sapply(analysis1, gtxanalysisdb, dbc = dbc))
   if (length(db1) == 1L) {
     if (db1 == '') {
       # current database, okay
@@ -564,7 +564,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                             gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
                             gtxwhere(chrom = chrom, entity = eq),
-                            gtxanalysisdb(analysis2),
+                            gtxanalysisdb(analysis2, dbc = dbc),
                             where_from(analysisu = analysis2), 
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
                             ),
