@@ -82,9 +82,10 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   if(any(aid_filter$filter_val == TRUE)){
     regex_for_aids <- 
       glue::glue_collapse(aid_filter %>% 
-                      dplyr::filter(filter_val == TRUE) %>% 
-                      dplyr::pull(regex_str), 
-                    sep = " OR ")
+                            dplyr::filter(filter_val == TRUE) %>% 
+                            dplyr::pull(regex_str), 
+                          sep = " OR ")
+    
     sql_query <- glue('{sql_query} WHERE {regex_for_aids}')
   }
     
@@ -197,14 +198,17 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     input_raw_tbl  <- impala_copy_to(df = input_proc_tmp, dest = impala)
     input_proc_tbl <- input_raw_tbl;
   }
+  else if(!missing(chrom) & (!missing(pos) | (!missing(pos_start) & !missing(pos_end)))){
+    input_proc_tbl <- input_raw_tbl;
+  }
   
   # ---
   gtx_debug("aba.query | prelim filter colocs")
   colocs_tbl <- 
     aba_tbl %>% 
     dplyr::filter(p12      >= p12_ge & 
-           minpval1 <= minpval1_le &
-           minpval2 <= minpval2_le) %>% 
+                  minpval1 <= minpval1_le &
+                  minpval2 <= minpval2_le) %>% 
     dplyr::inner_join(.,
                genes_tbl %>% 
                  dplyr::select(ensemblid, gene_start = pos_start, gene_end = pos_end, genetype, hgncid, chrom),
@@ -235,9 +239,9 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                   th_alt   = alt_index) %>% 
     # Make sure the TH are in cis-windows of the coloc genes
     dplyr::filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) %>%   
-    # Join GWAS trait info - e.g. description & ncase
+    # Join GWAS trait info - e.g. label & ncase
     dplyr::inner_join(.,
-      analyses_tbl %>% dplyr::select(analysis, description, phenotype, ncase, ncohort),
+      analyses_tbl %>% dplyr::select(analysis, label, phenotype, ncase, ncohort),
       by = c("analysis2" = "analysis")) %>% 
     # Append RSID to each TH index
     dplyr::left_join(.,
@@ -391,7 +395,7 @@ aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impal
     dplyr::inner_join(., 
       input %>% 
         dplyr::select(input, analysis2, rsid, th_start, th_end, th_pos, th_ref, th_alt, th_pval, 
-                      description, phenotype, ncase, ncohort, in_start, in_end) %>% 
+                      label, phenotype, ncase, ncohort, in_start, in_end) %>% 
         dplyr::distinct(), 
       by = c("input", "analysis2")) %>% 
     # Make sure the TH are in the desired input window
@@ -458,7 +462,7 @@ aba.plot <- function(.data, ...){
   # Verify input
   gtx_debug("aba.plot | validating input")
   input <- .data
-  required_cols <- c("analysis1", "analysis2", "description", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
+  required_cols <- c("analysis1", "analysis2", "label", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   if(!all(required_cols %in% (names(input)))){
     gtx_error('aba.plot | input is missing required cols. \\
               Required cols include: {paste(required_cols, collapse = ", ")}')
@@ -494,7 +498,7 @@ aba.plot <- function(.data, ...){
 aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = NULL){
   gtx_debug("aba.plot | validating input")
   input <- .data
-  required_cols <- c("analysis1", "analysis2", "description", "hgncid", 
+  required_cols <- c("analysis1", "analysis2", "label", "hgncid", 
                      "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   
   if(!all(required_cols %in% (names(input)))){
@@ -509,7 +513,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
     gtx_warn("aba.plot | title is neither NULL or character string.")
   }
   # ---
-  # Clean data (e.g. tissue & description), add simple direction of effect
+  # Clean data (e.g. tissue & label), add simple direction of effect
   gtx_debug("aba.plot | cleaing data for plotting")
   fig_dat <- 
     input %>% 
@@ -518,15 +522,15 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
     dplyr::mutate(analysis1 = stringr::str_replace_all(analysis1, "gtex7", "")) %>%
     dplyr::mutate(analysis1 = stringr::str_to_title(analysis1)) %>% 
     dplyr::mutate(analysis1 = stringr::str_trim(analysis1)) %>% 
-    # clean GWAS description names by removing "_" 
-    dplyr::mutate(description = stringr::str_replace_all(description, "_", " ")) %>% 
+    # clean GWAS label names by removing "_" 
+    dplyr::mutate(label = stringr::str_replace_all(label, "_", " ")) %>% 
     # Fill in missing hgncdids with ensemblids
     dplyr::mutate(hgncid = dplyr::case_when(!stringr::str_detect(hgncid, "\\w+") ~ entity,
                               is.na(hgncid)               ~ entity,
                               TRUE                        ~ hgncid)) %>% 
-    # Remove Broad in description b/c only using broad data here
-    dplyr::mutate(description = stringr::str_replace(description, "\\(UKB Broad\\)", "")) %>% 
-    dplyr::mutate(description_wrap = stringr::str_wrap(description,  width = 60, exdent = 8)) %>%
+    # Remove Broad in label b/c only using broad data here
+    dplyr::mutate(label = stringr::str_replace(label, "\\(UKB Broad\\)", "")) %>% 
+    dplyr::mutate(label_wrap = stringr::str_wrap(label,  width = 80, exdent = 8)) %>%
     # Adjust alpha21 so that non-significant (H4 < 0.80) = NA 
     dplyr::mutate(direction = dplyr::case_when(p12 >= !! p12_ge & alpha21 >  0        ~ "Increased", 
                                  p12 >= !! p12_ge & alpha21 <  0        ~ "Decreased", 
@@ -544,7 +548,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   gtx_debug("aba.plot | plotting data")
   fig <-
     fig_dat %>% 
-    ggplot2::ggplot(ggplot2::aes(x = analysis1, y = description_wrap)) + 
+    ggplot2::ggplot(ggplot2::aes(x = analysis1, y = label_wrap)) + 
     ggplot2::geom_point(ggplot2::aes(size = p12, fill = direction), shape = 21, color = "black", stroke = 0.2) +
     ggplot2::facet_grid(rs_pos ~ hgncid, scales = "free", space = "free", drop = TRUE, margins = FALSE) +
     ggplot2::scale_fill_manual(values = c("Decreased" = "blue", 

@@ -31,3 +31,4 @@ Other ideas_predict: \code{\link{ideas_gwas_plot}},
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}
 }
+\concept{ideas_predict}

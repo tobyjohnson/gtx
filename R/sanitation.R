@@ -431,6 +431,12 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
     if (! 'Impala' %in% class(dbc) && ! 'SQLiteConnection' %in% class(dbc) && ! 'KineticaConnection' %in% class(dbc)) {
         stop('dbc is not an odbc database connection of class Impala or SQLiteConnection')
     }
+    if ('SQLiteConnection' %in% class(dbc)) {
+      if (any(grepl('(True)', sql, fixed = TRUE))) {
+        gtx_debug('Replacing (True) predicate with (1=1) for SQLiteConnection')
+        sql <- gsub('(True)', '(1=1)', sql, fixed = TRUE)
+      }
+    }
     flog.debug(paste0(class(dbc), ' query: ', sql))
     t0 <- as.double(Sys.time())
     res <- DBI::dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc

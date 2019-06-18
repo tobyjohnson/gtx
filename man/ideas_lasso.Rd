@@ -5,9 +5,9 @@
 \title{ideas_lasso}
 \usage{
 ideas_lasso(chrom, pos, vindex, vprior, vlp, states_data = NULL,
-  use_genome_background = TRUE, inter = 5, alpha = 0.99, layer = 10,
-  permute = FALSE, states = NULL, impala = getOption("gtx.impala", NULL),
-  db = config_db())
+  use_genome_background = TRUE, inter = 5, alpha = 0.99,
+  layer = 10, permute = FALSE, states = NULL,
+  impala = getOption("gtx.impala", NULL), db = config_db())
 }
 \arguments{
 \item{chrom}{Chromosomes}

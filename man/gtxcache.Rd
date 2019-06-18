@@ -4,8 +4,8 @@
 \alias{gtxcache}
 \title{Speed up search of genes and analyses}
 \usage{
-gtxcache(cache_analyses = TRUE, cache_genes = TRUE, disconnect = FALSE,
-  dbc_from = getOption("gtx.dbConnection", NULL),
+gtxcache(cache_analyses = TRUE, cache_genes = TRUE,
+  disconnect = FALSE, dbc_from = getOption("gtx.dbConnection", NULL),
   dbc_to = getOption("gtx.dbConnection_cache", NULL))
 }
 \arguments{
