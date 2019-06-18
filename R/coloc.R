@@ -189,7 +189,7 @@ coloc.data <- function(analysis1, analysis2,
                                  %sgwas_results%s AS t1 
                              FULL JOIN 
                                  %sgwas_results%s AS t2 
-                             USING (chrom, pos, "ref", alt) 
+                             USING (chrom, pos, ref, alt) 
                              WHERE 
                                  %s AND %s AND %s %s AND 
                                  %s AND %s AND %s %s 

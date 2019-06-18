@@ -437,11 +437,26 @@ sqlWrapper <- function(dbc, sql, uniq = TRUE, zrok = FALSE) {
         sql <- gsub('(True)', '(1=1)', sql, fixed = TRUE)
       }
     }
+    if ('KineticaConnection' %in% class(dbc)) {
+      if (any(grepl('[ ,.();]ref[ ,.();]', sql))) {
+        gtx_debug('Double-quoting ref for KineticaConnection')
+        sql <- gsub('([^A-Za-z0-9_])ref([^A-Za-z0-9_])', '\\1"ref"\\2', sql)
+      }
+    }
     flog.debug(paste0(class(dbc), ' query: ', sql))
     t0 <- as.double(Sys.time())
     res <- DBI::dbGetQuery(dbc, sql) # !!! removed as.is=TRUE when switched from RODBC to odbc
     t1 <- as.double(Sys.time())
     flog.debug(paste0(class(dbc), ' query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.'))
+    if ('KineticaConnection' %in% class(dbc)) {
+      w_factor <- sapply(1:ncol(res), function(idx) return(class(res[ , idx]) == "factor"))
+      if (any(w_factor)) {
+        gtx_debug('Converting factors to strings for KineticaConnection')
+        for (idx in which(w_factor)) {
+          res[ , idx] <- as.character(res[ , idx])
+        }
+      }
+    }
     if (is.data.frame(res)) {
         if (identical(nrow(res), 0L)) {
             if (zrok) return(res)

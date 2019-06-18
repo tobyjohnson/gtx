@@ -210,7 +210,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
 
     ## Look up variant
     v1 <- sqlWrapper(dbc,
-                     sprintf('SELECT chrom, pos, "ref", alt, rsid AS rs FROM sites WHERE %s;',
+                     sprintf('SELECT chrom, pos, ref, alt, rsid AS rs FROM sites WHERE %s;',
                              gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs)),
                      uniq = FALSE, zrok = TRUE) # default uniq = TRUE
     v1_label <- label_variant(v1$chrom, v1$pos, v1$ref, v1$alt, v1$rs)

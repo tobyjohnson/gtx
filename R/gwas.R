@@ -26,7 +26,7 @@ gwas <- function(analysis,
     
     t0 <- as.double(Sys.time())
     res <- sqlWrapper(dbc,
-                      sprintf('SELECT chrom, pos, "ref", alt, pval, rsq, freq, beta, se
+                      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
                                FROM %sgwas_results
                                WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
                               gtxanalysisdb(analysis, dbc = dbc),
