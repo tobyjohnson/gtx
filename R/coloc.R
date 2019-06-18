@@ -183,6 +183,7 @@ coloc.data <- function(analysis1, analysis2,
   ## Get association statistics
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT 
+                                 t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt,
                                  t1.beta%s AS beta1, t1.se%s AS se1, 
                                  t2.beta%s AS beta2, t2.se%s AS se2  
                              FROM 
@@ -193,6 +194,7 @@ coloc.data <- function(analysis1, analysis2,
                              WHERE 
                                  %s AND %s AND %s %s AND 
                                  %s AND %s AND %s %s 
+                             ORDER BY chrom, pos, ref, alt
                              ;', 
                             if (missing(signal1)) '' else '_cond', 
                             if (missing(signal1)) '' else '_cond', 
