@@ -543,6 +543,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
     res <- sqlWrapper(dbc,
                       sprintf('SELECT STRAIGHT_JOIN
                                    t1.analysis AS analysis1, t1.entity AS entity1,
+                                   t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt, 
                                    t1.beta AS beta1, t1.se AS se1, 
                                    t2.beta AS beta2, t2.se AS se2 
                                FROM 
@@ -559,7 +560,8 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                                     WHERE 
                                         %s AND %s AND pval IS NOT NULL
                                    ) AS t2
-                               USING (chrom, pos, ref, alt);',
+                               USING (chrom, pos, ref, alt)
+                               ORDER BY analysis1, entity1, chrom, pos, ref, alt;',
                             db1, 
                             gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
@@ -577,8 +579,8 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
     t0 <- as.double(Sys.time())
     res <- try(sqlWrapper(dbc,
                       sprintf('SELECT 
-                                   t1.chrom, t1.pos, t1.ref, t1.alt, 
                                    t1.analysis AS analysis1, t1.entity AS entity1, t2.signal AS signal2, 
+                                   t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt, 
                                    t1.beta AS beta1, t1.se AS se1, 
                                    t2.beta_cond AS beta2, t2.se_cond AS se2 
                                FROM %sgwas_results AS t1
@@ -587,6 +589,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                                WHERE
                                    %s AND %s AND %s AND pval IS NOT NULL
                                    AND %s AND %s
+                               ORDER BY analysis1, entity1, signal2, chrom, pos, ref, alt
                                ;',
                               db1, 
                               gtxanalysisdb(analysis2),
