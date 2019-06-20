@@ -6,7 +6,7 @@ phewasGetV1 <- function(chrom, pos, ref, alt, rs, dbc,
   connectionArguments <- getSQLArgsPhewas00(chrom, pos, ref, alt, rs, dbc,
                                             uniq, zrok)
   
-  v1Data <- getDataFromDB(connectionType = connectionType, connectionArguments = allArgs)
+  v1Data <- getDataFromDB(connectionType = connectionType, connectionArguments = connectionArguments)
   
   
   

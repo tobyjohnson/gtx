@@ -2,10 +2,14 @@
 setClass(
   'regionplot',
   representation(v1Data = 'data.table',
-                 phewasArguments = 'list'),
+                 phewasArguments = 'list',
+                 phewasPlot = 'phewasPlot'),
   prototype(v1Data = NULL,
-            phewasArguments = NULL)
+            phewasArguments = NULL,
+            phewasPlot = NULL)
 )
+
+
 
 #validate phewas user defined inputs
 checkPhewasInput <- function(chrom,
@@ -408,7 +412,8 @@ phewas.data <- function(chrom,
   v1 <- switch(connectionType,
                'SQL' = phewasGetV1(chrom, pos, ref, alt, rs, dbc,
                                    uniq = FALSE, zrok = TRUE,
-                                   connectionType = 'SQL'))
+                                   connectionType = 'SQL'),
+               stop('Unkown connectionType'))
   
   phewasObj@v1Data <- v1
   
@@ -467,6 +472,12 @@ getAnalysisMetadata(phewasObj) {
   phewasObj@a1 <- a1
   return(phewasObj)
 }
+
+
+
+
+
+
 
 phewasDataProcessing <- function(phewasObj) {
   ## Look up analysis metadata
