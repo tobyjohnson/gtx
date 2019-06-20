@@ -341,19 +341,7 @@ phewas <- function(chrom,
 }
 
 
-phewasGetV1 <- function(chrom, pos, ref, alt, rs, dbc,
-                        uniq, zrok, connectionType) {
-  
-  connectionArguments <- getSQLArgsPhewas00(chrom, pos, ref, alt, rs, dbc,
-                                            uniq, zrok)
-    
-  v1Data <- getDataFromDB(connectionType = connectionType, connectionArguments = allArgs)
-    
-    
-    
-    return(v1Data)
-    
-  }
+
 
 #' @description phewas Look up results without plotting
 #'
@@ -478,43 +466,6 @@ getAnalysisMetadata(phewasObj) {
   
   phewasObj@a1 <- a1
   return(phewasObj)
-}
-
-getRes <- function(results_db, v1, uniq, zrok, connectionType) {
-  connectionArguments <-
-    getSQLArgsPhewas02(results_db, v1, uniq, zrok)
-  
-  loopRes <-
-    getDataFromDB(connectionType = 'connectionType', connectionArguments)
-  
-  return(loopRes)
-}
-
-
-
-getResLoop <- function(results_db, v1, nearby, uniq, zrok, connectionType) {
-  connectionArguments <- getSQLArgsPhewas01(results_db, v1, nearby, uniq, zrok)
-  
-  loopRes <- getDataFromDB(connectionType = connectionType, connectionArguments)
-  
-  return(loopRes)
-}
-
-getResCase2 <- function(results_db, v1, w1, uniq, zrok, connectionType){
-  connectionArguments <- getSQLArgsPhewas03(results_db, v1, w1, uniq, zrok)
-  
-  loopRes <- getDataFromDB(connectionType = connectionType, connectionArguments)
-  
-  return(loopRes)
-}
-
-getResCase3 <- function(results_db, v1, nearby, w1, uniq, zrok, connectionType){
-  
-  connectionArguments <- getSQLArgsPhewas04(results_db, v1, nearby, w1, uniq, zrok)
-  
-  loopRes <- getDataFromDB(connectionType = connectionType, connectionArguments)
-  
-  return(loopRes)
 }
 
 phewasDataProcessing <- function(phewasObj) {

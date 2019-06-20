@@ -1,5 +1,19 @@
 ##########
 #phewas
+phewasGetV1 <- function(chrom, pos, ref, alt, rs, dbc,
+                        uniq, zrok, connectionType) {
+  
+  connectionArguments <- getSQLArgsPhewas00(chrom, pos, ref, alt, rs, dbc,
+                                            uniq, zrok)
+  
+  v1Data <- getDataFromDB(connectionType = connectionType, connectionArguments = allArgs)
+  
+  
+  
+  return(v1Data)
+  
+}
+
 getSQLArgsPhewas00 <-
   function(chrom, pos, ref, alt, rs, dbc, uniq, zrok) {
     sqlText <- getSQLQueryPhewas00(chrom, pos, ref, alt, rs)
@@ -32,6 +46,14 @@ getSQLQueryPhewas00 <- function(chrom, pos, ref, alt, rs) {
 
 ##############################
 #res nearby
+getResLoop <- function(results_db, v1, nearby, uniq, zrok, connectionType) {
+  connectionArguments <- getSQLArgsPhewas01(results_db, v1, nearby, uniq, zrok)
+  
+  loopRes <- getDataFromDB(connectionType = connectionType, connectionArguments)
+  
+  return(loopRes)
+}
+
 getSQLArgsPhewas01 <- function(results_db, v1, nearby, uniq, zrok) {
   sqlText <- getSQLQueryPhewas01(results_db, v1, nearby)
   allArgs <- list(
@@ -64,6 +86,18 @@ getSQLQueryPhewas01 <- function(results_db, v1, nearby) {
 
 ####################
 #res
+
+getRes <- function(results_db, v1, uniq, zrok, connectionType) {
+  connectionArguments <-
+    getSQLArgsPhewas02(results_db, v1, uniq, zrok)
+  
+  loopRes <-
+    getDataFromDB(connectionType = 'connectionType', connectionArguments)
+  
+  return(loopRes)
+}
+
+
 getSQLArgsPhewas02 <- function(results_db, v1, uniq, zrok) {
   sqlText <- getSQLQueryPhewas02(results_db, v1)
   allArgs <- list(
@@ -89,6 +123,14 @@ getSQLQueryPhewas02 <- function(results_db, v1) {
 
 ####################
 #res in other case
+getResCase2 <- function(results_db, v1, w1, uniq, zrok, connectionType){
+  connectionArguments <- getSQLArgsPhewas03(results_db, v1, w1, uniq, zrok)
+  
+  loopRes <- getDataFromDB(connectionType = connectionType, connectionArguments)
+  
+  return(loopRes)
+}
+
 getSQLArgsPhewas03 <- function(results_db, v1, w1, uniq, zrok) {
   sqlText <- getSQLQueryPhewas03(results_db, v1, w1)
   allArgs <- list(
@@ -117,6 +159,16 @@ getSQLQueryPhewas03 <- function(results_db, v1) {
 
 #######################
 #res_nearby other case
+
+getResCase3 <- function(results_db, v1, nearby, w1, uniq, zrok, connectionType){
+  
+  connectionArguments <- getSQLArgsPhewas04(results_db, v1, nearby, w1, uniq, zrok)
+  
+  loopRes <- getDataFromDB(connectionType = connectionType, connectionArguments)
+  
+  return(loopRes)
+}
+
 getSQLArgsPhewas04 <- function(results_db, v1, nearby, w1, uniq, zrok){
   sqlText <- getSQLQueryPhewas04(results_db, v1, nearby, w1)
   allArgs <- list(
