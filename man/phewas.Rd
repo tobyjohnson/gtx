@@ -2,64 +2,51 @@
 % Please edit documentation in R/phewas.R
 \name{phewas}
 \alias{phewas}
-\alias{phewas.data}
-\alias{phewas.qq}
 \title{Phenome Wide Assocation Study}
 \usage{
 phewas(chrom, pos, ref, alt, rs, analysis, analysis_not,
-  description_contains, phenotype_contains, has_tag, ncase_ge, ncohort_ge,
-  analysis_fields = c("description", "label", "unit", "ncase",
-  "ncontrol", "ncohort"), tag_is = "phewas_group", nearby,
-  plot_ymax = 30, tags_to_right = NULL,
-  dbc = getOption("gtx.dbConnection", NULL))
-
-phewas.data(chrom, pos, ref, alt, rs, analysis, analysis_not,
-  description_contains, phenotype_contains, has_tag, ncase_ge, ncohort_ge,
-  analysis_fields = c("description", "label", "unit", "ncase",
-  "ncontrol", "ncohort"), tag_is, with_tags = FALSE, nearby,
-  dbc = getOption("gtx.dbConnection", NULL))
-
-phewas.qq(chrom, pos, ref, alt, rs, analysis, analysis_not,
-  description_contains, phenotype_contains, ncase_ge, ncohort_ge,
-  dbc = getOption("gtx.dbConnection", NULL))
+description_contains, phenotype_contains, has_tag, ncase_ge, ncohort_ge,
+analysis_fields = c("description", "label", "unit", "ncase",
+"ncontrol", "ncohort"), tag_is = "phewas_group", nearby,
+plot_ymax = 30, tags_to_right = NULL,
+dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
-\item{chrom}{Chromosome of variant of interest}
+\item{chrom:}{UNDEFINED}
 
-\item{pos}{Position of variant of interest}
+\item{pos:}{Position of variant of interest}
 
-\item{ref}{Reference allele of variant of interest}
+\item{ref:}{Reference allele of variant of interest}
 
-\item{alt}{Alternate allele of variant of interest}
+\item{alt:}{Alternate allele of variant of interest}
 
-\item{rs}{dbSNP rs identifier of variant of interest}
+\item{rs:}{dbSNP rs identifier of variant of interest}
 
-\item{analysis}{Identifiers of analyses to include}
+\item{analysis:}{Identifiers of analyses to include}
 
-\item{analysis_not}{Identifiers of analyses to exclude}
+\item{analysis_not:}{Identifiers of analyses to exclude}
 
-\item{description_contains}{Search term for analyses to include}
+\item{description_contains:}{Search term for analyses to include}
 
-\item{has_tag}{Tag value for analyses to include}
+\item{phenotype_contains:}{UNDEFINED}
 
-\item{ncase_ge}{Threshold case sample size greater-or-equal for inclusion}
+\item{has_tag:}{Tag value for analyses to include}
 
-\item{ncohort_ge}{Threshold cohort sample size greater-or-equal for inclusion}
+\item{ncase_ge:}{Threshold case sample size greater-or-equal for inclusion}
 
-\item{analysis_fields}{Fields from analysis metadata to return}
+\item{ncohort_ge:}{Threshold cohort sample size greater-or-equal for inclusion}
 
-\item{tag_is}{Tag flag to use for plot grouping}
+\item{analysis_fields:}{Fields from analysis metadata to return}
 
-\item{nearby}{Additionally return minimum pvalue at position+-nearby}
+\item{tag_is:}{Tag flag to use for plot grouping}
 
-\item{plot_ymax}{Y-axis value maximum}
+\item{nearby:}{Additionally return minimum pvalue at position+-nearby}
 
-\item{tags_to_right}{Tag values to force to right of plot, next to "No tag"}
+\item{plot_ymax:}{Y-axis value maximum}
 
-\item{dbc}{Database connection}
-}
-\value{
-Data frame of summary statistics
+\item{tags_to_right:}{Tag values to force to right of plot, next to "No tag"}
+
+\item{dbc:}{Database connection}
 }
 \description{
 Look up and plot results for a Phenome Wide Association Study.
@@ -74,13 +61,6 @@ By default, summary statistics are returned for all analyses where the variant o
 was tested.  If results are required for only a specific set of analyses, these can be 
 specified using a combination of arguments that are passed through to \code{gtxanalyses()}.
 }
-\section{Functions}{
-\itemize{
-\item \code{phewas.data}: Look up results without plotting
-
-\item \code{phewas.qq}: Draw simple QQ plot of PheWAS results
-}}
-
 \author{
 Toby Johnson \email{Toby.x.Johnson@gsk.com}
 }

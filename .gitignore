@@ -5,3 +5,4 @@
 .Ruserdata
 *~
 .Rbuildignore
+R/JOSA*
