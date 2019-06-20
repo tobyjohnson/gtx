@@ -1,6 +1,7 @@
 # a default of path = "ftp://ftp.ncbi.nlm.nih.gov/hapmap"
 # would work if read.table(gzfile("ftp://...")) worked
 
+#' @export
 hapmap.read.haplotypes <- function (chr, path, sample = "CEU", release = 22) {
   if (release == 21) {
 
@@ -19,6 +20,7 @@ hapmap.read.haplotypes <- function (chr, path, sample = "CEU", release = 22) {
 
 ## hapmap22 <- lapply(1:22, hapmap.read.haplotypes, path = "~/data/hapmap")
 
+#' @export
 hapmap.snpdata <- function(params, hapmap) {
   snpinfo <- data.frame(NULL)
   nindiv <- sapply(1:22, function(chr) return(ncol(hapmap[[chr]]$haplotypes)))

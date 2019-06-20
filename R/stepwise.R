@@ -1,6 +1,7 @@
 # specification of models assumes that real biggest model is union of
 # biggest and smallest arguments, i.e. no need to specify terms twice
 
+#' @export
 stepup.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05, n = NULL, vscale = NULL) {
   ## estimating vscale from data assumes normal/identity model
   ## if using vscale!=1 check definition vis-a-vis standard GLM notation, maybe inverse?
@@ -66,6 +67,7 @@ stepup.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05, n
   return(est.moments2(xtwx, leftvar, rownames(xtwx)[nidx], n = n.arg, vscale = vscale.arg))
 }
 
+#' @export
 stepdown.moments2 <- function(xtwx, leftvar, biggest, smallest, p.thresh = 0.05, n = NULL, vscale = NULL) {
   ## estimating vscale from data assumes normal/identity model
   ## if using vscale!=1 check definition vis-a-vis standard GLM notation, maybe inverse?

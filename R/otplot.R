@@ -1,5 +1,7 @@
+#' @export
 otplot <- function(object, x, data, ylab, xlab, col, col.mix = c("white", "black"), style = "percent", ycrop = FALSE, yext = 1.25) UseMethod("otplot", object)
 
+#' @export
 otplot.character <- function(object, x, data, ylab, xlab, col, col.mix = c("white", "black"), style = "percent", ycrop = FALSE, yext = 1.25) {
   stopifnot(is.data.frame(data))
   stopifnot(object %in% names(data))
@@ -14,6 +16,7 @@ otplot.character <- function(object, x, data, ylab, xlab, col, col.mix = c("whit
                   ylab, xlab, col, col.mix, style, ycrop, yext)
 }  
 
+#' @export
 otplot.numeric <- function(object, x, data, ylab, xlab, col, col.mix = c("white", "black"), style = "percent", ycrop = FALSE, yext = 1.25) {
   stopifnot(identical(length(object), length(x)))
   ## assert that y and x are vectors
@@ -26,6 +29,7 @@ otplot.numeric <- function(object, x, data, ylab, xlab, col, col.mix = c("white"
                   ylab, xlab, col, col.mix, style, ycrop, yext)
 }
 
+#' @export
 otplot.factor <- function(object, x, data, ylab, xlab, col, col.mix = c("white", "black"), style = "percent", ycrop = FALSE, yext = 1.25) {
   stopifnot(identical(length(object), length(x)))
   ## assert that y and x are vectors

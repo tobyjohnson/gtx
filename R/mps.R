@@ -11,6 +11,7 @@
 
 ## should tFun "know" any of the parameters?  Or force it not to "know" by design?
 
+#' @export
 mps.driver1 <- function(design1, xFun, yFun, tFun, nrep = 1000) {
   return(with(as.list(design1), {
     environment(xFun) <- environment()
@@ -32,6 +33,7 @@ mps.driver1 <- function(design1, xFun, yFun, tFun, nrep = 1000) {
   ## Should check str and dim of return value, but numstat not in scope
 }
 
+#' @export
 mps.summary <- function(zz, alpha = 0.05, sided = "two-sided") {
   stopifnot(length(dim(zz)) == 3)
   return(do.call(rbind,
@@ -78,6 +80,7 @@ mps.summary <- function(zz, alpha = 0.05, sided = "two-sided") {
                  })))
 }
 
+#' @export
 mps.driver <- function(design, xFun, yFun, tFun,
                        nrep = 1000,
                        alpha = 0.05, sided = "two-sided",

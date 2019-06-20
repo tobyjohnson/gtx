@@ -1,6 +1,7 @@
 ## for a series of intervals that may overlap or contain each other,
 ## compute the minimum size of a cover.
 ## E.g. applications time intervals, physical bp intervals
+#' @export
 mincover <- function(x.begin, x.end, trunc.begin = NULL, trunc.end = NULL) {
   stopifnot(length(x.begin) == length(x.end))
   if (!is.null(trunc.begin)) stopifnot(length(trunc.begin) == 1)

@@ -1,9 +1,11 @@
+#' @export
 blockstats <- function(m1, m0, coefname = "GENOTYPE") {
   stopifnot(all.equal(class(m1), class(m0)[!class(m0) %in% c("coxph.null")]))
   ## should handle special case where class(m0)=="coxph.null"
   UseMethod("blockstats", m1)
 }
 
+#' @export
 blockstats.lm <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
@@ -13,6 +15,7 @@ blockstats.lm <- function(m1, m0, coefname = "GENOTYPE") {
   return(c(n = n, beta = beta, se = se, lrt = NA, pval = pval))
 }
 
+#' @export
 blockstats.glm <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
@@ -22,6 +25,7 @@ blockstats.glm <- function(m1, m0, coefname = "GENOTYPE") {
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
+#' @export
 blockstats.negbin <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
@@ -32,6 +36,7 @@ blockstats.negbin <- function(m1, m0, coefname = "GENOTYPE") {
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
+#' @export
 blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
@@ -41,6 +46,7 @@ blockstats.coxph <- function(m1, m0, coefname = "GENOTYPE") {
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
+#' @export
 blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
   beta <- unname(coef(m1)[coefname])
   se <- unname(sqrt(vcov(m1)[coefname, coefname]))
@@ -50,6 +56,7 @@ blockstats.clm <- function(m1, m0, coefname = "GENOTYPE") {
   return(c(n = n, beta = beta, se = se, lrt = lrt, pval = NA))
 }
 
+#' @export
 blockassoc <- function(qcall, data, minimac,
                        usubjid = getOption("gtx.usubjid", "USUBJID"), 
                        threshold.MAF = 0, threshold.Rsq = 0,

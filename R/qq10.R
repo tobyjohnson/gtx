@@ -2,6 +2,7 @@
 # functions to draw QQ plots on -log10 scale
 #
 
+#' @export
 qq10.new <- function (pmin) {
     plot.new()
     plot.window(c(0, -log10(pmin)), c(0, -log10(pmin)))
@@ -14,6 +15,7 @@ qq10.new <- function (pmin) {
     box()
 }
 
+#' @export
 qq10.envelope <- function (n, pmin, alpha = 0.01, col = "grey") {
     pre <- -log10(pmin) + 2
     pp <- 10^(-seq(from = 0.01, to = pre, by = 0.01))
@@ -32,11 +34,13 @@ qq10.envelope <- function (n, pmin, alpha = 0.01, col = "grey") {
     polygon(qqenv, col = col, border = col)
 }
 
+#' @export
 qq10.points <- function (p, ...) {
   pe <- (rank(p, na.last = "keep")-0.5) / length(na.omit(p))
   points(-log10(pe), -log10(p), ...)
 }
 
+#' @export
 qq10 <- function (p, pmin = NULL, alpha = 0.01, ...) {
   p <- p[!is.na(p)]
   stopifnot(length(p) > 0)
@@ -48,6 +52,7 @@ qq10 <- function (p, pmin = NULL, alpha = 0.01, ...) {
   box()
 }
 
+#' @export
 gclambda <- function(p, df = 1, prob = 0.5) {
   return(unname(qchisq(quantile(p, probs = prob, na.rm = TRUE), df = df, lower.tail = FALSE) /
                 qchisq(prob, df = df, lower.tail = FALSE)))

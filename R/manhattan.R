@@ -1,3 +1,4 @@
+#' @export
 contrasting.rainbow <- function (x, ...) {
   x <- as.integer(x)[1]
   stopifnot(x >= 1)
@@ -13,6 +14,7 @@ contrasting.rainbow <- function (x, ...) {
   return(rainbow(x, ...)[xtrav])
 }
 
+#' @export
 plotpos.by.chr <- function (chr, pos, gap = 5e7, chrset = c(1:22, "XY", "X", "Y", "M")) {
   stopifnot(length(pos) == length(chr))
   chr <- sub("^CHR", "", toupper(as.character(chr)))
@@ -29,6 +31,7 @@ plotpos.by.chr <- function (chr, pos, gap = 5e7, chrset = c(1:22, "XY", "X", "Y"
   return(plotpos)
 }
 
+#' @export
 plotcol.by.chr <- function (chr, cols = NULL, col.missing = "black", chrset = c(1:22, "XY", "X", "Y", "M")) {
   chrset <- toupper(as.character(chrset))
   ## We want to leave "gaps" for missing autosomes but not for missing sex/other
@@ -39,6 +42,7 @@ plotcol.by.chr <- function (chr, cols = NULL, col.missing = "black", chrset = c(
   return(cols[chrnum])
 }
 
+#' @export
 axis.by.chr <- function (chr, plotpos, side = 1, lines = 2) {
   stopifnot(length(plotpos) == length(chr))
   chr <- sub("^CHR", "", toupper(as.character(chr)))
@@ -52,6 +56,7 @@ axis.by.chr <- function (chr, plotpos, side = 1, lines = 2) {
   return(tickpos)
 }
 
+#' @export
 manhattan <- function(p, SNP, chr, pos, pmin = NULL, ...) {
   if (!missing(SNP)) {
     chr <- vapply(strsplit(SNP, ":"), function(ss) return(ss[1]), character(1))

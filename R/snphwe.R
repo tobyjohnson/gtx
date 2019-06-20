@@ -1,3 +1,4 @@
+#' @export
 snphwe <- function(g) {
   gt <- table(g) ## assume sorting works, e.g. AA/AC/CC or 0/1/2 but not AA/AC/CA/CC
   if (length(gt) <= 2) return(p = 1.)
@@ -16,6 +17,7 @@ snphwe <- function(g) {
 ## 1. error conditions cause stop with informative message
 ##    instead of returning -1
 ## 2. explicit return statement for computed p-value 
+#' @export
 snphweCounts <- function(obs_hets, obs_hom1, obs_hom2) {
   if (obs_hom1 < 0 || obs_hom2 < 0 || obs_hets < 0)
     stop("genotype counts must be non-negative")

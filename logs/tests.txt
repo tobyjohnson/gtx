@@ -1,0 +1,67 @@
+
+R version 3.4.1 (2017-06-30) -- "Single Candle"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> devtools::test()
+✔ | OK F W S | Context
+⠏ |  0       | coloc⠋ |  0     1 | coloc✔ |  0     1 | coloc [0.1 s]
+────────────────────────────────────────────────────────────────────────────────
+test-coloc.R:4: skip: coloc backpain
+Not working on gtx2_dev.  Test may need modification.
+────────────────────────────────────────────────────────────────────────────────
+⠏ |  0       | gwas✔ |  0       | gwas [4.9 s]
+⠏ |  0       | my-test⠋ |  1       | my-test✔ |  1       | my-test
+⠏ |  0       | QTLs⠋ |  1       | QTLs⠙ |  2       | QTLs⠹ |  2     1 | QTLs⠸ |  2     2 | QTLs[1] "ENSG00000137033"
+⠼ |  3     2 | QTLs⠴ |  4     2 | QTLs[1] "SELECT ensemblid FROM genes WHERE hgncid = 'IL33' LIMIT 1"
+        ensemblid
+1 ENSG00000137033
+⠦ |  5     2 | QTLs⠧ |  6     2 | QTLs[1] "SELECT ensemblid FROM genes WHERE hgncid = 'das asd as das das' LIMIT 1"
+[1] ensemblid
+<0 rows> (or 0-length row.names)
+⠇ |  7     2 | QTLs✔ |  7     2 | QTLs [27.4 s]
+────────────────────────────────────────────────────────────────────────────────
+test-QTLs.R:13: skip: IPSDSN coloc PTEN
+Not working on gtx2_dev.  Test may need modification.
+
+test-QTLs.R:22: skip: IPSDSN coloc MGAT3
+Not working on gtx2_dev.  Test may need modification.
+────────────────────────────────────────────────────────────────────────────────
+⠏ |  0       | regionplot⠋ |  0     1 | regionplot⠙ |  0   1 1 | regionplot⠹ |  1   1 1 | regionplot⠸ |  2   1 1 | regionplot✔ |  2   1 1 | regionplot [63.7 s]
+────────────────────────────────────────────────────────────────────────────────
+test-regionplot.R:4: skip: basic regionplot works
+Not working on gtx2_dev.  Test may need modification.
+
+test-regionplot.R:16: warning: UB-135 Handle no LD data when selecting index variant by RSID
+gtxfilter EMAC filtering skipped because ncase is NA, ncontrol is NA for analysis [ GSK500kV3_Eosinophill_percentage ]
+────────────────────────────────────────────────────────────────────────────────
+⠏ |  0       | tables⠋ |  0     1 | tables⠙ |  0     2 | tables✔ |  0     2 | tables
+────────────────────────────────────────────────────────────────────────────────
+test-tables_are_present.R:4: skip: impala ukbiobank.analyses works
+Not working on gtx2_dev.  Test may need modification.
+
+test-tables_are_present.R:10: skip: impala ukbiobank.gwas_results works
+Not working on gtx2_dev.  Test may need modification.
+────────────────────────────────────────────────────────────────────────────────
+
+══ Results ═════════════════════════════════════════════════════════════════════
+Duration: 96.7 s
+
+OK:       10
+Failed:   0
+Warnings: 1
+Skipped:  6

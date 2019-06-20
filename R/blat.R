@@ -1,6 +1,7 @@
 ## useful functions for mapping array annotation and mutation databases to
 ## a reference sequence
 
+#' @export
 parse.snps <- function(seqs, seqnames = NULL) {
   tmp <- as.data.frame(t(sapply(seqs, function (seq) {
     remat <- regexpr("\\[[ACGT]\\/[ACGT]\\]", toupper(seq)) # =RegExp MATch
@@ -56,6 +57,7 @@ run.blat <- function(polys, fastaname,
 ## - strand matches, q[Start|End] are relative to 0 position of query sequence
 ##                   but qStarts is relative to 0 position of reverse complement of query sequence
 
+#' @export
 remap.q2t <- function(qpos, blatres) {
   ## remap multiple positions in a *single* query (q) sequence to positions in the target (t) sequence
   blatres <- as.data.frame(blatres)

@@ -1,3 +1,4 @@
+#' @export
 summary.snpdata <- function(object, ...) {
   stopifnot(is.snpdata(object))
   cat("SNP information", paste(names(object$snpinfo), collapse = ","), "for", nrow(object$snpinfo), "SNPs\n")
@@ -7,6 +8,7 @@ summary.snpdata <- function(object, ...) {
   if (length(extra) > 0) cat("Additional data", paste(extra, collapse = ","), "for", nrow(object$data), "subjects\n")
 }
 
+#' @export
 is.snpdata <- function(object) {
   if (class(object) != "snpdata") return (FALSE)
   if (!is.list(object)) return (FALSE)
@@ -18,6 +20,7 @@ is.snpdata <- function(object) {
   return (TRUE)
 }
 
+#' @export
 as.snpdata <- function(object) {
   if (!is.list(object)) return (NA)
   if (!all(c("snpinfo", "data") %in% names(object))) return (NA)

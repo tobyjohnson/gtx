@@ -3,17 +3,21 @@
 ## pval_significance determines the threshold used to declare significance
 ## pval_plot determines the threshold for true plotting
 
+#' @import data.table
+#' @export
 gwas <- function(analysis,
                  style = c('manhattan', 'qqplot'), 
-                 pval_thresh = 5e-08, maf_ge, rsq_ge,
+                 pval_thresh = 5e-08, maf_ge, rsq_ge, emac_ge, case_emac_ge, 
                  gene_annotate = TRUE,
                  plot_ymax = 30,
+                 prune_dist = 500000L,
                  manhattan_thresh = 5e-08,
                  manhattan_col = c('#064F7C', '#6D97BD'),
                  manhattan_interspace = 50e6,
                  qqplot_col = '#064F7C',
                  qqplot_alpha = 0.01,
                  plot_fastbox = 2, 
+                 zrok = FALSE,
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
@@ -23,76 +27,80 @@ gwas <- function(analysis,
     t0 <- as.double(Sys.time())
     res <- sqlWrapper(dbc,
                       sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
-                               FROM %s.gwas_results
-                               WHERE %s AND %s;', 
+                               FROM %sgwas_results
+                               WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
                               gtxanalysisdb(analysis),
                               gtxwhat(analysis1 = analysis),
-                              gtxfilter(pval_le = pval_thresh, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                              gtxfilter(pval_le = pval_thresh,
+                                        maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                        emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                         analysis = analysis,
                                         dbc = dbc)),
-                      uniq = FALSE)
-    res <- data.table(res) # in future, sqlWrapper will return data.table objects always
+                      uniq = FALSE,
+                      zrok = zrok)
+    res <- data.table::data.table(res) # in future, sqlWrapper will return data.table objects always
     t1 <- as.double(Sys.time())
-    gtxlog('Significant results query returned ', nrow(res), ' rows in ', round(t1 - t0, 3), 's.')
+    gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
     
-    t0 <- as.double(Sys.time())
-    oo <- res[ , order(suppressWarnings(as.integer(chrom)), pos)]
-    res <- res[oo , ]
-    t1 <- as.double(Sys.time())
-    gtxlog('Ordered by chrom/pos in ', round(t1 - t0, 3), 's.')
-    
-    ## Simple distance based pruning
-    if (nrow(res) > 0) {
+    if(nrow(res) == 0){
+      res <- data.table::data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
+                        pos_end    = NA, num_variants = NA, min_pval   = NA, 
+                        pos_index  = NA, ref_index    = NA, alt_index  = NA, 
+                        pval_index = NA, rsq_index    = NA, freq_index = NA, 
+                        beta_index = NA, se_index     = NA)
+    } else if (nrow(res) > 0) { 
+        ## Simple distance based pruning
         t0 <- as.double(Sys.time())
-        ww <- res[ , prune.distance(chrom, pos, pval)]
-        res <- res[ww] # ??? test this
+        res_sigs <- prune.distance(res, surround = prune_dist, sorted = TRUE)
+        ## sort by match(chrom, c(as.character(1:22), 'X'))
+        rescols <- c('pos', 'ref', 'alt', 'pval', 'rsq', 'freq', 'beta', 'se') # columns from original res to include
+        res <- data.table::data.table(cbind(res_sigs, res[res_sigs$row, rescols, with = FALSE]))
+        setnames(res, rescols, paste0(rescols, '_index'))
+        res[ , row := NULL]
         t1 <- as.double(Sys.time())
-        gtxlog('Distance based pruning reduced to ', nrow(res), ' rows in ', round(t1 - t0, 3), 's. [PLEASE OPTIMIZE ME!]')
-        ## important to prune before using the (currently) expensive gene.annotate() function
+        gtx_info('Pruned to {nrow(res)} separate signals in {round(t1 - t0, 3)}s.')
         if (gene_annotate) {
             t0 <- as.double(Sys.time())
-            res[ , gene_annotation := gene.annotate(chrom, pos)]
+            res[ , gene_annotation := gene.annotate(chrom, pos_index)]
             t1 <- as.double(Sys.time())
-            gtxlog('Gene annotation added in ', round(t1 - t0, 3), 's. [PLEASE OPTIMIZE ME!]')
+            gtx_info('Gene annotation added in {round(t1 - t0, 3)}s.')
+            if (is.null(getOption('gtx.dbConnection_cache_genes', NULL)) && (t1 - t0) > 1.) {
+                gtx_warn('Use gtxcache() to speed up gene annotation')
+            }
         }
         ## IN A FUTURE WORK we will introspect the existence of joint/conditional results
         ## and use if appropriate
         ## or support (via a Hail wrapper) on the fly LD-based pruning
         ## or a HUGE table of pairwise LD values (which could also be used for on-the-fly conditioning on 1 signal)
-        
     }
+    
 
     ## Plot description
-    pdesc <- sqlWrapper(dbc, 
-                        sprintf('SELECT label, ncase, ncontrol, ncohort FROM analyses WHERE %s;',
-                                gtxwhat(analysis1 = analysis)))
-    main <- if (!is.na(pdesc$ncase[1]) && !is.na(pdesc$ncontrol[1])) {
-                sprintf('%s, n=%i vs %i', pdesc$label[1], pdesc$ncase[1], pdesc$ncontrol[1])
-            } else if (!is.na(pdesc$ncohort[1])) {
-                sprintf('%s, n=%i', pdesc$label[1], pdesc$ncohort[1])
-            } else {
-                sprintf('%s, n=?', pdesc$label[1])
-            }
     ## no handling of entity is required in title
+    main <- gtxanalysis_label(analysis = analysis, entity = NULL, nlabel = TRUE, dbc = dbc)
     ## Filtering description
     ## in future we may need to pass maf_lt and rsq_lt as well  
-    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, analysis = analysis)
+    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge,
+                             emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
+                             analysis = analysis)
     
     if ('manhattan' %in% style || 'qqplot' %in% style) {
         ## Make single query for either case
         t0 <- as.double(Sys.time())
         pvals <- sqlWrapper(dbc,
                             sprintf('SELECT chrom, pos, pval
-                               FROM %s.gwas_results
-                               WHERE %s AND %s;',
+                               FROM %sgwas_results
+                               WHERE %s AND %s AND pval IS NOT NULL;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_le = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                               gtxfilter(pval_le = 10^-plot_fastbox,
+                                         maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                         emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                          analysis = analysis,
                                          dbc = dbc)),
                             uniq = FALSE)
         t1 <- as.double(Sys.time())
-        gtxlog('Manhattan/QQplot results query returned ', nrow(pvals), ' rows in ', round(t1 - t0, 3), 's.')
+        gtx_info('Manhattan/QQplot results query returned {nrow(pvals)} rows in {round(t1 - t0, 3)}s.')
         ymax <- max(10, ceiling(-log10(min(pvals$pval))))
         if (ymax > plot_ymax) { # Hard coded threshold makes sense for control of visual display
             ymax <- plot_ymax
@@ -108,7 +116,7 @@ gwas <- function(analysis,
         t0 <- as.double(Sys.time())
         mmpos <- sqlWrapper(dbc, 
                             sprintf('SELECT chrom, min(pos) AS minpos, max(pos) AS maxpos
-                               FROM %s.gwas_results
+                               FROM %sgwas_results
                                WHERE %s GROUP BY chrom;', 
                                gtxanalysisdb(analysis), 
                                gtxwhat(analysis1 = analysis)),
@@ -118,7 +126,7 @@ gwas <- function(analysis,
         mmpos$midpt <- 0.5*(mmpos$maxpos + mmpos$minpos) + mmpos$offset
         mmpos$col <- rep(manhattan_col, length.out = nrow(mmpos))       
         t1 <- as.double(Sys.time())
-        gtxlog('Computed chromosome offsets in ', round(t1 - t0, 3), 's.')
+        gtx_info('Computed chromosome offsets in {round(t1 - t0, 3)}s.')
         
         t0 <- as.double(Sys.time())
         pvals$plotpos <- mmpos$offset[match(pvals$chrom, mmpos$chrom)] + pvals$pos
@@ -156,7 +164,7 @@ gwas <- function(analysis,
         mtext(expression(-log[10](paste(italic(P), "-value"))), 2, 3)
         box()
         t1 <- as.double(Sys.time())
-        gtxlog('Manhattan plot rendered in ', round(t1 - t0, 3), 's.')
+        gtx_info('Manhattan plot rendered in {round(t1 - t0, 3)}s.')
         
         ## aiming for style where non-genome-wide-significant signals are plotted faintly
         ## and perhaps with pseudo-points to avoid expensive overplotting
@@ -179,17 +187,19 @@ gwas <- function(analysis,
         t0 <- as.double(Sys.time())
         nump <- as.integer(sqlWrapper(getOption('gtx.dbConnection'),
                                       sprintf('SELECT count(1) AS nump
-                               FROM %s.gwas_results
-                               WHERE %s AND pval > 1e-4 AND %s;',
+                               FROM %sgwas_results
+                               WHERE %s AND %s AND pval IS NOT NULL;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
-                               gtxfilter(pval_gt = 10^-plot_fastbox, maf_ge = maf_ge, rsq_ge = rsq_ge,
+                               gtxfilter(pval_gt = 10^-plot_fastbox,
+                                         maf_ge = maf_ge, rsq_ge = rsq_ge,
+                                         emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                          analysis = analysis,
                                          dbc = dbc)),
                                uniq = TRUE)$nump) + nrow(pvals)
         pe <- (rank(pvals$pval) - 0.5)/nump # expected p-values
         t1 <- as.double(Sys.time())
-        gtxlog('Counted truncated P-values and computed expected P-values in ', round(t1 - t0, 3), 's.')
+        gtx_info('Counted truncated P-values and computed expected P-values in {round(t1 - t0, 3)}s.')
 
         t0 <- as.double(Sys.time())
         qq10.new(pmin = 10^-ymax) # annoying back conversion to p-value scale; FIXME qq10 code should directly support ymax
@@ -216,7 +226,7 @@ gwas <- function(analysis,
         mtext(fdesc, 3, 0, cex = 0.5)
         box()
         t1 <- as.double(Sys.time())
-        gtxlog('QQ plot rendered in ', round(t1 - t0, 3), 's.')
+        gtx_info('QQ plot rendered in {round(t1 - t0, 3)}s.')
         
         
         ## Query total number of associations with p>thresh and passing other filters
@@ -230,7 +240,6 @@ gwas <- function(analysis,
         ## OR, do this if regionplot() called with no positional specifier
     }
 
-    return(res)
-    
+    return(as.data.frame(res)) # don't return as a data.table   
 }
 

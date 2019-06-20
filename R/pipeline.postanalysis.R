@@ -1,3 +1,6 @@
+#' @import data.table
+
+#' @export
 postanalysis.pipeline<- function(configFile){
   #load config
   config <- read.table(configFile, sep ="=", as.is = T, strip.white = TRUE,stringsAsFactors = FALSE, quote = "", row.names = 1)
@@ -169,7 +172,7 @@ postanalysis.pipeline<- function(configFile){
         curr <- read.table(gzfile(file.curr), quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
         #SNP	pvalue.GC_LOSIR3005_vs_HISIR3005
         curr<-curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ]
-        #curr<- data.table(curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ])
+        #curr<- data.table::data.table(curr[!is.na(curr[[2]]) & curr$SNP %in% assoc$SNP, ])
         #Need to solve the issue with data.table handling duplicated snps
         #setkey(curr, SNP)
         #curr<- curr[assoc$SNP, ] 
@@ -284,6 +287,7 @@ postanalysis.pipeline<- function(configFile){
   }
 }
 
+#' @export
 padata.permodelgroup <- function(retFile, varlist, flanking,  threshold.MAF, threshold.Rsq, GC = T){
   retFile <- tryCatch(as.character(retFile)[1], error = function(e) "") # sanitize
   if (!file.exists(retFile)) stop(retFile, '" does not exist')
@@ -349,6 +353,7 @@ padata.permodelgroup <- function(retFile, varlist, flanking,  threshold.MAF, thr
 }
 
 ##get phenotype name(s) and type from a formula call
+#' @export
 getCallDetail<- function(qcall) {
   #qcall: coxph(formula = Surv(Pheno.SRVMO, Pheno.SRVCFLCD) ~ demo.AGE + demo.SEX + PC1)
   #qcall: glm(formula = Pheno.altcc ~ pop.TRTGRP + PC1, family = "binomial")
@@ -371,6 +376,7 @@ getCallDetail<- function(qcall) {
 }
 
 ##subset association results by varlist and flanking size in bp
+#' @export
 getResults<- function(retFile, varlist, flanking, GC = T ){
   ## Reading results which were compiled across chunks during make call
   res1 <- read.table(gzfile(retFile), quote = "", comment.char = "", header = TRUE, stringsAsFactors = FALSE)
@@ -387,7 +393,7 @@ getResults<- function(retFile, varlist, flanking, GC = T ){
   stopifnot(all(c("CHROM", "POS", "SNP", "pvalue", "beta", "SE", "Al1", "Al2", "analysed.Freq1", "analysed.Rsq") %in% names(res1)))
   
   ## Convert to data table to improve efficiency retaining only needed columns and rows with non-missing pvalue
-  res1 <- data.table(res1[!is.na(res1$pvalue), ])
+  res1 <- data.table::data.table(res1[!is.na(res1$pvalue), ])
   res1[, chrpos:=paste(CHROM, POS, sep =":")]
   ## Sort by 
   setkey(res1, chrpos)
@@ -405,6 +411,7 @@ getResults<- function(retFile, varlist, flanking, GC = T ){
 
 
 ##Obtain list of chunks (prefix) for a region 
+#' @export
 getchunks<- function(chr, pos.start, pos.end, chunkMb, chrBeginEndDir){
   if(toupper(chr) == "X") chr = 23
   chrbegin<- read.table(file.path(chrBeginEndDir, "chrbegin.data"), as.is = T)[1:2]
@@ -426,6 +433,7 @@ getchunks<- function(chr, pos.start, pos.end, chunkMb, chrBeginEndDir){
 
 #dose data for snp
 #LD in flanking region for snp
+#' @export
 getDoseandLD<- function(snp, flanking, ld.subj, genodir, chunkMb, chrBeginEndDir) {
   chr <- unlist(strsplit(snp, ":"))[1]
   pos <- as.numeric(as.character(unlist(strsplit(snp, ":"))[2]))
