@@ -173,14 +173,17 @@ coloc.data <- function(analysis1, analysis2,
   ## Determine entity, if required, for each analysis
   xentity1 <- gtxentity(analysis1, 
                         entity = entity1, hgncid = hgncid, ensemblid = ensemblid,
-                        tablename = 't1')
+                        tablename = 't1',
+                        dbc = dbc)
   xentity2 <- gtxentity(analysis2, 
                         entity = entity2, hgncid = hgncid, ensemblid = ensemblid,
-                        tablename = 't2')
+                        tablename = 't2',
+                        dbc = dbc)
 
   ## Get association statistics
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT 
+                                 t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt,
                                  t1.beta%s AS beta1, t1.se%s AS se1, 
                                  t2.beta%s AS beta2, t2.se%s AS se2  
                              FROM 
@@ -191,14 +194,15 @@ coloc.data <- function(analysis1, analysis2,
                              WHERE 
                                  %s AND %s AND %s %s AND 
                                  %s AND %s AND %s %s 
+                             ORDER BY chrom, pos, ref, alt
                              ;', 
                             if (missing(signal1)) '' else '_cond', 
                             if (missing(signal1)) '' else '_cond', 
                             if (missing(signal2)) '' else '_cond', 
                             if (missing(signal2)) '' else '_cond', 
-                            gtxanalysisdb(analysis1), 
+                            gtxanalysisdb(analysis1, dbc = dbc), 
                             if (missing(signal1)) '' else '_cond', 
-                            gtxanalysisdb(analysis2), 
+                            gtxanalysisdb(analysis2, dbc = dbc), 
                             if (missing(signal2)) '' else '_cond', 
                             where_from(analysisu = analysis1, signalu = signal1, tablename = 't1'), 
                             gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end, tablename = 't1'), 
@@ -463,7 +467,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   pos_end = xregion$pos_end
 
   ## Currently only works if analysis1 all in the same db table
-  db1 <- unique(sapply(analysis1, gtxanalysisdb))
+  db1 <- unique(sapply(analysis1, gtxanalysisdb, dbc = dbc))
   if (length(db1) == 1L) {
     if (db1 == '') {
       # current database, okay
@@ -541,6 +545,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
     res <- sqlWrapper(dbc,
                       sprintf('SELECT STRAIGHT_JOIN
                                    t1.analysis AS analysis1, t1.entity AS entity1,
+                                   t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt, 
                                    t1.beta AS beta1, t1.se AS se1, 
                                    t2.beta AS beta2, t2.se AS se2 
                                FROM 
@@ -557,12 +562,13 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                                     WHERE 
                                         %s AND %s AND pval IS NOT NULL
                                    ) AS t2
-                               USING (chrom, pos, ref, alt);',
+                               USING (chrom, pos, ref, alt)
+                               ORDER BY analysis1, entity1, chrom, pos, ref, alt;',
                             db1, 
                             gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
                             gtxwhere(chrom = chrom, entity = eq),
-                            gtxanalysisdb(analysis2),
+                            gtxanalysisdb(analysis2, dbc = dbc),
                             where_from(analysisu = analysis2), 
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
                             ),
@@ -575,8 +581,8 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
     t0 <- as.double(Sys.time())
     res <- try(sqlWrapper(dbc,
                       sprintf('SELECT 
-                                   t1.chrom, t1.pos, t1.ref, t1.alt, 
                                    t1.analysis AS analysis1, t1.entity AS entity1, t2.signal AS signal2, 
+                                   t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt, 
                                    t1.beta AS beta1, t1.se AS se1, 
                                    t2.beta_cond AS beta2, t2.se_cond AS se2 
                                FROM %sgwas_results AS t1
@@ -585,6 +591,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                                WHERE
                                    %s AND %s AND %s AND pval IS NOT NULL
                                    AND %s AND %s
+                               ORDER BY analysis1, entity1, signal2, chrom, pos, ref, alt
                                ;',
                               db1, 
                               gtxanalysisdb(analysis2),

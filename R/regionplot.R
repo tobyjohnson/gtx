@@ -68,7 +68,7 @@ regionplot <- function(analysis, # what analysis (entity should be next)
 
   ## in future we may need to pass maf_lt and rsq_lt as well  
   if (missing(signal)) {
-    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)
+    fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis, dbc = dbc)
   } else {
     fdesc <- 'All variants (after pre-CLEO filtering)'
   }
@@ -315,7 +315,7 @@ regionplot.data <- function(analysis, entity, signal,
     pos_end = xregion$pos_end
     
     ## If required, determine entity and associated info including entity_label
-    xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid)
+    xentity <- gtxentity(analysis, entity = entity, hgncid = hgncid, ensemblid = ensemblid, dbc = dbc)
     
     ## always query marginal p-values
     ## seems more flexible to query CLEO results separately and merge within R code
@@ -325,11 +325,11 @@ regionplot.data <- function(analysis, entity, signal,
       pvals <- sqlWrapper(dbc,
                           sprintf('SELECT gwas_results.chrom, gwas_results.pos, gwas_results.ref, gwas_results.alt, pval, impact %s FROM %sgwas_results LEFT JOIN vep USING (chrom, pos, ref, alt) WHERE %s AND %s AND %s AND %s AND pval IS NOT NULL;',
                                   if (any(c('signal', 'signals') %in% tolower(style))) ', beta, se, rsq, freq' else '', 
-                                  gtxanalysisdb(analysis), 
+                                  gtxanalysisdb(analysis, dbc = dbc), 
                                   gtxwhat(analysis1 = analysis),
                                   xentity$entity_where, # (entity=...) or (True)
                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results'),
-                                  gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis)),
+                                  gtxfilter(maf_ge = maf_ge, rsq_ge = rsq_ge, emac_ge = emac_ge, case_emac_ge = case_emac_ge, analysis = analysis, dbc = dbc)),
                           uniq = FALSE)
       t1 <- as.double(Sys.time())
       gtx_info('Query returned {nrow(pvals)} variants in query region {xregion$label} in {round(t1 - t0, 3)}s.')
@@ -344,7 +344,7 @@ regionplot.data <- function(analysis, entity, signal,
                                    LEFT JOIN vep 
                                    USING (chrom, pos, ref, alt) 
                                    WHERE %s AND %s AND %s;',
-                                  gtxanalysisdb(analysis), 
+                                  gtxanalysisdb(analysis, dbc = dbc), 
                                   where_from(analysisu = analysis, signalu = signal, tablename = 'gwas_results_cond'), 
                                   xentity$entity_where, # (entity=...) or (True)
                                   gtxwhere(chrom, pos_ge = pos_start, pos_le = pos_end, tablename = 'gwas_results_cond')),
@@ -368,8 +368,10 @@ regionplot.data <- function(analysis, entity, signal,
     
     if ('signals' %in% tolower(style)) {
         ## get CLEO credible sets only, since we effectively left join with this, for plot colouring
+        futile.logger::flog.debug('Finemapping under multiple signals (CLEO) assumptions')
         fmres <- fm_cleo(analysis = analysis, chrom = chrom, pos_start = pos_start, pos_end = pos_end,
-                         priorsd = priorsd, priorc = priorc, cs_size = cs_size, cs_only = TRUE)
+                         priorsd = priorsd, priorc = priorc, cs_size = cs_size, cs_only = TRUE,
+                         dbc = dbc)
         ## note fm_cleo already prints logging messages about number of signals
         if (nrow(fmres) > 0) {
             ## sort by decreasing posterior probability, match each
@@ -532,7 +534,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
   ymax <- ceiling(-log10(pmin))
 
   ## Determine amount of y-axis space needed for gene annotation
-  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only)
+  gl <- regionplot.genelayout(chrom, pos_start, pos_end, ymax, protein_coding_only = protein_coding_only, dbc = dbc)
   gtx_debug('gene layout set up for ymax={gl$ymax} yline[1]={gl$yline[1]} yline[4]={gl$yline[4]} yline[5]={gl$yline[5]}')
   ## Set up plotting area
   plot.new()
@@ -549,7 +551,7 @@ regionplot.new <- function(chrom, pos_start, pos_end, pos,
 
   ## Add recombination rate and gene annotation
   ##  regionplot.recombination determines position range from par("usr")
-  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]))
+  regionplot.recombination(chrom, yoff = mean(gl$yline[2:3]), dbc = dbc)
   ##  regionplot.genedraw uses previously determined layout
   regionplot.genedraw(gl)
 

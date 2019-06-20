@@ -244,7 +244,13 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     loop_clean_db <- sapply(unique(a1$results_db), function(x) {
       return(if (is.na(x) || x == '') '' else sanitize1(paste0(x, '.'), type = 'alphanum.'))
     })
-
+    other_db_check <- setdiff(loop_clean_db, "")
+    if (length(other_db_check) > 0) {
+      gtx_warn('Non-NULL results_db [{paste(other_db_check, collapse = ";")}] will be deprecated in future')
+      # FIXME in future we will not allow empty strings and this will be an error
+      #       then in further future we will not even query the results_db column
+    }
+    
     all_analyses <- (missing(analysis) && missing(analysis_not) && missing(phenotype_contains) &&
                      missing(description_contains) && missing(has_tag) && 
                      missing(ncase_ge) && missing(ncohort_ge))
@@ -263,7 +269,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         ## very long SQL string with thousands of 'OR analysis=' clauses
         res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
             flog.debug(paste0('PheWAS all_analyses query in db ', results_db, ' ...'))
-            sqlWrapper(getOption('gtx.dbConnection'),
+            sqlWrapper(dbc,
                        sprintf('SELECT analysis, entity, beta, se, pval, rsq, freq \
                                 FROM %sphewas_results \
                                 WHERE %s AND pval IS NOT NULL;',
@@ -274,7 +280,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         if (!missing(nearby) && !is.null(nearby)) {
             ## FIXME check nearby is an integer
             res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
-                sqlWrapper(getOption('gtx.dbConnection'),
+                sqlWrapper(dbc,
                            sprintf('SELECT analysis, entity, min(pval) AS pval_nearby, count(pval) AS num_pvals \
                                     FROM %sphewas_results \
                                     WHERE %s AND pval IS NOT NULL GROUP BY analysis, entity;',
@@ -304,7 +310,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
       }
       gtx_debug('PheWAS using: {w1}') 
       res <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
-        sqlWrapper(getOption('gtx.dbConnection'),
+        sqlWrapper(dbc,
                    sprintf('SELECT phewas_results.analysis, entity, beta, se, pval, rsq, freq \
                             FROM %sphewas_results LEFT JOIN analyses_tags USING (analysis) \
                             WHERE %s AND pval IS NOT NULL AND %s;',
@@ -316,7 +322,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
       if (!missing(nearby) && !is.null(nearby)) {
         ## FIXME check nearby is an integer
         res_nearby <- do.call(rbind, lapply(loop_clean_db, function(results_db) {
-          sqlWrapper(getOption('gtx.dbConnection'),
+          sqlWrapper(dbc,
                      sprintf('SELECT analysis, entity, min(pval) AS pval_nearby, count(pval) AS num_pvals \
                               FROM %sphewas_results \
                               WHERE %s AND pval IS NOT NULL AND %s \
@@ -341,6 +347,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
         results_db <- NULL
         has_access <- NULL
     })
+    gtx_debug('{nrow(res)} results after merging with analysis metadata')
     
     # add chrom/pos/ref/alt columns to make easier to pass through to other functions, or to help interpretation if saved to a file
     # (note, not added if v1<-NULL above)
@@ -350,10 +357,17 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     res$alt <- v1$alt
     
     # Fix labels for entities, finding labels for the NA ones then pasting on
-    tmpl <- within(annot(na.omit(res[ , c('entity', 'entity_type')])), {
-      entity_label <- paste0(label, ' ')
-      label <- NULL
-    })
+    tmpl <- unique(na.omit(res[ , c('entity', 'entity_type')]))
+    gtx_debug('Looking up labels for {nrow(tmpl)} entity/ies')
+    if (nrow(tmpl) > 0) { # FIXME this is a workaround for annot failing with 0 row argument
+        tmpl <- within(annot(tmpl), {
+        entity_label <- paste0(label, ' ')
+        label <- NULL
+      })
+    } else {
+      tmpl <- data.frame(entity = character(0), entity_type = character(0), entity_label = character(0))
+    }
+    gtx_debug('Found labels for {nrow(tmpl)} entities')
     res <- within(merge(res, 
                         tmpl[ , c('entity', 'entity_type', 'entity_label')], 
                         all.x = TRUE, all.y = FALSE), 
@@ -363,7 +377,15 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
 
     # need to sort AFTER merge with labels
     res <- res[!is.na(res$pval), ]
-    res <- res[order(res$pval), ]
+    if (with_tags) {
+      # res has column tags iff with_tags=TRUE was passed to gtxanalyses() above
+      # Currently expect pval, label, tag, to provide a deterministic sort order
+      res <- res[order(res$pval, res$label, res$tag), ]
+    } else {
+      # If no tags, currently expect pval, label, to provide a deterministic sort order
+      res <- res[order(res$pval, res$label), ]
+    }
+    row.names(res) <- 1:nrow(res) # otherwise preserved from prior to ordering and fails identical() test
     
     # add attribute, used for plot labelling etc., FIXME should we do this when multiple variants matched hence no query was run?
     attr(res, 'variant') <- v1_label
