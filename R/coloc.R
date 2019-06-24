@@ -775,7 +775,13 @@ multicoloc <- function(analysis1, analysis2, signal2,
                annot(within(res, entity <- entity1)[ , c('entity', 'entity_type'), drop = FALSE]), 
                by.x = c('entity1', 'entity_type'), by.y = c('entity', 'entity_type'),
                all.x = TRUE, all.y = FALSE)
-  ## 3. restore key, inherited from ss, but broken by previous merges
+  ## 3. fallback for entities not found by annot()
+  w_res_nolabel <- which(with(res, label == '' | is.na(label)))
+  if (length(w_res_nolabel) > 0) {
+    gtx_warn('using fallback labels for entities [{paste(res[w_res_nolabel]$entity1, collapse = ", ")}]')
+    res[w_res_nolabel, label := entity1]  
+  }
+  ## 4. restore key (and hence row order), inherited from ss, but broken by previous merges
   if (missing(signal2)) {
     data.table::setkey(res, analysis1, entity1)
   } else {
