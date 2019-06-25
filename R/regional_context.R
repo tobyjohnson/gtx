@@ -427,22 +427,22 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
     dplyr::as_tibble() %>% 
     dplyr::select(-th_pos) %>% 
     # queried variant in the cred set
-    dplyr::mutate(var_in_cs  = purrr::pmap_lgl(list(cs, chrom, pos, ref, alt), 
+    dplyr::mutate(var_in_cs  = furrr::future_pmap_lgl(list(cs, chrom, pos, ref, alt), 
                                                ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & ref == ..4 & 
                                                                 alt == ..5 & cs_signal == TRUE) %>% 
                                                  nrow >= 1)) %>% 
     # queried variant posterior probability
-    dplyr::mutate(var_pp     = purrr::pmap(list(cs, chrom, pos, ref, alt), 
-                                               ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
+    dplyr::mutate(var_pp     = furrr::future_pmap(list(cs, chrom, pos, ref, alt), 
+                                                  ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
                                                                 ref == ..4 & alt == ..5 ) %>% 
-                                                 dplyr::pull(pp_signal))) %>% 
+                                                    dplyr::pull(pp_signal))) %>% 
     tidyr::unnest(var_pp, .drop = FALSE) %>% 
     # number of snps in the cred set
-    dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs_signal == TRUE) %>% nrow)) %>% 
+    dplyr::mutate(n_in_cs    = furrr::future_map_dbl(cs, ~dplyr::filter(., cs_signal == TRUE) %>% nrow)) %>% 
     # cred set top hit posterior probability
-    dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp_signal))) %>% 
-    dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
-                                            dplyr::select(pos, ref, alt, pval))) %>% 
+    dplyr::mutate(cs_th_pp   = furrr::future_map_dbl(cs, ~max(.$pp_signal))) %>% 
+    dplyr::mutate(cs_th_data = furrr::future_map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
+                                                        dplyr::select(pos, ref, alt, pval))) %>% 
     tidyr::unnest(cs_th_data, .drop = FALSE) %>% 
     dplyr::rename(th_pos = pos1, th_ref = ref1, th_alt = alt1, th_pval = pval1) 
   
