@@ -31,7 +31,7 @@ int_ht_phewas(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
 \item{dbc}{[Default = getOption("gtx.dbConnection", NULL)] gtxconnection.}
 }
 \value{
-tibble with all PheWAS hits
+tibble with all PheWAS hits!
 }
 \description{
 High-throughput PheWAS
