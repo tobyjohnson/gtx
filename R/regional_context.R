@@ -9,10 +9,13 @@ regional_context_query <- function(hgnc, hgncid){
 
 #' regional_context_analysis
 #' 
-#' Calculate regional_context on-the-fly. Run PheWAS for all variants, identifying GWAS at
-#' pval <= phewas_pval_le (1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
-#' variants from the VEP table. In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
-#' and all QTL data. For each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
+#' Calculate regional_context on-the-fly. 
+#' *Critical - DO NOT run this function in a loop, use vector inputs*.
+#' Run PheWAS for all variants, identifying GWAS at the significance threshold
+#' (1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
+#' variants from the VEP table and use all the VEP variants for PheWAS. 
+#' In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
+#' and all xQTL data. For each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
 #' others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results. Due to the 
 #' high-throughput nature of this function, it is suggested to reduce logging info when running this function using: 
 #' futile.logger::flog.threshold(ERROR). This function will also use multiple cores if available.
@@ -294,11 +297,11 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
                                 vars_q AS ({vars_sql}),
                                 -- Define gwas_q
                                 gwas_q AS ({marg_sql})
-                                -- PheWAS by inner joining gwas_results and variants
+                                -- PheWAS by inner joining gwas_results and variants subqueries
                                 SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
                                 cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
                                 FROM gwas_q
-                                INNER JOIN /* +BROADCAST */ vars_q
+                                INNER JOIN vars_q
                                 USING (chrom, pos, ref, alt)')
   
   phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = TRUE)
@@ -321,7 +324,7 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
                                 SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
                                 gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
                                 FROM gwas_q
-                                INNER JOIN /* +BROADCAST */ vars_q
+                                INNER JOIN vars_q
                                 USING (chrom, pos, ref, alt)')
   
   phewas_cleo <- sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE)
@@ -414,9 +417,6 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
     dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs_signal == TRUE) %>% nrow)) %>% 
     # cred set top hit posterior probability
     dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp_signal))) %>% 
-    # dplyr::mutate(cs_alpha = map_dbl(cs, ~dplyr::filter(cs_signal == TRUE) %>%
-    # summarize(alpha = sum(beta * lnabf)/sum(lnabf)) %>% # REVIEW WITH TOBY
-    # pull(alpha))) %>% 
     dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
                                             dplyr::select(pos, ref, alt, pval))) %>% 
     tidyr::unnest(cs_th_data, .drop = FALSE) %>% 
@@ -475,6 +475,7 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, 
       dplyr::select(-freq, -rsq)
   } else if(!is.na(signal)){
     ret <- 
+      # TODO look into using fm_cleo.data instead of regionplot.data here. 
       regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signals', signal = signal, ...) %>% 
       dplyr::filter(signal == !! signal) %>%       
       dplyr::select(-pp_signal, -cs_signal) %>% 
