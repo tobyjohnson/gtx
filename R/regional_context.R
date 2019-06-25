@@ -224,7 +224,7 @@ int_ht_phewas_wrapper <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
 #' @param ignore_ukb_cane [Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS
 #' @param ignore_qtls [Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)
 #' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
-#' @return tibble with all PheWAS hits
+#' @return tibble with all PheWAS hits!
 int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
                           ignore_ukb_neale = TRUE, 
                           ignore_ukb_cane = TRUE,
@@ -257,12 +257,16 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   # --- Second, create select sql for GWAS
   marg_sql <- glue::glue('
     SELECT * FROM gwas_results
+      LEFT SEMI JOIN analyses
+      USING (analysis)
       WHERE pval <= {phewas_pval_le} 
       AND pval IS NOT NULL
       AND {phewas_chroms_where_clause}')
   
   cleo_sql <- glue::glue('
     SELECT * FROM gwas_results_cond
+      LEFT SEMI JOIN analyses
+      USING (analysis)
       WHERE pval_cond <= {phewas_pval_le} 
       AND pval_cond IS NOT NULL
       AND {phewas_chroms_where_clause}')
@@ -292,19 +296,33 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   tictoc::tic();
   
   phewas_marg_sql <- glue::glue('
-                                WITH 
-                                -- Define vars_q
-                                vars_q AS ({vars_sql}),
-                                -- Define gwas_q
-                                gwas_q AS ({marg_sql})
-                                -- PheWAS by inner joining gwas_results and variants subqueries
-                                SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
-                                cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
-                                FROM gwas_q
-                                INNER JOIN vars_q
-                                USING (chrom, pos, ref, alt)')
+      WITH 
+      -- Define vars_q
+      vars_q AS ({vars_sql}),
+      -- Define gwas_q
+      gwas_q AS ({marg_sql}),
+      -- PheWAS by inner joining gwas_results and variants subqueries
+      phewas_q AS 
+        (SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
+                cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
+         FROM gwas_q
+         INNER JOIN vars_q
+         USING (chrom, pos, ref, alt))
+      -- Append GWAS top hits.
+      SELECT phewas_q.input, phewas_q.chrom, phewas_q.pos, phewas_q.ref, phewas_q.alt,
+             phewas_q.signal, phewas_q.analysis, phewas_q.pval, phewas_q.beta, 
+             gwas_results_top_hits.pos_index AS th_pos, 
+             gwas_results_top_hits.pos_start, 
+             gwas_results_top_hits.pos_end
+        FROM phewas_q 
+        INNER JOIN gwas_results_top_hits
+        USING (chrom, analysis)
+        WHERE pos >= pos_start AND pos <= pos_end')
   
-  phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = TRUE)
+  phewas_marg <- 
+    sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = TRUE) %>% 
+    dplyr::as_tibble() %>% 
+    dplyr::select(-pos_start, -pos_end)
   
   tictoc::toc(log = TRUE, quiet = TRUE)
   gtx_debug("int_ht_phewas | PheWAS on marginal GWAS results: {tictoc::tic.log(format = TRUE)}.")
@@ -315,25 +333,28 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   tictoc::tic();
   
   phewas_cleo_sql <- glue::glue('
-                                WITH 
-                                -- Define vars_q
-                                vars_q AS ({vars_sql}),
-                                -- Define gwas_q
-                                gwas_q AS ({cleo_sql})
-                                -- PheWAS by inner joining gwas_results_cond and variants
-                                SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
-                                gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
-                                FROM gwas_q
-                                INNER JOIN vars_q
-                                USING (chrom, pos, ref, alt)')
+    WITH 
+    -- Define vars_q
+    vars_q AS ({vars_sql}),
+    -- Define gwas_q
+    gwas_q AS ({cleo_sql})
+    -- PheWAS by inner joining gwas_results_cond and variants
+    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
+           gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
+      FROM gwas_q
+      INNER JOIN vars_q
+      USING (chrom, pos, ref, alt)')
   
-  phewas_cleo <- sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE)
+  phewas_cleo <- 
+    sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE) %>% 
+    dplyr::as_tibble() %>% 
+    dplyr::mutate(th_pos = pos)
   
   tictoc::toc(log = TRUE, quiet = TRUE)
   gtx_debug("int_ht_phewas | PheWAS on CLEO GWAS results: {tictoc::tic.log(format = TRUE)}.")
   
   # Union the two data streams and return
-  return(as_tibble(union(phewas_marg, phewas_cleo)))
+  return(dplyr::union(phewas_marg, phewas_cleo))
 }
 
 #' int_ht_regional_context
@@ -388,20 +409,23 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
     future::plan(future::sequential)
     current_database <- config_db()
   }
+  # Split input into uniq cred sets that we need to gather
+  cs2get <- input %>% dplyr::distinct(analysis, chrom, th_pos, signal)
   
   # Get cred sets
   gtx_info("Starting regional context analysis for all GWAS results.")
-  ret <- 
-    input %>% 
+  cs2get_ret <- 
+    cs2get %>% 
     dplyr::mutate(cs = 
-                    furrr::future_pmap(list(analysis, chrom, pos, signal), 
+                    furrr::future_pmap(list(analysis, chrom, th_pos, signal), 
                                        ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
                                                                 signal = ..4, use_database = current_database)))
   
   # Annotate critical data (e.g. variant in the cred set)
   ret <- 
-    ret %>% 
+    dplyr::inner_join(input, cs2get_ret, by = c("analysis", "chrom", "th_pos", "signal")) %>% 
     dplyr::as_tibble() %>% 
+    dplyr::select(-th_pos) %>% 
     # queried variant in the cred set
     dplyr::mutate(var_in_cs  = purrr::pmap_lgl(list(cs, chrom, pos, ref, alt), 
                                                ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & ref == ..4 & 
@@ -523,7 +547,7 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
                WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")})
       SELECT hgncid AS input, vep.chrom, vep.pos, vep.ref, vep.alt 
         FROM vep
-        INNER JOIN /* +BROADCAST */ t1
+        INNER JOIN t1
         USING (chrom)
         WHERE pos >= pos_start AND pos <= pos_end')
     
