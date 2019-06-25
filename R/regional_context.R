@@ -448,6 +448,11 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   
   if(isTRUE(drop_cs)){
     ret <- ret %>% dplyr::select(-cs)
+  } else {
+    ret <- 
+      ret %>% 
+      dplyr::mutate(cs = purrr::pmap(list(cs, chrom, pos),
+                                     ~dplyr::filter(..1, cs_signal == TRUE | (chrom == ..2 & pos == ..3))))
   }
   
   # reconnect to DB
@@ -480,7 +485,7 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
 #'                                ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
 #'                                                         signal = ..4, use_database = config_db())))
 #' @return tibble with the credible set AND the variant queried
-int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, ...){
+int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, cs_only = FALSE, use_database, ...){
   if(missing(chrom) | missing(pos) | missing(analysis) | missing(signal) | missing(use_database)){
     gtx_fatal_stop("int_ht_cred_set_wrapper | missing input arguement(s).")
   }
@@ -496,11 +501,13 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, 
   if(is.na(signal)){
     ret <- 
       regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signal', ...) %>% 
+      dplyr::as_tibble() %>% 
       dplyr::select(-freq, -rsq)
   } else if(!is.na(signal)){
     ret <- 
       # TODO look into using fm_cleo.data instead of regionplot.data here. 
       regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signals', signal = signal, ...) %>% 
+      dplyr::as_tibble() %>% 
       dplyr::filter(signal == !! signal) %>%       
       dplyr::select(-pp_signal, -cs_signal) %>% 
       dplyr::rename(pp_signal = pp_cleo, cs_signal = cs_cleo)
@@ -508,11 +515,10 @@ int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, 
     gtx_fatal_stop("int_ht_cred_set_wrapper | Unable to determine type of signal to process.")
   }
   
-  ret <- 
-    ret %>% 
-    dplyr::filter(cs_signal == TRUE | (chrom == !! chrom & pos == !! pos)) %>% 
-    dplyr::as_tibble()
-  
+  if(isTRUE(cs_only)){
+    ret <- ret %>% dplyr::filter(cs_signal == TRUE | (chrom == !! chrom & pos == !! pos))
+  }
+
   return(ret)
 }
 
