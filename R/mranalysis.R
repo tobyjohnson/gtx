@@ -1,42 +1,44 @@
-#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
-#' These methods allow the users to pre-process and extract the 
-#' required data from the GWA studies database, which then
-#' can be used to run Mendelian Randomization and other related
-#' analyses. These methods can also be used to run MR using the
-#' datasets from MR-Base or custom files; using chromosome 
-#' positions & alleles or rsIDs as SNP unique identifiers. 
-#' @export
-#' @import gtx
-#' @import TwoSampleMR
-#' @import MRInstruments
-#' @import dplyr
-#' @import odbc
-#' @import implyr
-#' @import data.table
-#' @import DescTools
+#' Search study by keyword.
 #' 
-#############################################################################
-#' extract_study_info(): finds a unique identifier for the study using a keyword/keyphrase
+#' Finds a unique identifier for the study using a keyword or keyphrase. NOTE! keyword or keyphrase search is quite naive at this moment and may not return desirable results.
+#' 
+#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
 #' @param str (required): a keyword/keyphrase to search for the study of interest
 #' @param dbc (default): other parameters 
 #' @return the study meta-information which then can be used in extract_outcome()
 #' or extract_exposure() methods
+#' 
+#' @export
+#' 
 extract_study_info <- function(str,dbc=getOption("gtx.dbConnection", NULL)){
   
   #Extract all records with the given description
-  studies<-dbGetQuery(dbc, paste0("SELECT * FROM analyses WHERE description LIKE '%", str, "%';"))
+  studies<-odbc::dbGetQuery(dbc, paste0("SELECT * FROM analyses WHERE description LIKE '%", str, "%';"))
+  
+  if( nrow(studies) < 1 ) {
+    message("No results were returned! Please, try a shorter phrase.")  
+  }
   
   return(studies)
 }
-##############################################################################
-#' extract_exposure(): extracts top instruments based on the chosen p-value 
-#' (the instruments are distance-pruned)
+
+#' Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)
+#' 
+#' This function allows the users to pre-process and extract the 
+#' required data from the GWA studies database, which then
+#' can be used to run Mendelian Randomization and other related
+#' analyses.
+#' 
+#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
 #' @param p (optional): p-value threshold for the top findings where 5e-08 (default). Note! the instruments with a more lenient p-value threshold cannot be extracted. 
 #' @param analyses (optional): the study information: at least should have a column with analysis IDs; entity_type IDs if applicable.
 #' @param str (optional): a keyword/keyphrase to choose the studies of interest; by default searches all studies
 #' @param rsid (optional): logical; if FALSE (default) returns only chrom:position; if TRUE includes rsIDs (Warning! SNPs without rsIDs may not be returned); 
 #' @param dbc (default): other parameters
 #' @return the dataframe with exposure instruments (Warning! they have to be formatted and possibly clumped to be used in the MR analysis)
+#'
+#' @export
+#'
 extract_exposure <- function(p=5e-08,analyses=NULL,str='',rsid=FALSE,dbc=getOption("gtx.dbConnection", NULL)){
 
 if(rsid==FALSE){
@@ -47,14 +49,14 @@ if(rsid==FALSE){
   ## Extract the exposure instruments given the p-value threshold
   ## and search keywords (optional)
   ## Return all (default) or chosen GWASs based on the keywords
-  res_exp <- dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,g.ref_index,g.alt_index,g.beta_index,g.se_index,
-                                            g.pval_index,g.freq_index,g.analysis,g.entity,a.description,a.phenotype,
-                                            a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results_top_hits_with_entity AS g
-                                     INNER JOIN analyses AS a ON g.analysis=a.analysis
-                                     WHERE g.pval_index < ", p," AND a.description LIKE '%", str, "%'
-                                     ORDER BY g.analysis,g.entity;"))
+  res_exp <- odbc::dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,g.ref_index,g.alt_index,g.beta_index,g.se_index,
+                                             g.pval_index,g.freq_index,g.analysis,g.entity,a.description,a.phenotype,
+                                             a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results_top_hits_with_entity AS g
+                                           INNER JOIN analyses AS a ON g.analysis=a.analysis
+                                           WHERE g.pval_index < ", p," AND a.description LIKE '%", str, "%'
+                                           ORDER BY g.analysis,g.entity;"))
   
-  if(is.null(res_exp)) message("Warning! No result has been returned by the query.")
+  if( (is.null(res_exp)) | (dim(res_exp)[1] == 0) ) message("Warning! No result has been returned by the query.")
   
   }else{
     
@@ -68,20 +70,20 @@ if(rsid==FALSE){
   s<-paste(unique(analyses$analysis), collapse="','")
   s<-paste0("'",s,"'")
   
-  res_exp<-dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,g.ref_index,g.alt_index,g.beta_index,
+  res_exp<-odbc::dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,g.ref_index,g.alt_index,g.beta_index,
                                           g.se_index,g.pval_index,g.freq_index,g.analysis,g.entity,a.description,a.phenotype,
                                           a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results_top_hits_with_entity AS g
-                                   INNER JOIN analyses AS a ON g.analysis=a.analysis
-                                   WHERE g.pval_index < ", p," AND g.analysis IN (",s,")
-                                   ORDER BY g.analysis,g.entity;"))
+                                         INNER JOIN analyses AS a ON g.analysis=a.analysis
+                                         WHERE g.pval_index < ", p," AND g.analysis IN (",s,")
+                                         ORDER BY g.analysis,g.entity;"))
 
   #Choose only the right <analysis,entity> pairs
-  if(!is.null(res_exp)){
+  if( (!is.null(res_exp)) & (dim(res_exp)[1] > 0) ){
     
      ids<-unique(analyses[,which(names(analyses) %in% c("analysis","entity_type","entity"))])
      if(is.data.frame(ids)){
        colnames(ids)[2]<-"entity"
-       res_exp<-left_join(res_exp,ids)
+       res_exp<-dplyr::left_join(res_exp,ids)
      }
      else{
        message("Warning! Entity cannot be identified; 'analyses' dataframe is probably missing 'entity' column.")
@@ -106,16 +108,16 @@ if(rsid==FALSE){
       ## Extract the exposure instruments given the p-value threshold
       ## and search keywords (optional)
       ## Return all (default) or chosen GWASs based on the keywords
-      res_exp <- dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,s.rsid,g.ref_index,g.alt_index,g.beta_index,g.se_index,
+      res_exp <- odbc::dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,s.rsid,g.ref_index,g.alt_index,g.beta_index,g.se_index,
                                                 g.pval_index,g.freq_index,g.analysis,g.entity,a.description,a.phenotype,
                                                 a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results_top_hits_with_entity AS g
-                                        INNER JOIN analyses AS a ON g.analysis=a.analysis
-                                        INNER JOIN sites AS s ON g.pos_index=s.pos AND g.chrom=s.chrom 
+                                               INNER JOIN analyses AS a ON g.analysis=a.analysis
+                                               INNER JOIN sites AS s ON g.pos_index=s.pos AND g.chrom=s.chrom 
                                                         AND g.ref_index=s.ref AND g.alt_index=s.alt 
-                                        WHERE g.pval_index < ", p," AND a.description LIKE '%", str, "%'
-                                        ORDER BY g.analysis,g.entity;"))
+                                               WHERE g.pval_index < ", p," AND a.description LIKE '%", str, "%'
+                                               ORDER BY g.analysis,g.entity;"))
       
-     if(is.null(res_exp)) message("Warning! No result has been returned by the query.")
+     if( (is.null(res_exp)) | (dim(res_exp)[1] == 0) ) message("Warning! No result has been returned by the query.")
         
     }else{
       
@@ -129,24 +131,23 @@ if(rsid==FALSE){
         s<-paste(unique(analyses$analysis), collapse="','")
         s<-paste0("'",s,"'")
         
-        res_exp <- dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,s.rsid,g.ref_index,g.alt_index,g.beta_index,
+        res_exp <- odbc::dbGetQuery(dbc, paste0("SELECT g.pos_index,g.chrom,s.rsid,g.ref_index,g.alt_index,g.beta_index,
                                                   g.se_index,g.pval_index,g.freq_index,g.analysis,g.entity,a.description,a.phenotype,
                                                   a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results_top_hits_with_entity AS g
-                                           INNER JOIN analyses AS a ON g.analysis=a.analysis
-                                           INNER JOIN sites AS s ON g.pos_index=s.pos AND g.chrom=s.chrom 
-                                                  AND g.ref_index=s.ref AND g.alt_index=s.alt 
-                                           WHERE g.pval_index < ", p," AND g.analysis IN (",s,")
-                                           ORDER BY g.analysis,g.entity;"))
-        
+                                                 INNER JOIN analyses AS a ON g.analysis=a.analysis
+                                                 INNER JOIN sites AS s ON g.pos_index=s.pos AND g.chrom=s.chrom 
+                                                       AND g.ref_index=s.ref AND g.alt_index=s.alt 
+                                                 WHERE g.pval_index < ", p," AND g.analysis IN (",s,")
+                                                 ORDER BY g.analysis,g.entity;"))
         
         #Choose only the right <analysis,entity> pairs
-        if(!is.null(res_exp)){
+        if( (!is.null(res_exp)) & (dim(res_exp)[1] > 0) ){
           
           ids<-unique(analyses[,which(names(analyses) %in% c("analysis","entity_type","entity"))])
-          if(is.data.frame(ids)){
+          if(is.data.frame(ids)) {
             colnames(ids)[2]<-"entity"
-            res_exp<-left_join(res_exp,ids)
-            }
+            res_exp<-dplyr::left_join(res_exp,ids)
+          }
           else{
             message("Warning! Entity cannot be identified; 'analyses' dataframe is probably missing 'entity' column.")
           }
@@ -163,8 +164,15 @@ if(rsid==FALSE){
   
   return(res_exp)
 }
-################################################################################
-#' extract_outcome(): extracts the outcome instruments based on the exposure SNPs
+
+#' Extracts the outcome instruments based on the exposure SNPs
+#' 
+#' This function allows the users to pre-process and extract the 
+#' required data from the GWA studies database, which then
+#' can be used to run Mendelian Randomization and other related
+#' analyses.
+#' 
+#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
 #' @param snp_list (required if the exposure instruments extracted from the custom file/existing dataframe): the dataframe which at least should have either two columns position (1) and chromosome (2)
 #' or one column with rsIDs.
 #' @param analyses_exp (required if the exposure instruments extracted from the database): the exposure study information; should have at least one column: analysis and if applicable: entity. 
@@ -175,17 +183,25 @@ if(rsid==FALSE){
 #' (only applicable to the searches for external files with the exposure instruments, i.e. snp_list is not NULL).  
 #' @param dbc (default): other parameters 
 #' @return the dataframe with outcome instruments
+#' 
+#' @export
+#' 
+#' @import DescTools
+#' 
 extract_outcome<-function(snp_list=NULL,analyses_exp=NULL,analyses_out,p=5e-08,rsid=FALSE,search="pos:chrom",dbc=getOption("gtx.dbConnection", NULL)){
+
+message("Warning! Ensure that DescTools library is attached.")
   
 if(rsid==FALSE){
   
   ## Extract the data based on the input 
   ## from the custom file
-  if(is.null(analyses_exp)) {
+  if( is.null(analyses_exp) ) {
     
-   if(!is.null(snp_list) & is.data.frame(snp_list)){
+   if( !is.null(snp_list) & is.data.frame(snp_list) ){
     
     #Create a string of analyses
+     
     s<-paste(unique(analyses_out$analysis), collapse="','")
     s<-paste0("'",s,"'")
     
@@ -200,12 +216,12 @@ if(rsid==FALSE){
       ## Extract the outcome instruments using SNPs,
       ## obtained from the custom file/dataframe
       ## Query needs an optimization (in development)
-      res <- apply(snp_list,1,function(X) dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,g.ref,g.alt,g.beta,g.se,
-                                                                       g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
-                                                                       a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
-                                                                  INNER JOIN analyses as a ON g.analysis=a.analysis
-                                                                  WHERE g.pos=", X[1]," AND g.chrom='", X[2],"' AND g.analysis IN (",s,")
-                                                                  ORDER BY g.analysis,g.entity;")))
+      res <- apply(snp_list,1,function(X) odbc::dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,g.ref,g.alt,g.beta,g.se,
+                                                                         g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
+                                                                         a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
+                                                                        INNER JOIN analyses as a ON g.analysis=a.analysis
+                                                                        WHERE g.pos=", X[1]," AND g.chrom='", X[2],"' AND g.analysis IN (",s,")
+                                                                        ORDER BY g.analysis,g.entity;")))
       
       #Combine all results
       res_out<-NULL
@@ -214,19 +230,19 @@ if(rsid==FALSE){
     
       #Throw a warning if the result is empty
       #Choose only the right <analysis,entity> pairs
-      if(!is.null(res_out)){
+      if( (!is.null(res_out)) & (dim(res_out)[1] > 0) ){
       
         ids<-unique(analyses_out[,which(names(analyses_out) %in% c("analysis","entity_type","entity"))])
       
         if(is.data.frame(ids)){
           colnames(ids)[2]<-"entity"
-          res_out<-left_join(res_out,ids)
+          res_out<-dplyr::left_join(res_out,ids)
         
-          }else{ message("Warning! Entity cannot be identified; 'analyses_out' dataframe is probably missing 'entity' column.") }
-        }else{ message("Warning! No result has been returned by the query.") }
-      }else{ stop("Error: snp_list should have at least two columns in this order: position (1) and chromosome (2).") }
-    }else{ stop("Error: snp_list [data.frame] cannot be empty and should have at least two columns in this order: position (1) and chromosome (2).") }
-  }else{
+        }else{ message("Warning! Entity cannot be identified; 'analyses_out' dataframe is probably missing 'entity' column.") }
+      }else{ message("Warning! No result has been returned by the query.") }
+    }else{ stop("Error: snp_list should have at least two columns in this order: position (1) and chromosome (2).") }
+  }else{ stop("Error: snp_list [data.frame] cannot be empty and should have at least two columns in this order: position (1) and chromosome (2).") }
+}else{
     
     if(!is.null(snp_list)) message("Warning! These instruments will not be considered; analyses_exp should be NULL.")
     
@@ -243,23 +259,23 @@ if(rsid==FALSE){
       s_out<-paste0("'",s_out,"'")
       
       ## Extract the outcome instruments using SNPs
-      res_out <- dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,g.ref,g.alt,g.beta,g.se,
+      res_out <- odbc::dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,g.ref,g.alt,g.beta,g.se,
                                                 g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
                                                 a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
-                                         INNER JOIN (SELECT DISTINCT gg.pos_index,gg.chrom FROM gwas_results_top_hits_with_entity AS gg
+                                              INNER JOIN (SELECT DISTINCT gg.pos_index,gg.chrom FROM gwas_results_top_hits_with_entity AS gg
                                                       WHERE gg.pval_index < ", p," AND gg.analysis IN (",s_exp,")) AS out 
-                                         ON g.pos=out.pos_index AND g.chrom=out.chrom
-                                         INNER JOIN analyses AS a ON g.analysis=a.analysis
-                                         WHERE g.analysis IN (",s_out,")
-                                         ORDER BY g.analysis,g.entity;"))
+                                              ON g.pos=out.pos_index AND g.chrom=out.chrom
+                                              INNER JOIN analyses AS a ON g.analysis=a.analysis
+                                              WHERE g.analysis IN (",s_out,")
+                                              ORDER BY g.analysis,g.entity;"))
       
       #Choose only the right <analysis,entity> pairs
-      if(!is.null(res_out)){
+      if( (!is.null(res_out)) & (dim(res_out)[1] > 0) ){
           
           ids<-unique(analyses_out[,which(names(analyses_out) %in% c("analysis","entity_type","entity"))])
           if(is.data.frame(ids)){
             colnames(ids)[2]<-"entity"
-            res_out<-left_join(res_out,ids)
+            res_out<-dplyr::left_join(res_out,ids)
             
           }else{ message("Warning! Entity cannot be identified; 'analyses_out' dataframe is probably missing 'entity' column.") }
         }else{ message("Warning! No result has been returned by the query.") }
@@ -283,7 +299,7 @@ if(rsid==FALSE){
         ## Extract the outcome instruments using SNPs,
         ## obtained from the custom file/dataframe
         ## Query needs an optimization (in development)  
-        if(ncol(snp_list)>1 & search=="pos:chrom") {
+        if(ncol(snp_list) > 1 & search=="pos:chrom") {
           
             #Ensure the right data.type
             snp_list[1]<-as.integer(unlist(snp_list[1]))
@@ -293,16 +309,16 @@ if(rsid==FALSE){
             snp_list<-unique(snp_list[,c(1,2)])
           
             #Search by chromosome positions
-            res <- apply(snp_list,1,function(X) dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,
-                                                                             g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
-                                                                             a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
-                                                                      INNER JOIN sites AS s USING(pos,chrom,ref,alt)
-                                                                      INNER JOIN analyses as a ON g.analysis=a.analysis
-                                                                      WHERE g.pos=", X[1]," AND g.chrom='", X[2],"' AND g.analysis IN (",s,")
-                                                                      ORDER BY g.analysis,g.entity;")))
-          }else if(ncol(snp_list)<=1 & search=="pos:chrom"){
+            res <- apply(snp_list,1,function(X) odbc::dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,
+                                                                                g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
+                                                                                a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
+                                                                              INNER JOIN sites AS s USING(pos,chrom,ref,alt)
+                                                                              INNER JOIN analyses as a ON g.analysis=a.analysis
+                                                                              WHERE g.pos=", X[1]," AND g.chrom='", X[2],"' AND g.analysis IN (",s,")
+                                                                              ORDER BY g.analysis,g.entity;")))
+          }else if(ncol(snp_list)<=1 & search=="pos:chrom") {
                 stop("Error: snp_list should have at least two columns in this order: position (1) and chromosome (2).")
-          }else if(ncol(snp_list)>0 & search!="pos:chrom"){
+          }else if(ncol(snp_list)>0 & search!="pos:chrom") {
             
             #Ensure the right data.type and correct format of rsIDs
             n<-which(tolower(colnames(snp_list)) %like any% c("%rs%","%snp%"))
@@ -313,14 +329,14 @@ if(rsid==FALSE){
             snp_list<-unique(snp_list[n])
 
             #Search by rsIDs
-            res <- apply(snp_list,1,function(X) dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,ids.rsid,g.ref,g.alt,g.beta,g.se,
+            res <- apply(snp_list,1,function(X) odbc::dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,ids.rsid,g.ref,g.alt,g.beta,g.se,
                                                                                g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
                                                                                a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results AS g
-                                                                       INNER JOIN analyses AS a USING(analysis)
-                                                                       INNER JOIN (SELECT * FROM sites AS s WHERE s.rsid IS NOT NULL) AS ids 
-                                                                              ON g.pos=ids.pos AND g.chrom=ids.chrom AND g.ref=ids.ref AND g.alt=ids.alt
-                                                                       WHERE ids.rsid=",X[1]," AND g.analysis IN (",s,")
-                                                                       ORDER BY g.analysis,g.entity;")))
+                                                                              INNER JOIN analyses AS a USING(analysis)
+                                                                              INNER JOIN (SELECT * FROM sites AS s WHERE s.rsid IS NOT NULL) AS ids 
+                                                                                  ON g.pos=ids.pos AND g.chrom=ids.chrom AND g.ref=ids.ref AND g.alt=ids.alt
+                                                                              WHERE ids.rsid=",X[1]," AND g.analysis IN (",s,")
+                                                                              ORDER BY g.analysis,g.entity;")))
           }else{
             stop("Error: snp_list should have either two columns in this order: position (1) and chromosome (2) or just one column with rsIDs (1).")
           }
@@ -332,13 +348,13 @@ if(rsid==FALSE){
           
           #Throw a warning if the result is empty
           #Choose only the right <analysis,entity> pairs
-          if(!is.null(res_out)){
+          if( (!is.null(res_out)) & (dim(res_out)[1] > 0) ){
             
             ids<-unique(analyses_out[,which(names(analyses_out) %in% c("analysis","entity_type","entity"))])
             
             if(is.data.frame(ids)){
               colnames(ids)[2]<-"entity"
-              res_out<-left_join(res_out,ids)
+              res_out<-dplyr::left_join(res_out,ids)
               
             }else{ message("Warning! Entity cannot be identified; 'analyses_out' dataframe is probably missing 'entity' column.") }
           }else{ message("Warning! No result has been returned by the query.") }
@@ -360,25 +376,25 @@ if(rsid==FALSE){
         s_out<-paste0("'",s_out,"'")
         
         ## Extract the outcome instruments using SNPs
-        res_out <- dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,
-                                                  g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
-                                                  a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
-                                           INNER JOIN (SELECT DISTINCT gg.pos_index,gg.chrom FROM gwas_results_top_hits_with_entity AS gg
+        res_out <- odbc::dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,
+                                                   g.pval,g.freq,g.analysis,g.entity,a.description,a.phenotype,
+                                                   a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
+                                                 INNER JOIN (SELECT DISTINCT gg.pos_index,gg.chrom FROM gwas_results_top_hits_with_entity AS gg
                                                       WHERE gg.pval_index < ", p," AND gg.analysis IN (",s_exp,")) AS out 
-                                           ON g.pos=out.pos_index AND g.chrom=out.chrom
-                                           INNER JOIN sites AS s ON g.pos=s.pos AND g.chrom=s.chrom 
+                                                 ON g.pos=out.pos_index AND g.chrom=out.chrom
+                                                 INNER JOIN sites AS s ON g.pos=s.pos AND g.chrom=s.chrom 
                                                             AND g.ref=s.ref AND g.alt=s.alt
-                                           INNER JOIN analyses AS a ON g.analysis=a.analysis
-                                           WHERE g.analysis IN (",s_out,")
-                                           ORDER BY g.analysis,g.entity;"))
+                                                 INNER JOIN analyses AS a ON g.analysis=a.analysis
+                                                 WHERE g.analysis IN (",s_out,")
+                                                 ORDER BY g.analysis,g.entity;"))
         
         #Choose only the right <analysis,entity> pairs
-        if(!is.null(res_out)){
+        if( (!is.null(res_out)) & (dim(res_out)[1] > 0) ){
           
           ids<-unique(analyses_out[,which(names(analyses_out) %in% c("analysis","entity_type","entity"))])
           if(is.data.frame(ids)){
             colnames(ids)[2]<-"entity"
-            res_out<-left_join(res_out,ids)
+            res_out<-dplyr::left_join(res_out,ids)
             
           }else{ message("Warning! Entity cannot be identified; 'analyses_out' dataframe is probably missing 'entity' column.") }
         }else{ message("Warning! No result has been returned by the query.") }
@@ -388,25 +404,32 @@ if(rsid==FALSE){
   
   return(res_out)
 }
-##################################################################################
-#' format_for_mr(): formats the database-extracted data for the 
-#' Mendelian Randomization analysis using MRBase
+
+#' Formats the data for MR analysis.
+#' 
+#' Formats the database-extracted data for the Mendelian Randomization analysis (MR-Base)
+#' 
+#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
 #' @param data (required): the dataframe with the exposure or outcome instruments (output of: extract_exposure or extract_outcome)
 #' @param type (optional): specifies the data type, i.e. 'exposure' (default) or outcome.
 #' @param rsid (optional): logical; if FALSE (default) uses pos:chrom_ref_alt as SNP identifier; if TRUE uses rsIDs as SNP identifier. 
 #' @return the formatted dataframe suitable for the MR analysis
+#' 
+#' @export
+#' @import TwoSampleMR
+#' 
 format_for_mr<-function(data,type="exposure",rsid=FALSE){
   
 if(rsid==FALSE){
   
   if(type=="exposure"){
   
-    data<-data %>% mutate(SNP=paste0(pos_index,":",chrom,"_",ref_index,"_",alt_index),id=paste0(analysis,"_",entity))  
+    data<-data %>% dplyr::mutate(SNP=paste0(pos_index,":",chrom,"_",ref_index,"_",alt_index),id=paste0(analysis,"_",entity))  
     data<-data[toupper(data$ref_index) %in% c('A','G','C','T'),]
     data<-data[toupper(data$alt_index) %in% c('A','G','C','T'),]
 
     #Format the exposure for the MR analysis
-    data<-format_data(data,type="exposure",phenotype_col = "id", 
+    data<-TwoSampleMR::format_data(data,type="exposure",phenotype_col = "id", 
                           snp_col="SNP",beta_col="beta_index",se_col="se_index",
                           pval_col="pval_index",eaf_col="freq_index",effect_allele_col="alt_index",
                           other_allele_col="ref_index",samplesize_col ="ncohort")
@@ -414,20 +437,20 @@ if(rsid==FALSE){
   }
    else{
   
-    data<-data %>% mutate(SNP=paste0(pos,":",chrom,"_",ref,"_",alt),id=paste0(analysis,"_",entity))  
+    data<-data %>% dplyr::mutate(SNP=paste0(pos,":",chrom,"_",ref,"_",alt),id=paste0(analysis,"_",entity))  
     data<-data[toupper(data$ref) %in% c('A','G','C','T'),]
     data<-data[toupper(data$alt) %in% c('A','G','C','T'),]
     
     #Format the outcome for the MR analysis 
-    data<-format_data(data,type="outcome",phenotype_col = "id", 
-                        snp_col="SNP",beta_col="beta",se_col="se",
-                        pval_col="pval",eaf_col="freq",effect_allele_col="alt",
-                        other_allele_col="ref",samplesize_col ="ncohort")
+    data<-TwoSampleMR::format_data(data,type="outcome",phenotype_col = "id", 
+                         snp_col="SNP",beta_col="beta",se_col="se",
+                         pval_col="pval",eaf_col="freq",effect_allele_col="alt",
+                         other_allele_col="ref",samplesize_col ="ncohort")
    }
   }
   else{
     
-    data<-data %>% mutate(id=paste0(analysis,"_",entity))
+    data<-data %>% dplyr::mutate(id=paste0(analysis,"_",entity))
     data<-data[!is.na(data$rsid),]
     data<-data[!is.null(data$rsid),]
     data$rsid<-paste0("rs",data$rsid)
@@ -438,10 +461,10 @@ if(rsid==FALSE){
       data<-data[toupper(data$alt_index) %in% c('A','G','C','T'),]
       
       #Format the exposure for the MR analysis
-      data<-format_data(data,type="exposure",phenotype_col = "id", 
-                        snp_col="rsid",beta_col="beta_index",se_col="se_index",
-                        pval_col="pval_index",eaf_col="freq_index",effect_allele_col="alt_index",
-                        other_allele_col="ref_index",samplesize_col ="ncohort")
+      data<-TwoSampleMR::format_data(data,type="exposure",phenotype_col = "id", 
+                           snp_col="rsid",beta_col="beta_index",se_col="se_index",
+                           pval_col="pval_index",eaf_col="freq_index",effect_allele_col="alt_index",
+                           other_allele_col="ref_index",samplesize_col ="ncohort")
       
     }
     else{
@@ -450,40 +473,48 @@ if(rsid==FALSE){
       data<-data[toupper(data$alt) %in% c('A','G','C','T'),]
       
       #Format the outcome for the MR analysis 
-      data<-format_data(data,type="outcome",phenotype_col = "id", 
-                        snp_col="rsid",beta_col="beta",se_col="se",
-                        pval_col="pval",eaf_col="freq",effect_allele_col="alt",
-                        other_allele_col="ref",samplesize_col ="ncohort")
+      data<-TwoSampleMR::format_data(data,type="outcome",phenotype_col = "id", 
+                           snp_col="rsid",beta_col="beta",se_col="se",
+                           pval_col="pval",eaf_col="freq",effect_allele_col="alt",
+                           other_allele_col="ref",samplesize_col ="ncohort")
     } 
   }
 
  return(data)
 }
-#############################################################################
-#'run_mr_gsk(): runs the Mendelian Randomization (MR) and sensitivity analyses,
-#'using the formatted exposure and outcome: format_for_mr()
-#'@param exp (required): the formatted exposure instruments (output of: format_for_mr()) 
-#'@param out (required): the formatted outcome instruments (output of: format_for_mr())
-#'@param rsid (optional): logical; if FALSE (default) uses pos:chrom_ref_alt as a SNP identifier; 
-#'if TRUE uses rsIDs as a SNP identifier (the automated clumping is enabled for this option).
-#'@param clump (optional): logical; if TRUE (default) enables an automated pruning of the exposure instruments 
-#'(only applicable if rsid=TRUE); if FALSE disables an automated pruning of the exposure instruments.  
-#'@param hetero (optional): logical; enables/diables the heterogeneity testing (TRUE by default).
-#'@param pleio (optional): logical; enables/disables the pleiotropy testing (TRUE by default).
-#'@param single (optional): logical; enables/disables the single SNP MR analysis (TRUE by default).
-#'@return the list of dataframes: 
-#'(1) MR results
-#'(2) Heterogeneity analysis
-#'(3) Pleiotropy analysis
-#'(4) Single SNP MR analysis
-#'(5) Harmonisation data
-#'@example To access the dataframe, e.g. df[[1]] - MR results
+
+#' Runs the Mendelian Randomization (MR) and sensitivity analyses
+#' 
+#' This function runs MR and sensitivity analyses (TwoSampleMR) using the pre-formatted datasets (either format_data (TwoSampleMR) or format_for_mr (gtx)) where SNPs should be uniquely identified by either chromosome positions & alleles or rsIDs.
+#' 
+#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
+#' @param exp (required): the formatted exposure instruments (output of: format_for_mr()) 
+#' @param out (required): the formatted outcome instruments (output of: format_for_mr())
+#' @param rsid (optional): logical; if FALSE (default) uses pos:chrom_ref_alt as a SNP identifier; 
+#' if TRUE uses rsIDs as a SNP identifier (the automated clumping is enabled for this option).
+#' @param clump (optional): logical; if TRUE (default) enables an automated pruning of the exposure instruments 
+#' (only applicable if rsid=TRUE); if FALSE disables an automated pruning of the exposure instruments.  
+#' @param hetero (optional): logical; enables/diables the heterogeneity testing (TRUE by default).
+#' @param pleio (optional): logical; enables/disables the pleiotropy testing (TRUE by default).
+#' @param single (optional): logical; enables/disables the single SNP MR analysis (TRUE by default).
+#' @return the list of dataframes: 
+#' (1) MR results
+#' (2) Heterogeneity analysis
+#' (3) Pleiotropy analysis
+#' (4) Single SNP MR analysis
+#' (5) Harmonisation data
+#' 
+#' @export
+#' @import TwoSampleMR
+#' 
+#' @examples To access the dataframe, e.g. \dontrun{df[[1]]} - MR results
+#' 
 run_mr_gsk<-function(exp,out,rsid=FALSE,clump=TRUE,hetero=TRUE,pleio=TRUE,single=TRUE){
   
   #Pruning of the exposure instruments
   if(rsid==TRUE){
    
-   if(clump==TRUE) exp<-clump_data(exp)
+   if(clump==TRUE) exp<-TwoSampleMR::clump_data(exp)
    else message("Warning! An automated LD-pruning of the exposure instruments is disabled.")
     
     }else{
@@ -491,26 +522,26 @@ run_mr_gsk<-function(exp,out,rsid=FALSE,clump=TRUE,hetero=TRUE,pleio=TRUE,single
  }
   
   #Harmonise the data
-  dat<-harmonise_data(exp,out,action=2)
+  dat<-TwoSampleMR::harmonise_data(exp,out,action=2)
   
   #Run the MR analysis
-  mr_res<-mr(dat)
+  mr_res<-TwoSampleMR::mr(dat)
   
   if(hetero==TRUE)
     #Run the heterogeneity analysis
-    mr_hetero<-mr_heterogeneity(dat)
+    mr_hetero<-TwoSampleMR::mr_heterogeneity(dat)
   else
     mr_hetero<-NULL
   
   if(pleio==TRUE)
     #Run the pleiotropy analysis
-     mr_pleio<-mr_pleiotropy_test(dat)
+     mr_pleio<-TwoSampleMR::mr_pleiotropy_test(dat)
   else
      mr_pleio<-NULL
   
   if(single==TRUE)
     #Run the single SNP analysis
-    mr_single<-mr_singlesnp(dat)
+    mr_single<-TwoSampleMR::mr_singlesnp(dat)
   else
     mr_single<-NULL
   
@@ -519,5 +550,4 @@ run_mr_gsk<-function(exp,out,rsid=FALSE,clump=TRUE,hetero=TRUE,pleio=TRUE,single
   
  return(my.list) 
 }
-##################################################################
 
