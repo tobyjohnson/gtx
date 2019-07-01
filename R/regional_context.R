@@ -337,18 +337,30 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     -- Define vars_q
     vars_q AS ({vars_sql}),
     -- Define gwas_q
-    gwas_q AS ({cleo_sql})
-    -- PheWAS by inner joining gwas_results_cond and variants
-    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
-           gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
-      FROM gwas_q
-      INNER JOIN vars_q
-      USING (chrom, pos, ref, alt)')
+    gwas_q AS ({cleo_sql}),
+    -- Define phewas_q as inner joining gwas_results_cond and variants
+    phewas_q AS 
+      (SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, 
+              gwas_q.alt, gwas_q.signal, gwas_q.analysis, 
+              gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
+        FROM gwas_q
+        INNER JOIN vars_q
+        USING (chrom, pos, ref, alt)),
+    gwas_results_joint_q AS 
+      (SELECT * 
+        FROM gwas_results_joint 
+        WHERE pval_joint IS NOT NULL 
+        AND {phewas_chroms_where_clause})
+    -- Joint to Joint top hits table
+    SELECT phewas_q.input, phewas_q.chrom, phewas_q.pos, phewas_q.ref, 
+           phewas_q.alt, phewas_q.signal, phewas_q.analysis, 
+           phewas_q.pval, phewas_q.beta, gwas_results_joint_q.pos AS th_pos
+      FROM phewas_q 
+      INNER JOIN gwas_results_joint_q
+      USING (analysis, chrom, signal)')
   
   phewas_cleo <- 
-    sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE) %>% 
-    dplyr::as_tibble() %>% 
-    dplyr::mutate(th_pos = pos)
+    sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE) %>% dplyr::as_tibble()
   
   tictoc::toc(log = TRUE, quiet = TRUE)
   gtx_debug("int_ht_phewas | PheWAS on CLEO GWAS results: {tictoc::tic.log(format = TRUE)}.")
@@ -411,43 +423,43 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   # Split input into uniq cred sets that we need to gather
   cs2get <- input %>% dplyr::distinct(analysis, chrom, th_pos, signal)
   
-  # Get cred sets
+  # Get cred sets for each unique region
   gtx_info("Starting regional context analysis for all GWAS results.")
   cs2get_ret <- 
     cs2get %>% 
-    dplyr::mutate(cs = 
+    dplyr::mutate(cs_df = 
                     furrr::future_pmap(list(analysis, chrom, th_pos, signal), 
                                        ~int_ht_rpd_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
                                                            signal = ..4, use_database = current_database)))
-    
+  
+  # JOIN uniq regions to all the variants with the same TH/CLEO window
   cs2get_ret <- 
     dplyr::inner_join(input, cs2get_ret, by = c("analysis", "chrom", "th_pos", "signal")) %>%
     dplyr::select(-th_pos)
   
-  # Annotate critical data (e.g. variant in the cred set)
+  # Annotate variant ~ credset critical data (e.g. variant in the cred set)
   ret <- 
     cs2get_ret %>% 
-    dplyr::mutate(cs_annots = furrr::future_pmap(list(cs, chrom, pos, ref, alt), 
-                  ~int_ht_regional_annot(cs = ..1, chrom = ..2, pos = ..3, 
-                                         ref = ..4, alt = ..5)))
+    dplyr::mutate(cs_annots = furrr::future_pmap(list(cs_df, chrom, pos, ref, alt), 
+                  ~int_ht_regional_annot(cs_df = ..1, chrom = ..2, pos = ..3, ref = ..4, alt = ..5)))
   
   if(isTRUE(drop_cs)){
-    ret <- ret %>% dplyr::select(-cs)
+    ret <- ret %>% dplyr::select(-cs_df)
   } else {
     ret <- 
       ret %>% 
-      dplyr::mutate(cs = purrr::pmap(list(cs, chrom, pos),
-                                     ~dplyr::filter(..1, cs_signal == TRUE | (chrom == ..2 & pos == ..3))))
+      dplyr::mutate(cs_df = purrr::pmap(list(cs_df, chrom, pos),
+                                     ~dplyr::filter(..1, cs == TRUE | (chrom == ..2 & pos == ..3))))
   }
+  
+  ret <- ret %>% tidyr::unnest(cs_annots, .drop = FALSE)
   
   # reconnect to DB
   if(nrow(input) > 3 & cpu > 1){
     options("gtx.dbConnection" = NULL);
     gtxcache(disconnect = TRUE)
     DBI::dbDisconnect(dbc)
-    Sys.sleep(1)
     gtxconnect(use_database = current_database, cache = TRUE)
-    Sys.sleep(1)
   }
   
   return(ret)
@@ -479,23 +491,31 @@ int_ht_rpd_wrapper <- function(analysis, chrom, pos, signal, use_database, ...){
     gtx_debug("int_ht_rpd_wrapper | Establishing gtxconnection.")
     gtxconnect(use_database = use_database, cache = TRUE)
     gtxdbcheck(getOption("gtx.dbConnection"))
+    futile.logger::flog.threshold(ERROR)
   } else {
     gtx_debug("int_ht_rpd_wrapper | Using pre-established gtxconnection.")
   }
   
   if(is.na(signal)){
     ret <- 
-      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signal', ...) %>% 
+      regionplot.data(analysis = analysis, 
+                      chrom    = chrom, 
+                      pos      = pos, 
+                      style    = 'signal', ...) %>% 
       dplyr::as_tibble() %>% 
-      dplyr::select(-freq, -rsq)
+      dplyr::select(-freq, -rsq) %>% 
+      dplyr::rename(pp = pp_signal, cs = cs_signal)
   } else if(!is.na(signal)){
     ret <- 
       # TODO look into using fm_cleo.data instead of regionplot.data here. 
-      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signals', signal = signal, ...) %>% 
+      regionplot.data(analysis = analysis, 
+                      chrom    = chrom, 
+                      pos      = pos, 
+                      style    = 'signals', 
+                      signal   = signal, ...) %>% 
       dplyr::as_tibble() %>% 
-      dplyr::filter(signal == !! signal) %>%       
-      dplyr::select(-pp_signal, -cs_signal) %>% 
-      dplyr::rename(pp_signal = pp_cleo, cs_signal = cs_cleo)
+      dplyr::filter(signal == !! signal) %>%      
+      dplyr::rename(pp = pp_cleo, cs = cs_cleo)
   } else {
     gtx_fatal_stop("int_ht_rpd_wrapper | Unable to determine type of signal to process.")
   }
@@ -516,37 +536,44 @@ int_ht_rpd_wrapper <- function(analysis, chrom, pos, signal, use_database, ...){
 #' @param ... Params to pass to regionplot.data (e.g. surround = 1e6)
 #' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
 #' @return tibble 
-int_ht_regional_annot <- function(cs, chrom, pos, ref, alt){
-  if(missing(cs) | missing(chrom) | missing(pos) | missing(ref) | missing(alt)){
+int_ht_regional_annot <- function(cs_df, chrom, pos, ref, alt){
+  if(missing(cs_df) | missing(chrom) | missing(pos) | missing(ref) | missing(alt)){
     gtx_fatal_stop("int_ht_regional_annot missing input param.")
   }
   
   # queried variant in the cred set
   var_in_cs <-
-    case_when(dplyr::filter(cs, chrom == !! chrom & pos == !! pos & ref == !! ref & alt == !! alt &
-                              cs_signal == TRUE) %>% nrow(.) >= 1 ~ TRUE,
+    case_when(dplyr::filter(cs_df, chrom == !!chrom & pos == !!pos & ref == !!ref & alt == !!alt &
+                              cs == TRUE) %>% nrow(.) >= 1 ~ TRUE,
               TRUE ~ FALSE)
 
   # queried variant posterior probability
-  var_pp <-
-    case_when(dplyr::filter(cs, chrom == !! chrom & pos == !! pos & ref == !! ref & alt == !! alt) %>% nrow(.) >= 1 ~
-                dplyr::filter(cs, chrom == !! chrom & pos == !! pos & ref == !! ref & alt == !! alt) %>% dplyr::pull(pp_signal),
-              TRUE ~ as.double(NA))
+  
+    if(dplyr::filter(cs_df,   chrom == !!chrom & pos == !!pos & ref == !!ref & alt == !!alt) %>% nrow(.) >= 1){
+      var_pp <-
+        dplyr::filter(cs_df, chrom == !!chrom & pos == !!pos & ref == !!ref & alt == !!alt) %>% 
+        dplyr::pull(pp) %>%
+        as.double()      
+    } else {
+      var_pp <- as.double(NA)
+    }
 
-  n_in_cs = dplyr::filter(cs, cs_signal == TRUE) %>% nrow()
+  n_in_cs = dplyr::filter(cs_df, cs == TRUE) %>% nrow()
 
   # cred set top hit posterior probability
-  cs_th_pp <- max(cs$pp_signal)
+  cs_th_pp <- max(cs_df$pp)
   cs_th_data <-
-    dplyr::top_n(cs, 1, pp_signal) %>%
+    dplyr::top_n(cs_df, 1, pp) %>%
     dplyr::select(pos, ref, alt, pval) %>%
     dplyr::rename(th_pos = pos, th_ref = ref, th_alt = alt, th_pval = pval)
 
-  return(dplyr::tibble(var_in_cs, var_pp, n_in_cs, 
-                       th_pos = cs_th_data$th_pos,
-                       th_ref = cs_th_data$th_ref,
-                       th_alt = cs_th_data$th_alt,
-                       th_pval = cs_th_data$th_pval))
+  return(dplyr::tibble("var_in_cs" = !! var_in_cs, 
+                       "var_pp" = !! var_pp, 
+                       "n_in_cs" = !! n_in_cs, 
+                       "th_pos" = cs_th_data$th_pos,
+                       "th_ref" = cs_th_data$th_ref,
+                       "th_alt" = cs_th_data$th_alt,
+                       "th_pval" = cs_th_data$th_pval))
 }
 
 
@@ -633,21 +660,21 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
 # var_in_cs <- 
 #   case_when(dplyr::filter(cs, chrom == chrom & pos == pos &
 #                             ref == ref & alt == alt & 
-#                             cs_signal == TRUE) %>% nrow(.) >= 1 ~ TRUE, 
+#                             cs == TRUE) %>% nrow(.) >= 1 ~ TRUE, 
 #             TRUE ~ FALSE)
 # 
 # # queried variant posterior probability
 # var_pp <- 
 #   case_when(dplyr::filter(cs, chrom == chrom & pos == pos & ref == ref & alt == alt) %>% nrow(.) >= 1 ~ 
-#               dplyr::filter(cs, chrom == chrom & pos == pos & ref == ref & alt == alt) %>% dplyr::pull(pp_signal),
+#               dplyr::filter(cs, chrom == chrom & pos == pos & ref == ref & alt == alt) %>% dplyr::pull(pp),
 #             TRUE ~ NA_complex_)
 # 
-# n_in_cs = dplyr::filter(cs, cs_signal == TRUE) %>% nrow()
+# n_in_cs = dplyr::filter(cs, cs == TRUE) %>% nrow()
 # 
 # # cred set top hit posterior probability
-# cs_th_pp <- max(cs$pp_signal)
+# cs_th_pp <- max(cs$pp)
 # cs_th_data <- 
-#   dplyr::top_n(cs, 1, pp_signal) %>% 
+#   dplyr::top_n(cs, 1, pp) %>% 
 #   dplyr::select(pos, ref, alt, pval) %>% 
 #   dplyr::rename(th_pos = pos, th_ref = ref, th_alt = alt, th_pval = pval) 
 # 
@@ -658,19 +685,19 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
 #   input %>% 
 #   dplyr::mutate(var_in_cs  = purrr::pmap_lgl(list(cs, chrom, pos, ref, alt), 
 #                                              ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & ref == ..4 & 
-#                                                               alt == ..5 & cs_signal == TRUE) %>% 
+#                                                               alt == ..5 & cs == TRUE) %>% 
 #                                                nrow(.) >= 1)) %>% 
 #   # queried variant posterior probability
 #   dplyr::mutate(var_pp     = purrr::pmap(list(cs, chrom, pos, ref, alt), 
 #                                          ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
 #                                                           ref == ..4 & alt == ..5 ) %>% 
-#                                            dplyr::pull(pp_signal))) %>% 
+#                                            dplyr::pull(pp))) %>% 
 #   # tidyr::unnest(var_pp, .drop = FALSE) %>% 
 #   # number of snps in the cred set
-#   dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs_signal == TRUE) %>% nrow)) %>% 
+#   dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs == TRUE) %>% nrow)) %>% 
 #   # cred set top hit posterior probability
-#   dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp_signal))) %>% 
-#   dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
+#   dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp))) %>% 
+#   dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp) %>% 
 #                                           dplyr::select(pos, ref, alt, pval))) %>% 
 #   dplyr::select(-cs, -chrom, -pos, -ref, -alt) %>%
 #   tidyr::unnest(cs_th_data, .drop = FALSE) %>% 
