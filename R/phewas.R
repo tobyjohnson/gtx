@@ -498,6 +498,15 @@ phewasDataProcessing <- function(phewasObj) {
         sanitize1(paste0(x, '.'), type = 'alphanum.'))
   })
   
+  
+  #phewas.data() WARN if results_db not null/empty
+  other_db_check <- setdiff(loop_clean_db, "")
+  if (length(other_db_check) > 0) {
+    gtx_warn('Non-NULL results_db [{paste(other_db_check, collapse = ";")}] will be deprecated in future')
+    # FIXME in future we will not allow empty strings and this will be an error
+    #       then in further future we will not even query the results_db column
+  }
+  
   phewasObj@loop_clean_db <- loop_clean_db
   
   all_analyses <-
@@ -660,7 +669,15 @@ phewasDataProcessing <- function(phewasObj) {
     
     # need to sort AFTER merge with labels
     res <- res[!is.na(res$pval), ]
-    res <- res[order(res$pval), ]
+    f (with_tags) {
+      # res has column tags iff with_tags=TRUE was passed to gtxanalyses() above
+      # Currently expect pval, label, tag, to provide a deterministic sort order
+      res <- res[order(res$pval, res$label, res$tag), ]
+    } else {
+      # If no tags, currently expect pval, label, to provide a deterministic sort order
+      res <- res[order(res$pval, res$label), ]
+    }
+    row.names(res) <- 1:nrow(res) # otherwise preserved from prior to ordering and fails identical() test
     
     # add attribute, used for plot labelling etc., FIXME should we do this when multiple variants matched hence no query was run?
     attr(res, 'variant') <- v1_label
