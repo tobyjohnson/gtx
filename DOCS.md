@@ -71,11 +71,11 @@ exp<-extract_exposure(p=5e-09,analyses=df)
 ### Instrument extraction using a keyword
 Note that all above options are applicable in this scenario as well such as:
 ```R
-exp<-extract_exposure(p=5e-09,str='body mass',rsid=TRUE)
+exp<-extract_exposure(p=5e-09,str="asthma",rsid=TRUE)
 ```
 or with default settings:
 ```R
-exp<-extract_exposure(str='body mass')
+exp<-extract_exposure(str="asthma")
 ```
 ## Outcome extraction
 The instruments chosen for the exposure then have to be found in the outcome GWAS. There are two options:
