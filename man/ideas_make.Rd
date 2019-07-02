@@ -5,18 +5,21 @@
 \title{Ideas make}
 \usage{
 ideas_make(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
-  dbc = getOption("gtx.dbConnection", NULL))
+  use_precalc_top_hits = TRUE, dbc = getOption("gtx.dbConnection",
+  NULL))
 }
 \arguments{
 \item{analysis}{GWAS analysis id.}
 
-\item{pval_le}{[5e-8] Max pval for GWAS}
+\item{pval_le}{[5e-8] Max pval for GWAS top hits.}
 
 \item{chrom}{Chromosome to query}
 
 \item{pos}{Position}
 
 \item{case_emac_ge}{[25]}
+
+\item{use_precalc_top_hits}{[TRUE] Use if gwas_results_top_hits data if available. (TRUE/FALSE)}
 }
 \value{
 Table of GWAS loci with posteriors for \code{\link{ideas_predict}}
