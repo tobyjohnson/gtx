@@ -569,7 +569,8 @@ int_ht_regional_annot <- function(cs_df, chrom, pos, ref, alt){
 
   return(dplyr::tibble("var_in_cs" = !! var_in_cs, 
                        "var_pp" = !! var_pp, 
-                       "n_in_cs" = !! n_in_cs, 
+                       "n_in_cs" = !! n_in_cs,
+                       "cs_th_pp" = !! cs_th_pp,
                        "th_pos" = cs_th_data$th_pos,
                        "th_ref" = cs_th_data$th_ref,
                        "th_alt" = cs_th_data$th_alt,
