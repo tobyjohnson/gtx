@@ -632,7 +632,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @inheritParams aba.query
 #' @return data.frame with the inputs used, all the data for each input, and default plots
-#' @example 
+#' @examples 
 #' colocs <- aba.wrapper(hgncid = "HMGCR")
 #' @export
 #' @import tidyr
