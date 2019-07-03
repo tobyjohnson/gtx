@@ -148,4 +148,21 @@ The output of this method is the list of dataframes __res__:
 
 For example, if you would like to access the MR results, please, choose __res[[1]]__.
 
+## Plots from TwoSampleMR
+The results produced by run_mr_gsk, i.e. __res__, then can be used to create useful plots.
 
+Scatter plot:
+```R
+p1 <- mr_scatter_plot(res[[1]], res[[5]])
+p1[[1]]
+```
+Forest plot:
+```R
+p2 <- mr_forest_plot(res[[4]])
+p2[[1]]
+```
+Funnel plot:
+```R
+p4 <- mr_funnel_plot(res[[4]])
+p4[[1]]
+```
