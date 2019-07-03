@@ -166,3 +166,8 @@ Funnel plot:
 p4 <- mr_funnel_plot(res[[4]])
 p4[[1]]
 ```
+Save the plot:
+```R
+ggsave(p1[[1]], file="filename.pdf", width=7, height=7) # Save as .PDF
+ggsave(p1[[1]], file="filename.png", width=7, height=7) # Save as .PNG
+```
