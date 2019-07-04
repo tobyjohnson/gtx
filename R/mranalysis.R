@@ -23,7 +23,7 @@ extract_study_info <- function(str,dbc=getOption("gtx.dbConnection", NULL)){
 }
 
 #' Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)
-#' 
+#' devtool
 #' This function allows the users to pre-process and extract the 
 #' required data from the GWA studies database, which then
 #' can be used to run Mendelian Randomization and other related
@@ -322,11 +322,12 @@ if(rsid==FALSE){
             
             #Ensure the right data.type and correct format of rsIDs
             n<-which(tolower(colnames(snp_list)) %like any% c("%rs%","%snp%"))
-            snp_list[n]<-gsub("rs","",unlist(snp_list[n]))
-            snp_list[n]<-as.integer(unlist(snp_list[n]))
+            snp_list<-as.data.frame(unique(snp_list[[n]]))
+            colnames(snp_list)<-"SNP"
             
-            #Choose only the unique instruments
-            snp_list<-unique(snp_list[n])
+            #Format SNPs for DB
+            snp_list$SNP<-gsub("rs","",unlist(snp_list$SNP))
+            snp_list$SNP<-as.integer(unlist(snp_list$SNP))
 
             #Search by rsIDs
             res <- apply(snp_list,1,function(X) odbc::dbGetQuery(dbc, paste0("SELECT g.pos,g.chrom,ids.rsid,g.ref,g.alt,g.beta,g.se,

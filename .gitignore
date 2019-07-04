@@ -4,3 +4,4 @@
 .Ruserdata
 *~
 .Rbuildignore
+mrbase.oauth
