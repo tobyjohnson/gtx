@@ -10,6 +10,7 @@ Genetics ToolboX R package
 * [MR and follow-up analyses](../mr-analysis/DOCS.md#mr-and-follow-up-analyses)
 
 ## Introduction
+### Mendelian Randomization 
 Mendelian Randomization analysis consists of several steps:
 1. Extract the instruments (SNPs) related to an exposure e.g., a risk factor such as smoking.
 2. (Optional) Prune the instruments to ensure that they are independent (automated for the datasets with rsIDs, otherwise has to be completed by the user).
@@ -17,14 +18,39 @@ Mendelian Randomization analysis consists of several steps:
 4. Format both datasets so that they can be used within the [MR-Base platform](http://www.mrbase.org), and ensure that all required variables were supplied (if a custom file is used).
 5. Run MR analysis and follow-up analyses (such as the heterogeneity, pleiotropy and single SNP tests).
 
-## GWAS search
-This method extracts a GWAS meta-information such as its analysis ID and samplesize using a keyword/keyphrase e.g.,
+### Installation steps
+1. Open R Studio in a browser.
+2. Install gtx package:
 ```R
-info<-extract_study_info('body mass')
+install.packages("devtools") # This step is needed if devtools has not been installed.
+devtools::install_github("tobyjohnson/gtx", ref="mr-analysis-dev") # Note "ref" may change when branches are merged.
+```
+3. Install [TwoSampleMR](https://github.com/MRCIEU/TwoSampleMR) package:
+```R
+devtools::install_github("MRCIEU/TwoSampleMR")
+```
+4. Attach both packages:
+```R
+library(gtx)
+library(TwoSampleMR)
+```
+5. Connect to the DB:
+```R
+gtxconnect(use_database=config_db())
+```
+6. Try this method to check that you have successfully connected to the DB:
+```R
+extract_study_info("asthma")
+```
+
+## GWAS search
+This method extracts a GWAS meta-information such as its analysis ID and samplesize using a keyword e.g.,
+```R
+info<-extract_study_info("asthma")
 ```
 
 ## Instrument (exposure) extraction
-The exposure instruments can be extracted by either using the chosen GWASs (_analysis_ or _analysis+entity_); or searching by a keyword/keyphrase such as 'body mass'. In the latest case, all studies which have a specified keyphrase will be considered for instrument extraction. If all studies should be looked up then:
+The exposure instruments can be extracted by either using the chosen GWASs (_analysis_ or _analysis+entity_); or searching by a keyword such as "asthma". In the latest case, all studies which have a specified keyphrase will be considered for instrument extraction. If all studies should be looked up then:
 ```R
 exp<-extract_exposure()
 ```
@@ -42,14 +68,14 @@ The default p-value threshold is _5e-08_. If it has to be changed then:
 ```R
 exp<-extract_exposure(p=5e-09,analyses=df)
 ```
-### Instrument extraction using a keyword/keyphrase
+### Instrument extraction using a keyword
 Note that all above options are applicable in this scenario as well such as:
 ```R
-exp<-extract_exposure(p=5e-09,str='body mass',rsid=TRUE)
+exp<-extract_exposure(p=5e-09,str="asthma",rsid=TRUE)
 ```
 or with default settings:
 ```R
-exp<-extract_exposure(str='body mass')
+exp<-extract_exposure(str="asthma")
 ```
 ## Outcome extraction
 The instruments chosen for the exposure then have to be found in the outcome GWAS. There are two options:
@@ -122,4 +148,26 @@ The output of this method is the list of dataframes __res__:
 
 For example, if you would like to access the MR results, please, choose __res[[1]]__.
 
+## Plots from TwoSampleMR
+The results produced by run_mr_gsk, i.e. __res__, then can be used to create useful plots.
 
+Scatter plot:
+```R
+p1 <- mr_scatter_plot(res[[1]], res[[5]])
+p1[[1]]
+```
+Forest plot:
+```R
+p2 <- mr_forest_plot(res[[4]])
+p2[[1]]
+```
+Funnel plot:
+```R
+p4 <- mr_funnel_plot(res[[4]])
+p4[[1]]
+```
+Save the plot:
+```R
+ggsave(p1[[1]], file="filename.pdf", width=7, height=7) # Save as .PDF
+ggsave(p1[[1]], file="filename.png", width=7, height=7) # Save as .PNG
+```
