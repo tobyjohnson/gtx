@@ -27,7 +27,9 @@ ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
   }
   
   # With the input analysis id, first check if we have pre-computed GWAS top hits
-  th_sql <- glue::glue('SELECT * FROM gwas_results_top_hits WHERE analysis = "{analysis}"')
+  th_sql <- glue::glue('SELECT * FROM gwas_results_top_hits \\
+                        WHERE analysis = "{analysis}" \\
+                        AND pval_index <= {pval_le}');
   th_query <- sqlWrapper(dbc, th_sql, uniq = FALSE, zrok = TRUE)
   
   if((nrow(th_query) >= 1) & isTRUE(use_precalc_top_hits)){
