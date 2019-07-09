@@ -381,7 +381,7 @@ sanitize <- function(x, values, type) {
             # return(substr(x, 5, nchar(x))) # note in future ENSG parts of identifiers WILL BE stripped
         } else if (identical(type, "ACGT+")) {
             x <- as.character(na.omit(x))
-            xa <- grepl("^[ACGT]+$", x)
+            xa <- grepl("^[ACGT]+$", x) | grepl("^<[A-Za-z0-9:]+>$", x)
             if (any(!xa)) {
                 stop('SQL input [ ', paste(x[!xa], collapse = ', '),
                      ' ] not an ACGT sequence')
