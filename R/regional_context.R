@@ -9,13 +9,16 @@ regional_context_query <- function(hgnc, hgncid){
 
 #' regional_context_analysis
 #' 
-#' Calculate regional_context on-the-fly. Run PheWAS for all variants, identifying GWAS at
-#' pval <= phewas_pval_le (1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
-#' variants from the VEP table. In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
-#' and all QTL data. For each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
-#' others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results. Due to the 
-#' high-throughput nature of this function, it is suggested to reduce logging info when running this function using: 
-#' futile.logger::flog.threshold(ERROR). This function will also use multiple cores if available.
+#' Calculate regional_context on-the-fly. 
+#' *Critical - DO NOT run this function in a loop, use vector inputs*.
+#' Run PheWAS for all variants, identifying GWAS at the significance threshold
+#' (1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
+#' variants from the VEP table and use all the VEP variants for PheWAS. 
+#' In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
+#' and all xQTL data. After the PheWAS, each positive variant+GWAS pair is clumped by GWAS top hits (th_pos). 
+#' Next, for each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
+#' others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results.
+#' This function will also use multiple cores if available.
 #' 
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
@@ -50,20 +53,160 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
   }
   
   # --- Perform PheWAS on each input
-  phewas_hits <- int_ht_phewas(hgnc   = hgnc,  hgncid = hgncid, 
-                               rs     = rs,    rsid   = rsid,
-                               chrom  = chrom, pos    = pos, 
-                               ref    = ref,   alt    = alt,
-                               ignore_ukb_neale = ignore_ukb_neale, 
-                               ignore_ukb_cane  = ignore_ukb_cane, 
-                               phewas_pval_le   = phewas_pval_le, 
-                               dbc = dbc)
+  phewas_hits <- 
+    int_ht_phewas_wrapper(hgnc   = hgnc,  hgncid = hgncid, 
+                          rs     = rs,    rsid   = rsid,
+                          chrom  = chrom, pos    = pos, 
+                          ref    = ref,   alt    = alt,
+                          ignore_ukb_neale = ignore_ukb_neale, 
+                          ignore_ukb_cane  = ignore_ukb_cane,
+                          ignore_qtls      = ignore_qtls, 
+                          phewas_pval_le   = phewas_pval_le, 
+                          dbc = dbc)
   
   # --- Perform regional_context analysis for each PheWAS hit
   gtx_info("Performing regional context analysis on {nrow(phewas_hits)} variants+GWAS pairs.")
   region_context_data <- int_ht_regional_context(input = phewas_hits, cpu = cpu, dbc = dbc, drop_cs = drop_cs, ...)
   
   return(region_context_data)
+}
+
+#' int_ht_phewas_wrapper
+#' 
+#' High-throughput PheWAS - high level wrapper pointing to int_ht_phewas. However, due to 
+#' limitations of impala, need to chunk the large phewas joins into smaller chunks. 
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param hgnc Will analyze all moderate/high impact VEP variants overlapping gene position (db.vep)
+#' @param rs RSID(s) to analyze as a string or vector
+#' @param chrom chromosome(s) to analyze as a string or vector
+#' @param pos positions(s) to analyze as a single or vector
+#' @param ref ref allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
+#' @param alt alt allele(s) to analyze as a string or vector. Optional w.r.t. chrom/pos.
+#' @param ignore_ukb_neale [Default = TRUE] TRUE = ignore Neale UKB GWAS in PheWAS
+#' @param ignore_ukb_cane [Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS
+#' @param ignore_qtls [Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)
+#' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
+#' @return tibble with all PheWAS hits
+int_ht_phewas_wrapper <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
+                                  ignore_ukb_neale = TRUE, 
+                                  ignore_ukb_cane = TRUE,
+                                  ignore_qtls = TRUE, 
+                                  phewas_pval_le = 1e-7, 
+                                  chunk_size = 500,
+                                  dbc = getOption("gtx.dbConnection", NULL)){
+  # --- Verify inputs
+  gtx_debug("int_ht_phewas | Checking for input params.")
+  if(missing(hgnc) & missing(hgncid) & missing(rs) & missing(rsid) & missing(chrom)){
+    gtx_fatal_stop("int_ht_phewas | Missing input param(s).")
+  }
+  
+  if(!missing(hgnc) | !missing(hgncid)){
+    if(!missing(hgncid)){    input <- dplyr::tibble(hgncid = hgncid) }
+    else if(!missing(hgnc)){ input <- dplyr::tibble(hgncid = hgnc)   }
+    
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(hgncid = .$hgncid, 
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(hgncid = input$hgncid,
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    }
+  } else if(!missing(rs) | !missing(rsid)){
+    if(!missing(rsid))   { input <- dplyr::tibble(rsid = rsid) }
+    else if(!missing(rs)){ input <- dplyr::tibble(rsid = rs)   }
+    
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(rsid = .$rsid, 
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(rsid = input$rsid, 
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    } 
+  } else if(!missing(ref)){
+    input <- dplyr::tibble(chrom = chrom, pos = pos, ref = ref, alt = alt) 
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(chrom = .$chrom, pos = .$pos, 
+                                                      ref = .$ref, alt = .$alt,
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(chrom = input$chrom, pos = input$pos, 
+                           ref = input$ref, alt = input$alt, 
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    }
+  } else if(!missing(chrom)) { 
+    gtx_debug("int_input_tbl | chrom,pos,ref - ID all genomic coordinates.")
+    input <- dplyr::tibble(chrom = chrom, pos = pos) 
+    if(nrow(input) > chunk_size){
+      gtx_debug("Spliting input into chunks for PheWAS.")
+      ret <- 
+        input %>% 
+        mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
+        group_by(tile) %>% 
+        nest(.key = "data") %>% 
+        mutate(phewas_data = map(data, ~int_ht_phewas(chrom = .$chrom, pos = .$pos,
+                                                      ignore_ukb_neale = ignore_ukb_neale, 
+                                                      ignore_ukb_cane  = ignore_ukb_cane,
+                                                      ignore_qtls      = ignore_qtls, 
+                                                      phewas_pval_le   = phewas_pval_le))) %>% 
+        select(-data, -tile) %>% 
+        unnest(phewas_data)
+      
+    } else {
+      ret <- int_ht_phewas(chrom = input$chrom, 
+                           pos   = input$pos, 
+                           ignore_ukb_neale = ignore_ukb_neale, 
+                           ignore_ukb_cane  = ignore_ukb_cane,
+                           ignore_qtls      = ignore_qtls, 
+                           phewas_pval_le   = phewas_pval_le)
+    }
+  }
+  return(ret)
 }
 
 #' int_ht_phewas
@@ -81,7 +224,7 @@ regional_context_analysis <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, a
 #' @param ignore_ukb_cane [Default = TRUE] TRUE = ignore Canelaxandri UKB GWAS in PheWAS
 #' @param ignore_qtls [Default = TRUE] TRUE = ignore QTLs in PheWAS (gwas_results with entity)
 #' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
-#' @return tibble with all PheWAS hits
+#' @return tibble with all PheWAS hits!
 int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
                           ignore_ukb_neale = TRUE, 
                           ignore_ukb_cane = TRUE,
@@ -114,12 +257,16 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   # --- Second, create select sql for GWAS
   marg_sql <- glue::glue('
     SELECT * FROM gwas_results
+      LEFT SEMI JOIN analyses
+      USING (analysis)
       WHERE pval <= {phewas_pval_le} 
       AND pval IS NOT NULL
       AND {phewas_chroms_where_clause}')
   
   cleo_sql <- glue::glue('
     SELECT * FROM gwas_results_cond
+      LEFT SEMI JOIN analyses
+      USING (analysis)
       WHERE pval_cond <= {phewas_pval_le} 
       AND pval_cond IS NOT NULL
       AND {phewas_chroms_where_clause}')
@@ -149,19 +296,33 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   tictoc::tic();
   
   phewas_marg_sql <- glue::glue('
-    WITH 
-    -- Define vars_q
+      WITH 
+      -- Define vars_q
       vars_q AS ({vars_sql}),
-    -- Define gwas_q
-      gwas_q AS ({marg_sql})
-    -- PheWAS by inner joining gwas_results and variants
-    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
-           cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
-      FROM gwas_q
-      INNER JOIN /* +BROADCAST */ vars_q
-      USING (chrom, pos, ref, alt)')
+      -- Define gwas_q
+      gwas_q AS ({marg_sql}),
+      -- PheWAS by inner joining gwas_results and variants subqueries
+      phewas_q AS 
+        (SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt,
+                cast(NULL as integer) as signal, gwas_q.analysis, gwas_q.pval, gwas_q.beta
+         FROM gwas_q
+         INNER JOIN vars_q
+         USING (chrom, pos, ref, alt))
+      -- Append GWAS top hits.
+      SELECT phewas_q.input, phewas_q.chrom, phewas_q.pos, phewas_q.ref, phewas_q.alt,
+             phewas_q.signal, phewas_q.analysis, phewas_q.pval, phewas_q.beta, 
+             gwas_results_top_hits.pos_index AS th_pos, 
+             gwas_results_top_hits.pos_start, 
+             gwas_results_top_hits.pos_end
+        FROM phewas_q 
+        INNER JOIN gwas_results_top_hits
+        USING (chrom, analysis)
+        WHERE pos >= pos_start AND pos <= pos_end')
   
-  phewas_marg <- sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = TRUE)
+  phewas_marg <- 
+    sqlWrapper(dbc, phewas_marg_sql, uniq = FALSE, zrok = TRUE) %>% 
+    dplyr::as_tibble() %>% 
+    dplyr::select(-pos_start, -pos_end)
   
   tictoc::toc(log = TRUE, quiet = TRUE)
   gtx_debug("int_ht_phewas | PheWAS on marginal GWAS results: {tictoc::tic.log(format = TRUE)}.")
@@ -174,23 +335,38 @@ int_ht_phewas <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   phewas_cleo_sql <- glue::glue('
     WITH 
     -- Define vars_q
-      vars_q AS ({vars_sql}),
+    vars_q AS ({vars_sql}),
     -- Define gwas_q
-      gwas_q AS ({cleo_sql})
-    -- PheWAS by inner joining gwas_results_cond and variants
-    SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, gwas_q.alt, 
-           gwas_q.signal, gwas_q.analysis, gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
-      FROM gwas_q
-      INNER JOIN /* +BROADCAST */ vars_q
-      USING (chrom, pos, ref, alt)')
+    gwas_q AS ({cleo_sql}),
+    -- Define phewas_q as inner joining gwas_results_cond and variants
+    phewas_q AS 
+      (SELECT vars_q.input, gwas_q.chrom, gwas_q.pos, gwas_q.ref, 
+              gwas_q.alt, gwas_q.signal, gwas_q.analysis, 
+              gwas_q.pval_cond as pval, gwas_q.beta_cond as beta
+        FROM gwas_q
+        INNER JOIN vars_q
+        USING (chrom, pos, ref, alt)),
+    gwas_results_joint_q AS 
+      (SELECT * 
+        FROM gwas_results_joint 
+        WHERE pval_joint IS NOT NULL 
+        AND {phewas_chroms_where_clause})
+    -- Joint to Joint top hits table
+    SELECT phewas_q.input, phewas_q.chrom, phewas_q.pos, phewas_q.ref, 
+           phewas_q.alt, phewas_q.signal, phewas_q.analysis, 
+           phewas_q.pval, phewas_q.beta, gwas_results_joint_q.pos AS th_pos
+      FROM phewas_q 
+      INNER JOIN gwas_results_joint_q
+      USING (analysis, chrom, signal)')
   
-  phewas_cleo <- sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE)
+  phewas_cleo <- 
+    sqlWrapper(dbc, phewas_cleo_sql, uniq = FALSE, zrok = TRUE) %>% dplyr::as_tibble()
   
   tictoc::toc(log = TRUE, quiet = TRUE)
   gtx_debug("int_ht_phewas | PheWAS on CLEO GWAS results: {tictoc::tic.log(format = TRUE)}.")
   
   # Union the two data streams and return
-  return(as_tibble(union(phewas_marg, phewas_cleo)))
+  return(dplyr::union(phewas_marg, phewas_cleo))
 }
 
 #' int_ht_regional_context
@@ -226,7 +402,7 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   else if(!(missing(analysis) & !missing(chrom) & !missing(pos) & missing(signal))){
     input = dplyr::tibble(analysis = analysis, chrom = chrom, pos = pos, ref = ref, alt = alt, signal = NA)
   } else {
-   gtx_fatal_stop("int_ht_regional_context | unable to process input properly.") 
+    gtx_fatal_stop("int_ht_regional_context | unable to process input properly.") 
   }
   if(nrow(input) == 0){
     gtx_warn("int_ht_regional_context_analysis | input has no data.")
@@ -234,8 +410,8 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   }
   
   # --- Setup multi-threading
+  current_database <- sqlWrapper(dbc, 'SELECT current_database() AS current_table;') %>% pull(current_table)
   if(nrow(input) > 3 & cpu > 1){
-    current_database <- sqlWrapper(dbc, 'SELECT current_database() AS current_table;') %>% pull(current_table)
     # Remove global variables for dbc 
     options("gtx.dbConnection" = NULL);
     gtxcache(disconnect = TRUE)
@@ -243,57 +419,55 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
     future::plan(future::multisession, workers = as.integer(cpu))
   } else {
     future::plan(future::sequential)
-    current_database <- config_db()
   }
+  # Split input into uniq cred sets that we need to gather
+  cs2get <- input %>% dplyr::distinct(analysis, chrom, th_pos, signal)
   
-  # Get cred sets
+  # Get cred sets for each unique region
   gtx_info("Starting regional context analysis for all GWAS results.")
-  ret <- 
-    input %>% 
-    dplyr::mutate(cs = 
-      furrr::future_pmap(list(analysis, chrom, pos, signal), 
-                        ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
-                                                 signal = ..4, use_database = current_database)))
+  cs2get_ret <- 
+    cs2get %>% 
+    dplyr::mutate(cs_df = 
+                    furrr::future_pmap(list(analysis, chrom, th_pos, signal), 
+                                       ~int_ht_rpd_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
+                                                           signal = ..4, use_database = current_database)))
   
-  # Annotate critical data (e.g. variant in the cred set)
+  # JOIN uniq regions to all the variants with the same TH/CLEO window
+  cs2get_ret <- 
+    dplyr::inner_join(input, cs2get_ret, by = c("analysis", "chrom", "th_pos", "signal")) %>%
+    dplyr::select(-th_pos)
+  
+  # Annotate variant ~ credset critical data (e.g. variant in the cred set)
   ret <- 
-    ret %>% 
-    dplyr::as_tibble() %>% 
-    # queried variant in the cred set
-    dplyr::mutate(var_in_cs  = purrr::pmap_lgl(list(cs, chrom, pos, ref, alt), 
-                                               ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & ref == ..4 & 
-                                                                alt == ..5 & cs_signal == TRUE) %>% 
-                                                 nrow >= 1)) %>% 
-    # queried variant posterior probability
-    dplyr::mutate(var_pp     = purrr::pmap_dbl(list(cs, chrom, pos, ref, alt), 
-                                               ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
-                                                                ref == ..4 & alt == ..5 ) %>% 
-                                                 dplyr::pull(pp_signal))) %>% 
-    # number of snps in the cred set
-    dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs_signal == TRUE) %>% nrow)) %>% 
-    # cred set top hit posterior probability
-    dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp_signal))) %>% 
-    # dplyr::mutate(cs_alpha = map_dbl(cs, ~dplyr::filter(cs_signal == TRUE) %>%
-                                         # summarize(alpha = sum(beta * lnabf)/sum(lnabf)) %>% # REVIEW WITH TOBY
-                                         # pull(alpha))) %>% 
-    dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp_signal) %>% 
-                                                dplyr::select(pos, ref, alt, pval))) %>% 
-    tidyr::unnest(cs_th_data) %>% 
-    dplyr::rename(th_pos = pos1, th_ref = ref1, th_alt = alt1, th_pval = pval1) 
+    cs2get_ret %>% 
+    dplyr::mutate(cs_annots = furrr::future_pmap(list(cs_df, chrom, pos, ref, alt), 
+                  ~int_ht_regional_annot(cs_df = ..1, chrom = ..2, pos = ..3, ref = ..4, alt = ..5)))
   
   if(isTRUE(drop_cs)){
-    ret <- ret %>% dplyr::select(-cs)
+    ret <- ret %>% dplyr::select(-cs_df)
+  } else {
+    ret <- 
+      ret %>% 
+      dplyr::mutate(cs_df = purrr::pmap(list(cs_df, chrom, pos),
+                                     ~dplyr::filter(..1, cs == TRUE | (chrom == ..2 & pos == ..3))))
   }
   
+  ret <- ret %>% tidyr::unnest(cs_annots, .drop = FALSE)
+  
   # reconnect to DB
-  gtxconnect(use_database = current_database)
+  if(nrow(input) > 3 & cpu > 1){
+    options("gtx.dbConnection" = NULL);
+    gtxcache(disconnect = TRUE)
+    DBI::dbDisconnect(dbc)
+    gtxconnect(use_database = current_database, cache = TRUE)
+  }
   
   return(ret)
 }
 
-#' int_ht_cred_set_wrapper
+#' int_ht_rpd_wrapper
 #' 
-#' int_ht_cred_set_wrapper
+#' int_ht_rpd_wrapper - internal high-throughput RegionPlot.Data wrapper.
 #' 
 #' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
 #' @param chrom chromosome
@@ -305,42 +479,104 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
 #' @examples 
 #' ret <- tibble(analysis = "GSK500KV3lin_HES_Asthma", chrom = "9", pos = 6255967, signal = 4) %>%  
 #'        mutate(cs = future_pmap(list(analysis, chrom, pos, signal), 
-#'                                ~int_ht_cred_set_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
+#'                                ~int_ht_rpd_wrapper(analysis = ..1, chrom = ..2, pos = ..3, 
 #'                                                         signal = ..4, use_database = config_db())))
 #' @return tibble with the credible set AND the variant queried
-int_ht_cred_set_wrapper <- function(analysis, chrom, pos, signal, use_database, ...){
+int_ht_rpd_wrapper <- function(analysis, chrom, pos, signal, use_database, ...){
   if(missing(chrom) | missing(pos) | missing(analysis) | missing(signal) | missing(use_database)){
-    gtx_fatal_stop("int_ht_cred_set_wrapper | missing input arguement(s).")
+    gtx_fatal_stop("int_ht_rpd_wrapper | missing input arguement(s).")
   }
-
+  
   if(is.null(getOption("gtx.dbConnection", NULL))){
-    gtx_debug("int_ht_cred_set_wrapper | Establishing gtxconnection.")
+    gtx_debug("int_ht_rpd_wrapper | Establishing gtxconnection.")
     gtxconnect(use_database = use_database, cache = TRUE)
     gtxdbcheck(getOption("gtx.dbConnection"))
+    futile.logger::flog.threshold(ERROR)
   } else {
-    gtx_debug("int_ht_cred_set_wrapper | Using pre-established gtxconnection.")
+    gtx_debug("int_ht_rpd_wrapper | Using pre-established gtxconnection.")
   }
   
   if(is.na(signal)){
     ret <- 
-      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signal', ...) %>% 
-      dplyr::select(-freq, -rsq)
+      regionplot.data(analysis = analysis, 
+                      chrom    = chrom, 
+                      pos      = pos, 
+                      style    = 'signal', ...) %>% 
+      dplyr::as_tibble() %>% 
+      dplyr::select(-freq, -rsq) %>% 
+      dplyr::rename(pp = pp_signal, cs = cs_signal)
   } else if(!is.na(signal)){
     ret <- 
-      regionplot.data(analysis = analysis, chrom = chrom, pos = pos, style = 'signals', signal = signal, ...) %>% 
-      dplyr::select(-dplyr::matches("signal")) %>% 
-      dplyr::rename(pp_signal = pp_cleo, cs_signal = cs_cleo)
+      # TODO look into using fm_cleo.data instead of regionplot.data here. 
+      regionplot.data(analysis = analysis, 
+                      chrom    = chrom, 
+                      pos      = pos, 
+                      style    = 'signals', 
+                      signal   = signal, ...) %>% 
+      dplyr::as_tibble() %>% 
+      dplyr::filter(signal == !! signal) %>%      
+      dplyr::rename(pp = pp_cleo, cs = cs_cleo)
   } else {
-    gtx_fatal_stop("int_ht_cred_set_wrapper | Unable to determine type of signal to process.")
+    gtx_fatal_stop("int_ht_rpd_wrapper | Unable to determine type of signal to process.")
   }
-  
-  ret <- 
-    ret %>% 
-    dplyr::filter(cs_signal == TRUE | (chrom == !! chrom & pos == !! pos)) %>% 
-    dplyr::as_tibble()
-  
+
   return(ret)
 }
+
+#' int_ht_regional_annot
+#' 
+#' High-Throughput regional_contex annot of cs.
+#' 
+#' @author Karsten Sieber \email{karsten.b.sieber@@gsk.com}
+#' @param input data.frame with chrom, pos, analysis, signal; likely & suggested input from int_ht_phewas. Other cols will be kept. 
+#' @param chrom chromosome (Mandatory)
+#' @param pos position (Mandatory)
+#' @param analysis analysis ID (Mandatory)
+#' @param signal CLEO signal OR NA. (Mandatory)
+#' @param ... Params to pass to regionplot.data (e.g. surround = 1e6)
+#' @param dbc [Default = getOption("gtx.dbConnection", NULL)] gtxconnection. 
+#' @return tibble 
+int_ht_regional_annot <- function(cs_df, chrom, pos, ref, alt){
+  if(missing(cs_df) | missing(chrom) | missing(pos) | missing(ref) | missing(alt)){
+    gtx_fatal_stop("int_ht_regional_annot missing input param.")
+  }
+  
+  # queried variant in the cred set
+  var_in_cs <-
+    case_when(dplyr::filter(cs_df, chrom == !!chrom & pos == !!pos & ref == !!ref & alt == !!alt &
+                              cs == TRUE) %>% nrow(.) >= 1 ~ TRUE,
+              TRUE ~ FALSE)
+
+  # queried variant posterior probability
+  
+    if(dplyr::filter(cs_df,   chrom == !!chrom & pos == !!pos & ref == !!ref & alt == !!alt) %>% nrow(.) >= 1){
+      var_pp <-
+        dplyr::filter(cs_df, chrom == !!chrom & pos == !!pos & ref == !!ref & alt == !!alt) %>% 
+        dplyr::pull(pp) %>%
+        as.double()      
+    } else {
+      var_pp <- as.double(NA)
+    }
+
+  n_in_cs = dplyr::filter(cs_df, cs == TRUE) %>% nrow()
+
+  # cred set top hit posterior probability
+  cs_th_pp <- max(cs_df$pp)
+  cs_th_data <-
+    dplyr::top_n(cs_df, 1, pp) %>%
+    dplyr::select(pos, ref, alt, pval) %>%
+    dplyr::rename(th_pos = pos, th_ref = ref, th_alt = alt, th_pval = pval)
+
+  return(dplyr::tibble("var_in_cs" = !! var_in_cs, 
+                       "var_pp" = !! var_pp, 
+                       "n_in_cs" = !! n_in_cs,
+                       "cs_th_pp" = !! cs_th_pp,
+                       "th_pos" = cs_th_data$th_pos,
+                       "th_ref" = cs_th_data$th_ref,
+                       "th_alt" = cs_th_data$th_alt,
+                       "th_pval" = cs_th_data$th_pval))
+}
+
 
 
 #' int_input_2_select_snps_sql
@@ -362,7 +598,10 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
     if(!missing(hgncid)){    input <- dplyr::tibble(input = hgncid) }
     else if(!missing(hgnc)){ input <- dplyr::tibble(input = hgnc)   }
     
-    input <- input %>% dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(hgncid = .)))
+    input <- 
+      input %>% 
+      dplyr::mutate(where_clause = purrr::map_chr(input, ~gtxwhere(hgncid = .))) %>% 
+      dplyr::mutate(where_clause = glue::glue("({where_clause})"))
     
     select_statement <- glue::glue('
       WITH 
@@ -370,7 +609,7 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
                WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")})
       SELECT hgncid AS input, vep.chrom, vep.pos, vep.ref, vep.alt 
         FROM vep
-        INNER JOIN /* +BROADCAST */ t1
+        INNER JOIN t1
         USING (chrom)
         WHERE pos >= pos_start AND pos <= pos_end')
     
@@ -391,8 +630,8 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
     input <- 
       dplyr::tibble(chrom = chrom, pos = pos, ref = ref, alt = alt) %>% 
       dplyr::mutate(where_clause = purrr::pmap_chr(list(chrom, pos, ref, alt),
-                                     ~gtxwhere(chrom = ..1, pos = ..2, 
-                                               ref   = ..3, alt = ..4)))
+                                                   ~gtxwhere(chrom = ..1, pos = ..2, 
+                                                             ref   = ..3, alt = ..4)))
     
     select_statement <- glue::glue('
       SELECT CONCAT("chr", chrom, "_", cast(pos as string), "_", ref, "_", alt) AS input, chrom, pos, ref, alt
@@ -416,3 +655,51 @@ int_input_2_select_snps_sql <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref,
   
   return(select_statement)
 }
+
+# __END__
+# # queried variant in the cred set
+# var_in_cs <- 
+#   case_when(dplyr::filter(cs, chrom == chrom & pos == pos &
+#                             ref == ref & alt == alt & 
+#                             cs == TRUE) %>% nrow(.) >= 1 ~ TRUE, 
+#             TRUE ~ FALSE)
+# 
+# # queried variant posterior probability
+# var_pp <- 
+#   case_when(dplyr::filter(cs, chrom == chrom & pos == pos & ref == ref & alt == alt) %>% nrow(.) >= 1 ~ 
+#               dplyr::filter(cs, chrom == chrom & pos == pos & ref == ref & alt == alt) %>% dplyr::pull(pp),
+#             TRUE ~ NA_complex_)
+# 
+# n_in_cs = dplyr::filter(cs, cs == TRUE) %>% nrow()
+# 
+# # cred set top hit posterior probability
+# cs_th_pp <- max(cs$pp)
+# cs_th_data <- 
+#   dplyr::top_n(cs, 1, pp) %>% 
+#   dplyr::select(pos, ref, alt, pval) %>% 
+#   dplyr::rename(th_pos = pos, th_ref = ref, th_alt = alt, th_pval = pval) 
+# 
+# return(dplyr::tibble(var_in_cs, var_pp, n_in_cs, cs_th_pp, cs_th_data))
+
+
+# ret <- 
+#   input %>% 
+#   dplyr::mutate(var_in_cs  = purrr::pmap_lgl(list(cs, chrom, pos, ref, alt), 
+#                                              ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & ref == ..4 & 
+#                                                               alt == ..5 & cs == TRUE) %>% 
+#                                                nrow(.) >= 1)) %>% 
+#   # queried variant posterior probability
+#   dplyr::mutate(var_pp     = purrr::pmap(list(cs, chrom, pos, ref, alt), 
+#                                          ~dplyr::filter(..1, chrom == ..2 & pos == ..3 & 
+#                                                           ref == ..4 & alt == ..5 ) %>% 
+#                                            dplyr::pull(pp))) %>% 
+#   # tidyr::unnest(var_pp, .drop = FALSE) %>% 
+#   # number of snps in the cred set
+#   dplyr::mutate(n_in_cs    = purrr::map_dbl(cs, ~dplyr::filter(., cs == TRUE) %>% nrow)) %>% 
+#   # cred set top hit posterior probability
+#   dplyr::mutate(cs_th_pp   = purrr::map_dbl(cs, ~max(.$pp))) %>% 
+#   dplyr::mutate(cs_th_data = purrr::map(cs, ~dplyr::top_n(., 1, pp) %>% 
+#                                           dplyr::select(pos, ref, alt, pval))) %>% 
+#   dplyr::select(-cs, -chrom, -pos, -ref, -alt) %>%
+#   tidyr::unnest(cs_th_data, .drop = FALSE) %>% 
+#   # dplyr::rename(th_pos = pos, th_ref = ref, th_alt = alt, th_pval = pval) 

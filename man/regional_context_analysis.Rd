@@ -38,13 +38,16 @@ regional_context_analysis(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
 tibble (data.frame)
 }
 \description{
-Calculate regional_context on-the-fly. Run PheWAS for all variants, identifying GWAS at
-pval <= phewas_pval_le (1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
-variants from the VEP table. In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
-and all QTL data. For each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
-others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results. Due to the 
-high-throughput nature of this function, it is suggested to reduce logging info when running this function using: 
-futile.logger::flog.threshold(ERROR).
+Calculate regional_context on-the-fly. 
+*Critical - DO NOT run this function in a loop, use vector inputs*.
+Run PheWAS for all variants, identifying GWAS at the significance threshold
+(1e-7 by default). If a gene is used as input, the function will find all moderate/high impact
+variants from the VEP table and use all the VEP variants for PheWAS. 
+In the Phewas, the default behavior is to also ignore Ben Neale v1 & Canelaxandri17 UKB,
+and all xQTL data. After the PheWAS, each positive variant+GWAS pair is clumped by GWAS top hits (th_pos). 
+Next, for each variant+GWAS pair, generate credible sets and determine if the variant is in the credible set and gather 
+others stats on each credible set. Perform this analysis on both marginal GWAS and CLEO GWAS results.
+This function will also use multiple cores if available.
 }
 \author{
 Karsten Sieber \email{karsten.b.sieber@gsk.com}

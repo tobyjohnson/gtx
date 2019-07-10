@@ -7,31 +7,46 @@
 #' @export
 #' @family ideas_predict
 #' @param analysis GWAS analysis id. 
+#' @param use_precalc_top_hits [TRUE] Use if gwas_results_top_hits data if available. (TRUE/FALSE)
 #' @param chrom Chromosome to query
 #' @param pos Position
-#' @param pval_le [5e-8] Max pval for GWAS 
+#' @param pval_le [5e-8] Max pval for GWAS top hits. 
 #' @param case_emac_ge [25] 
 #' @return Table of GWAS loci with posteriors for \code{\link{ideas_predict}}
 #' @import dplyr
 #' @import purrr
 ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
-                      dbc = getOption("gtx.dbConnection", NULL)) {
+                       use_precalc_top_hits = TRUE,
+                       dbc = getOption("gtx.dbConnection", NULL)) {
   gtxdbcheck(dbc)
-  gtx_info("ideas_make | Calculating GWAS top hits for: {analysis}.")
+  
   # 
   if(!is_character(analysis)){
     gtx_error("ideas_make | analysis must be of type 'character'.");
     stop();
   }
-  safely_gwas <- purrr::safely(gtx::gwas)
-  exec <- safely_gwas(analysis, case_emac_ge = case_emac_ge, pval_thresh = pval_le, 
-                      style = FALSE, gene_annotate = FALSE)
   
-  if(is_null(exec$result)){
-    gtx_warn("ideas_make | gwas() returned zero results for analysis: {analysis} at pval_thresh: {pval_le}.")
-    return(NULL);
+  # With the input analysis id, first check if we have pre-computed GWAS top hits
+  th_sql <- glue::glue('SELECT * FROM gwas_results_top_hits \\
+                        WHERE analysis = "{analysis}" \\
+                        AND pval_index <= {pval_le}');
+  th_query <- sqlWrapper(dbc, th_sql, uniq = FALSE, zrok = TRUE)
+  
+  if((nrow(th_query) >= 1) & isTRUE(use_precalc_top_hits)){
+    gtx_info("ideas_make | Using precalculated GWAS top hits from gwas_results_top_hits for: {analysis}.")  
+    my_gwas <- th_query
   } else {
-    my_gwas <- exec$result
+    gtx_info("ideas_make | Calculating GWAS top hits for: {analysis}.")
+    safely_gwas <- purrr::safely(gtx::gwas)
+    exec <- safely_gwas(analysis, case_emac_ge = case_emac_ge, pval_thresh = pval_le, 
+                        style = FALSE, gene_annotate = FALSE)
+    
+    if(is_null(exec$result)){
+      gtx_warn("ideas_make | gwas() returned zero results for analysis: {analysis} at pval_thresh: {pval_le}.")
+      return(NULL);
+    } else {
+      my_gwas <- exec$result
+    }
   }
   
   if (!missing(chrom) & !missing(pos)) {
@@ -51,6 +66,7 @@ ideas_make <- function(analysis, pval_le = 5e-08, chrom, pos, case_emac_ge = 25,
   gtx_info("ideas_make | Calculating cred sets for each GWAS top hit.")
   all_significant_regions <- 
     my_gwas %>% 
+    dplyr::filter(pval_index <= pval_le) %>% 
     dplyr::group_by(chrom, pos_index, pval_index) %>% 
     dplyr::do(regionplot.data(analysis, chrom = .$chrom, pos = .$pos_index, 
                               case_emac_ge = case_emac_ge, style = "signal", maf_ge = 0.001)) %>% 
