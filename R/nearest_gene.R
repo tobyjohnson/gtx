@@ -8,12 +8,12 @@
 #' @param analysis GWAS analysis ID
 #' @param ensemblid Ensembl gene ID.
 #' @param hgnc Analyze all moderate/high impact VEP variants overlapping gene position.
-#' @param rs RSID(s) to analyze as a string or vector
-#' @param chrom chromosome(s) to analyze as a string or vector
-#' @param pos positions(s) to analyze as a single or vector
+#' @param rs RSID(s) to analyze as a string or vector #Not implemented yet
+#' @param chrom chromosome(s) to analyze as a string or vector #Not implemented yet
+#' @param pos positions(s) to analyze as a single or vector  #Not implemented yet
 #' @param nearest_method  [Default = 'nearest_tss'] String(s) specifying the method for calculating nearest gene. 
 #' {'nearest_tss', 'nearest_dist_pruned', 'nearest_localized'}
-#' @param localized_dist_ge [Default = 1e5] For nearest_method 'nearest_localized', this is the distance that the second nearest gene must be from the TH. 
+#' @param dist_prune_ge [Default = 1e5] For nearest_method 'nearest_localized', this is the distance that the second nearest gene must be from the TH. 
 #' @param include_negative_results [Default = FALSE] Return non-nearest gene within surround distance.
 #' @param surround [Default = 1e6] Max distance (bp) to non-nearest gene. 
 #' @param ignore_ukb_neale [Default = TRUE] TRUE = ignore Neale UKB GWAS in PheWAS
@@ -24,13 +24,14 @@
 nearest_gene <- function(analysis, hgnc, hgncid, ensemblid, 
                          rs, rsid, chrom, pos,
                          nearest_method = c('nearest_tss', 'nearest_dist_pruned', 'nearest_localized'),
-                         localized_dist_ge = 1e5,
+                         dist_prune_ge = 1e5,
                          # max_dist2tss = NULL, #TODO
                          protein_coding_only = TRUE,
                          include_negative_results = FALSE,
                          surround = 1e6,
                          gwas_pval_le = 5e-8,
                          calc_th = FALSE, gwas_args,
+                         aba_gwas_results = FALSE,
                          ignore_ukb_neale = TRUE, 
                          ignore_ukb_cane  = TRUE,
                          dbc = getOption("gtx.dbConnection", NULL)){
@@ -51,24 +52,32 @@ nearest_gene <- function(analysis, hgnc, hgncid, ensemblid,
   # do stuff
   if(!missing(hgncid) | !missing(ensemblid)){
     nearest_genes <- 
-      int_nearest_gene_instr_on_gene(hgncid    = hgncid, ensemblid = ensemblid, 
-                                      nearest_method = nearest_method, localized_dist_ge = localized_dist_ge,
+      int_nearest_gene_instr_on_gene(hgncid = hgncid, ensemblid = ensemblid, 
+                                      nearest_method = nearest_method, dist_prune_ge = dist_prune_ge,
                                       include_negative_results = include_negative_results,
                                       surround = surround, gwas_pval_le = gwas_pval_le,
                                       protein_coding_only  = protein_coding_only,
                                       th_gwas_where_clause = th_gwas_where_clause, 
                                       dbc = dbc)
+  } else if(!missing(analysis) | aba_gwas_results == TRUE){
+    nearest_genes <- 
+      int_nearest_gene_instr_on_gwas(analysis = analysis, aba_gwas_results = aba_gwas_results,
+                                     nearest_method = nearest_method, dist_prune_ge = dist_prune_ge,
+                                     include_negative_results = include_negative_results,
+                                     surround = surround, gwas_pval_le = gwas_pval_le,
+                                     protein_coding_only  = protein_coding_only,
+                                     th_gwas_where_clause = th_gwas_where_clause, 
+                                     dbc = dbc)
   }
   
   
   # Order results
   nearest_genes <- 
     nearest_genes %>% 
-    arrange(chrom, pos_index, signal, analysis) %>% 
-    select(-start_gene, -end_gene, -strand_gene) %>% 
-    select(-n_gene_overlap_th, -matches("nearest"), 
-           everything(), 
-           n_gene_overlap_th, matches("nearest"))
+    dplyr::arrange(chrom, pos_index, signal, analysis) %>% 
+    dplyr::select(-start_gene, -end_gene, -strand_gene) %>% 
+    dplyr::select(-n_gene_overlap_th, dplyr::everything(), n_gene_overlap_th) %>% 
+    dplyr::select(hgncid, ensemblid, analysis, dplyr::matches("nearest"), dplyr::everything())
   
   # return
   return(nearest_genes)
@@ -76,7 +85,7 @@ nearest_gene <- function(analysis, hgnc, hgncid, ensemblid,
 
 int_nearest_gene_instr_on_gene <- function(hgncid, ensemblid,
                                            nearest_method,
-                                           localized_dist_ge,
+                                           dist_prune_ge,
                                            include_negative_results = FALSE,
                                            surround = 1e6, gwas_pval_le = 5e-8,
                                            th_gwas_where_clause, protein_coding_only = FALSE, 
@@ -115,8 +124,8 @@ int_nearest_gene_instr_on_gene <- function(hgncid, ensemblid,
     
   th_cp_where_clause <- 
     glue::glue('(',
-         glue::glue_collapse(glue::glue("({genes_chroms$th_where_clause})"), sep = " OR "),
-         ')')
+               glue::glue_collapse(glue::glue("({genes_chroms$th_where_clause})"), sep = " OR "),
+               ')')
   
   genes_tbl_c_where_clause <- 
     glue::glue('(',
@@ -196,44 +205,47 @@ int_nearest_gene_instr_on_gene <- function(hgncid, ensemblid,
   # Remove non-protein_coding transcripts if param = TRUE
   if(protein_coding_only == TRUE){
     gtx_warn("Filtering for protein_coding genes only.")
-    all_near <- all_near %>% dplyr::filter(genetype == "protein_coding")
+    all_near <- 
+      all_near %>% 
+      dplyr::filter(genetype == "protein_coding") %>% 
+      dplyr::filter(!is.na(hgncid))
   }
   
   # From all the near genes, ID the nearest genes 
   all_nearest <- int_calc_nearest_from_near(input = all_near, 
                                             nearest_method = nearest_method, 
-                                            localized_dist_ge = localized_dist_ge,
+                                            dist_prune_ge = dist_prune_ge,
                                             include_negative_results = include_negative_results)
   
   # Mark loci with input genes and keep entire loci containing input hits.
   if(!missing(hgncid)){
     ret <- 
-      inner_join(input %>% 
-                 select(-where_clause) %>% 
-                 rename(hgncid = input),
-               all_nearest %>% 
-                 dplyr::filter_at(.vars = dplyr::vars(dplyr::matches("nearest")), 
-                                  .vars_predicate = dplyr::any_vars(. == TRUE)), 
-               by = "hgncid") %>% 
-      distinct(analysis, chrom, signal, pos_index, ref_index, alt_index) %>% 
-      mutate(input_locus = TRUE) %>% 
-      left_join(all_nearest, 
-                by = c("analysis", "chrom", "signal", "pos_index", "ref_index", "alt_index")) %>% 
-      filter(input_locus == TRUE) %>% 
-      select(-input_locus)
+      dplyr::inner_join(input %>% 
+                          dplyr::select(-where_clause) %>% 
+                          dplyr::rename(hgncid = input),
+                        all_nearest %>% 
+                          dplyr::filter_at(.vars = dplyr::vars(dplyr::matches("nearest")), 
+                                           .vars_predicate = dplyr::any_vars(. == TRUE)), 
+                        by = "hgncid") %>% 
+      dplyr::distinct(analysis, chrom, signal, pos_index, ref_index, alt_index) %>% 
+      dplyr::mutate(input_locus = TRUE) %>% 
+      dplyr::left_join(all_nearest, 
+                       by = c("analysis", "chrom", "signal", "pos_index", "ref_index", "alt_index")) %>% 
+      dplyr::filter(input_locus == TRUE) %>% 
+      dplyr::select(-input_locus)
   } else if(!missing(ensemblid)){
     ret <- 
-      inner_join(input %>% 
-                   select(-where_clause) %>% 
-                   rename(hgncid = input),
-                 all_nearest %>% filter(nearest_gene == TRUE), 
-                 by = "hgncid") %>% 
-      distinct(analysis, chrom, signal, pos_index, ref_index, alt_index) %>% 
-      mutate(input_locus = TRUE) %>% 
-      left_join(all_nearest, 
-                by = c("analysis", "chrom", "signal", "pos_index", "ref_index", "alt_index")) %>% 
-      filter(input_locus == TRUE) %>% 
-      select(-input_locus)
+      dplyr::inner_join(input %>% 
+                          dplyr::select(-where_clause) %>% 
+                          dplyr::rename(hgncid = input),
+                        all_nearest %>% dplyr::filter(nearest_gene == TRUE), 
+                        by = "hgncid") %>% 
+      dplyr::distinct(analysis, chrom, signal, pos_index, ref_index, alt_index) %>% 
+      dplyr::mutate(input_locus = TRUE) %>% 
+      dplyr::left_join(all_nearest, 
+                       by = c("analysis", "chrom", "signal", "pos_index", "ref_index", "alt_index")) %>% 
+      dplyr::filter(input_locus == TRUE) %>% 
+      dplyr::select(-input_locus)
   } else {
     gtx_fatal_stop("Uncertain how to filter final results.")
   }
@@ -257,23 +269,22 @@ int_nearest_gene_instr_on_chrom_pos <- function(chrom, pos,
     dplyr::mutate(where_clause = purrr::map2_chr(chrom, ~gtxwhere(chrom = .)))
   
   # Build SQL to get genes of interest
-  genes_sql <- glue::glue('
-                          SELECT * 
-                          FROM t_genes 
-                          WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")}')
+  genes_sql <- glue::glue('SELECT * 
+                           FROM t_genes 
+                           WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")}')
   
   if(is.null(all_near)){
     gtx_fatal_stop("Did not find ANY genes near GWAS top hits. Something has likely gone terribly wrong.")
   } else {
     all_near <- 
       all_near %>% 
-      as_tibble() %>% 
-      mutate(dist2tss = as.integer(dist2tss))
+      dplyr::as_tibble() %>% 
+      dplyr::mutate(dist2tss = as.integer(dist2tss))
   }
   
   if(protein_coding_only == TRUE){
     gtx_warn("Filtering for protein_coding genes only.")
-    all_near <- all_near %>% filter(genetype == "protein_coding")
+    all_near <- all_near %>% dplyr::filter(genetype == "protein_coding")
   }
   
   all_nearest <- int_calc_nearest_from_near(input = all_near, include_negative_results = include_negative_results)
@@ -281,32 +292,32 @@ int_nearest_gene_instr_on_chrom_pos <- function(chrom, pos,
   if(!missing(hgncid)){
     # Mark loci with input genes and keep entire loci containing input hits.
     ret <- 
-      inner_join(input %>% 
-                   select(-where_clause) %>% 
-                   rename(hgncid = input),
-                 all_nearest %>% filter(nearest_gene == TRUE), 
-                 by = "hgncid") %>% 
-      distinct(analysis, chrom, signal, pos, ref, alt) %>% 
-      mutate(input_locus = TRUE) %>% 
-      left_join(all_nearest, 
-                by = c("analysis", "chrom", "signal", "pos", "ref", "alt")) %>% 
-      filter(input_locus == TRUE) %>% 
-      select(-input_locus)
+      dplyr::inner_join(input %>% 
+                          dplyr::select(-where_clause) %>% 
+                          dplyr::rename(hgncid = input),
+                        all_nearest %>% dplyr::filter(nearest_gene == TRUE), 
+                        by = "hgncid") %>% 
+      dplyr::distinct(analysis, chrom, signal, pos, ref, alt) %>% 
+      dplyr::mutate(input_locus = TRUE) %>% 
+      dplyr::left_join(all_nearest, 
+                       by = c("analysis", "chrom", "signal", "pos", "ref", "alt")) %>% 
+      dplyr::filter(input_locus == TRUE) %>% 
+      dplyr::select(-input_locus)
     
     return(ret)
   } else if(!missing(ensemblid)){
     ret <- 
-      inner_join(input %>% 
-                   select(-where_clause) %>% 
-                   rename(hgncid = input),
-                 all_nearest %>% filter(nearest_gene == TRUE), 
-                 by = "hgncid") %>% 
-      distinct(analysis, chrom, signal, pos, ref, alt) %>% 
-      mutate(input_locus = TRUE) %>% 
-      left_join(all_nearest, 
-                by = c("analysis", "chrom", "signal", "pos", "ref", "alt")) %>% 
-      filter(input_locus == TRUE) %>% 
-      select(-input_locus)
+      dplyr::inner_join(input %>% 
+                          dplyr::select(-where_clause) %>% 
+                          dplyr::rename(hgncid = input),
+                        all_nearest %>% dplyr::filter(nearest_gene == TRUE), 
+                        by = "hgncid") %>% 
+      dplyr::distinct(analysis, chrom, signal, pos, ref, alt) %>% 
+      dplyr::mutate(input_locus = TRUE) %>% 
+      dplyr::left_join(all_nearest, 
+                       by = c("analysis", "chrom", "signal", "pos", "ref", "alt")) %>% 
+      dplyr::filter(input_locus == TRUE) %>% 
+      dplyr::select(-input_locus)
     
     return(ret)
   } else {
@@ -314,12 +325,15 @@ int_nearest_gene_instr_on_chrom_pos <- function(chrom, pos,
   }
 }
 
-int_nearest_gene_instr_on_gwas <- function(analysis, aba_gwas_results = FALSE, calc_th = FALSE, gwas_args,
+int_nearest_gene_instr_on_gwas <- function(analysis, aba_gwas_results = FALSE, 
+                                           nearest_method, dist_prune_ge,
                                            include_negative_results = FALSE,
-                                           surround = 1e6){
+                                           surround = 1e6, gwas_pval_le = 5e-8,
+                                           th_gwas_where_clause, protein_coding_only = FALSE,
+                                           dbc = getOption("gtx.dbConnection", NULL)){
   # Verify inputs
-  if(missing(analysis)){
-    gtx_fata_stop("Missing input param: analysis.")
+  if(missing(analysis) & aba_gwas_results == FALSE){
+    gtx_fatal_stop("Missing input param: analysis.")
   }
   
   if(!missing(analysis) & aba_gwas_results == FALSE){
@@ -332,103 +346,81 @@ int_nearest_gene_instr_on_gwas <- function(analysis, aba_gwas_results = FALSE, c
                  glue::glue_collapse(glue::glue("({input$where_clause})"), sep = " OR "),
                  ')')
     
-    th_chroms_sql <- 
-      glue::glue('SELECT distinct(chrom) 
+    marg_gwas_q_sql <- 
+      glue::glue('SELECT analysis, chrom, cast(NULL as integer) as signal, pos_index, ref_index,
+                         alt_index, pval_index, beta_index, pos_start AS start_index, pos_end AS end_index
                   FROM gwas_results_top_hits
                   WHERE {th_analysis_where_clause}
-                  AND pval_index IS NOT NULL')
+                  AND pval_index IS NOT NULL 
+                  AND pval_index <= {gwas_pval_le}')
     
-    th_chroms_res <- sqlWrapper(dbc, th_chroms_sql, uniq = FALSE, zrok = FALSE)
+    cleo_gwas_q_sql <- 
+      glue::glue('SELECT analysis, chrom, signal, pos AS pos_index, ref AS ref_index, 
+                         alt AS alt_index, pval_joint AS pval_index, beta_joint AS beta_index, 
+                         cast(NULL as integer) as start_index, cast(NULL as integer) as end_index
+                  FROM gwas_results_joint
+                  WHERE {th_analysis_where_clause}
+                  AND pval_joint IS NOT NULL
+                  AND pval_joint <= {gwas_pval_le}')
     
   } else if(missing(analysis) & aba_gwas_results == TRUE){
+    marg_gwas_q_sql <-
+      glue::glue('SELECT analysis, chrom, cast(NULL as integer) as signal, pos_index, ref_index,
+                         alt_index, pval_index, beta_index, pos_start AS start_index, pos_end AS end_index
+                  FROM gwas_results_top_hits
+                  WHERE pval_index IS NOT NULL
+                  AND pval_index <= {gwas_pval_le}')
     
+    cleo_gwas_q_sql <-
+      glue::glue('SELECT analysis, chrom, signal, pos AS pos_index, ref AS ref_index, 
+                         alt AS alt_index, pval_joint AS pval_index, beta_joint AS beta_index, 
+                         cast(NULL as integer) as start_index, cast(NULL as integer) as end_index
+                  FROM gwas_results_joint
+                  WHERE pval_joint IS NOT NULL
+                  AND pval_joint <= {gwas_pval_le}')
   } else {
     gtx_fatal_stop("int_nearest_gene_instr_on_gwas | Unable to determine which GWAS to instrument on.")
   }
   
-  
- 
-  # Build SQL to get genes of interest
-  genes_sql <- glue::glue('
-                          SELECT * 
-                          FROM t_genes 
-                          WHERE {glue::glue_collapse(input$where_clause, sep = " OR ")}')
-  
-  genes_res <- sqlWrapper(dbc, genes_sql, uniq = FALSE, zrok = FALSE)
-  
-  # We will need to limit our searches across gwas_results_top_hits by chrom based on the input
-  genes_chroms <- 
-    genes_res %>% 
-    dplyr::group_by(chrom) %>% 
-    dplyr::summarize(chrom_min_pos_start = max(pos_start), chrom_max_pos_end = max(pos_end)) %>% 
-    dplyr::mutate(chrom_min_pos_start = chrom_min_pos_start - surround) %>% 
-    dplyr::mutate(chrom_max_pos_end = chrom_max_pos_end + surround) %>% 
-    dplyr::mutate(th_where_clause = glue::glue('chrom = "{chrom}" AND pos_index >= {chrom_min_pos_start} \\
-                                               AND pos_index <= {chrom_max_pos_end}'))
-  
-  th_cp_where_clause <- 
-    glue::glue('(',
-               glue::glue_collapse(glue::glue("({genes_chroms$th_where_clause})"), sep = " OR "),
-               ')')
-  
-  genes_tbl_c_where_clause <- 
-    glue::glue('(',
-               glue::glue_collapse(glue::glue('(chrom="{distinct(genes_chroms, chrom) %>% pull()}")'), sep = " OR "),
-               ')')
-  
   # Build SQL to query and join ALL genes within ${surround} of all marginal GWAS top hits based on chrom
   gtx_debug("int_nearest_gene_instr_on_gene | JOIN gwas_results_top_hits with genes.")
-  marg_nearest_sql <- glue::glue('
-                                 WITH 
-                                 gwas_q AS 
-                                 (SELECT analysis, chrom, cast(NULL as integer) as signal, pos_index, ref_index,
-                                 alt_index, pval_index, beta_index, pos_start AS start_index, pos_end AS end_index
-                                 FROM gwas_results_top_hits 
-                                 WHERE {th_gwas_where_clause} 
-                                 AND {th_cp_where_clause} 
-                                 AND pval_index <= {gwas_pval_le}),
-                                 genes_q AS 
-                                 (SELECT ensemblid, hgncid, pos_start AS start_gene, pos_end AS end_gene, 
-                                 strand AS strand_gene, tss AS tss_gene, genetype, chrom 
-                                 FROM t_genes 
-                                 WHERE {genes_tbl_c_where_clause})
-                                 SELECT analysis, gwas_q.chrom, signal, pos_index, ref_index, alt_index, 
-                                 pval_index, beta_index, start_index, end_index, 
-                                 ensemblid, hgncid, genetype, start_gene, end_gene, strand_gene, 
-                                 tss_gene, ABS(genes_q.tss_gene - gwas_q.pos_index) AS dist2tss
-                                 FROM gwas_q
-                                 INNER JOIN genes_q
-                                 ON (gwas_q.chrom = genes_q.chrom)
-                                 WHERE ABS(genes_q.tss_gene - gwas_q.pos_index) <= {surround}')
+  marg_nearest_sql <- 
+    glue::glue('
+      WITH 
+      gwas_q AS ({marg_gwas_q_sql}),
+      genes_q AS 
+        (SELECT ensemblid, hgncid, pos_start AS start_gene, pos_end AS end_gene, 
+         strand AS strand_gene, tss AS tss_gene, genetype, chrom 
+         FROM t_genes)
+      SELECT analysis, gwas_q.chrom, signal, pos_index, ref_index, alt_index, 
+             pval_index, beta_index, start_index, end_index, 
+             ensemblid, hgncid, genetype, start_gene, end_gene, strand_gene, 
+             tss_gene, ABS(genes_q.tss_gene - gwas_q.pos_index) AS dist2tss
+      FROM gwas_q
+      INNER JOIN genes_q
+      ON (gwas_q.chrom = genes_q.chrom)
+      WHERE ABS(genes_q.tss_gene - gwas_q.pos_index) <= {surround}')
   
   marg_near <- sqlWrapper(dbc, marg_nearest_sql, uniq = FALSE, zrok = FALSE) %>% as_tibble()
   
   # Build SQL to query and join ALL genes within ${surround} of all CLEO GWAS JOINT hits based on chrom
   gtx_debug("int_nearest_gene_instr_on_gene | JOIN gwas_results_joint with genes.")
-  th_cp_where_clause <- stringr::str_replace_all(th_cp_where_clause, "pos_index", "pos")
-  cleo_nearest_sql <- glue::glue('
-                                 WITH 
-                                 gwas_q AS 
-                                 (SELECT analysis, chrom, signal, pos AS pos_index, ref AS ref_index, 
-                                 alt AS alt_index, pval_joint AS pval_index, beta_joint AS beta_index, 
-                                 cast(NULL as integer) as start_index, cast(NULL as integer) as end_index
-                                 FROM gwas_results_joint 
-                                 WHERE {th_gwas_where_clause} 
-                                 AND {th_cp_where_clause} 
-                                 AND pval_joint <= {gwas_pval_le}),
-                                 genes_q AS 
-                                 (SELECT ensemblid, hgncid, pos_start AS start_gene, pos_end AS end_gene, 
-                                 strand AS strand_gene, tss AS tss_gene, genetype, chrom 
-                                 FROM t_genes 
-                                 WHERE {genes_tbl_c_where_clause})
-                                 SELECT analysis, gwas_q.chrom, signal, pos_index, ref_index, alt_index, 
-                                 pval_index, beta_index, start_index, end_index, 
-                                 ensemblid, hgncid, genetype, start_gene, end_gene, strand_gene, 
-                                 tss_gene, ABS(genes_q.tss_gene - gwas_q.pos_index) AS dist2tss
-                                 FROM gwas_q
-                                 INNER JOIN genes_q
-                                 ON (gwas_q.chrom = genes_q.chrom)
-                                 WHERE ABS(genes_q.tss_gene - gwas_q.pos_index) <= {surround}')
+  cleo_nearest_sql <- 
+    glue::glue('
+      WITH
+      gwas_q AS ({cleo_gwas_q_sql}), 
+      genes_q AS 
+        (SELECT ensemblid, hgncid, pos_start AS start_gene, pos_end AS end_gene, 
+                strand AS strand_gene, tss AS tss_gene, genetype, chrom 
+         FROM t_genes) 
+      SELECT analysis, gwas_q.chrom, signal, pos_index, ref_index, alt_index,
+             pval_index, beta_index, start_index, end_index,
+             ensemblid, hgncid, genetype, start_gene, end_gene, strand_gene, 
+             tss_gene, ABS(genes_q.tss_gene - gwas_q.pos_index) AS dist2tss 
+      FROM gwas_q
+      INNER JOIN genes_q
+      ON (gwas_q.chrom = genes_q.chrom)
+      WHERE ABS(genes_q.tss_gene - gwas_q.pos_index) <= {surround}')
   
   cleo_near = sqlWrapper(dbc, cleo_nearest_sql, uniq = FALSE, zrok = FALSE) %>% as_tibble()
   
@@ -443,60 +435,28 @@ int_nearest_gene_instr_on_gwas <- function(analysis, aba_gwas_results = FALSE, c
     gtx_debug("Only using CLEO nearest genes.")
     all_near <- cleo_near
   } else {
-    gtx_fatal_stop("Did not find ANY genes near GWAS top hits. Something has likely gone terribly wrong.")
+    gtx_fatal_stop("Did not find ANY genes near GWAS top hits.")
   }
   
   # Remove non-protein_coding transcripts if param = TRUE
   if(protein_coding_only == TRUE){
     gtx_warn("Filtering for protein_coding genes only.")
-    all_near <- all_near %>% dplyr::filter(genetype == "protein_coding")
+    all_near <- all_near %>% dplyr::filter(genetype == "protein_coding" & !is.na(hgncid))
   }
   
   # From all the near genes, ID the nearest genes 
   all_nearest <- int_calc_nearest_from_near(input = all_near, 
                                             nearest_method = nearest_method, 
-                                            localized_dist_ge = localized_dist_ge,
+                                            dist_prune_ge = dist_prune_ge,
                                             include_negative_results = include_negative_results)
   
-  # Mark loci with input genes and keep entire loci containing input hits.
-  if(!missing(hgncid)){
-    ret <- 
-      inner_join(input %>% 
-                   select(-where_clause) %>% 
-                   rename(hgncid = input),
-                 all_nearest %>% 
-                   dplyr::filter_at(.vars = dplyr::vars(dplyr::matches("nearest")), 
-                                    .vars_predicate = dplyr::any_vars(. == TRUE)), 
-                 by = "hgncid") %>% 
-      distinct(analysis, chrom, signal, pos_index, ref_index, alt_index) %>% 
-      mutate(input_locus = TRUE) %>% 
-      left_join(all_nearest, 
-                by = c("analysis", "chrom", "signal", "pos_index", "ref_index", "alt_index")) %>% 
-      filter(input_locus == TRUE) %>% 
-      select(-input_locus)
-  } else if(!missing(ensemblid)){
-    ret <- 
-      inner_join(input %>% 
-                   select(-where_clause) %>% 
-                   rename(hgncid = input),
-                 all_nearest %>% filter(nearest_gene == TRUE), 
-                 by = "hgncid") %>% 
-      distinct(analysis, chrom, signal, pos_index, ref_index, alt_index) %>% 
-      mutate(input_locus = TRUE) %>% 
-      left_join(all_nearest, 
-                by = c("analysis", "chrom", "signal", "pos_index", "ref_index", "alt_index")) %>% 
-      filter(input_locus == TRUE) %>% 
-      select(-input_locus)
-  } else {
-    gtx_fatal_stop("Uncertain how to filter final results.")
-  }
-  
-  return(ret)
+  return(all_nearest)
 }
 
 
 int_calc_nearest_from_near <- function(input, nearest_method = c('nearest_tss', 'nearest_dist_pruned', 'nearest_localized'), 
-                                       include_negative_results = FALSE, localized_dist_ge = 1e5){
+                                       include_negative_results = FALSE, dist_prune_ge = 1e5){
+  gtx_debug("nearest_gene | int_calc_nearest_from_near +start")
   if(missing(input)){
     gtx_fatal_stop("Missing input into int_calc_nearest_from_near.")
   }
@@ -521,41 +481,46 @@ int_calc_nearest_from_near <- function(input, nearest_method = c('nearest_tss', 
     dplyr::arrange(dist2tss)
   
   if(any(nearest_method == "nearest_tss")){
+    gtx_debug("nearest_gene | calculating method: nearest_tss")
     input <- 
       input %>% 
       dplyr::mutate(nearest_gene = (dist2tss == min(dist2tss, na.rm = TRUE)))
+    
+    gtx_debug("nearest_gene | calculating method: nearest_tss +complete")
   } 
   
   if(any(nearest_method == "nearest_dist_pruned")){
+    gtx_debug("nearest_gene | calculating method: nearest_dist_pruned")
     input <- 
       input %>% 
       dplyr::mutate(next_dist2tss = dplyr::lead(dist2tss)) %>% 
-      dplyr::mutate(nearest_dist_pruned = (dist2tss == min(dist2tss, na.rm = TRUE) & next_dist2tss >= localized_dist_ge))
+      dplyr::mutate(nearest_dist_pruned = (dist2tss == min(dist2tss, na.rm = TRUE) & next_dist2tss >= dist_prune_ge))
+
+    gtx_debug("nearest_gene | calculating method: nearest_dist_pruned +complete")
   } 
   
   if(any(nearest_method == "nearest_localized")){
+    gtx_debug("nearest_gene | calculating method: nearest_localized")
     input <- 
       input %>% 
       dplyr::mutate(next_dist2tss = dplyr::lead(dist2tss)) %>% 
       tidyr::nest() %>% 
       dplyr::mutate(n_gene_overlap_th = purrr::map_dbl(data, 
         ~dplyr::filter(., (start_gene >= start_index & start_gene <= end_index) |
-                             (end_gene >= start_index & end_gene <= end_index) |
-                             (start_index < start_gene & end_index > end_gene)) %>% 
-              dplyr::n_distinct(hgncid, na.rm = TRUE))) %>% 
+                          (end_gene   >= start_index & end_gene   <= end_index) |
+                          (start_gene <  start_index & end_gene   >  end_index)) %>% 
+              dplyr::summarize(n = dplyr::n_distinct(hgncid, na.rm = TRUE)) %>% 
+              dplyr::pull(n))) %>% 
       tidyr::unnest() %>% 
       dplyr::group_by(analysis, chrom, signal, pos_index, ref_index, alt_index) %>% 
       dplyr::mutate(nearest_localized = (dist2tss == min(dist2tss, na.rm = TRUE) & 
-                                         next_dist2tss >= localized_dist_ge & 
-                                         ((start_index >= start_gene & start_index <= end_gene) | 
-                                          (end_index   >= start_gene & end_index   <= end_gene) | 
-                                          (start_index >= start_gene & end_index   <= end_gene) |
-                                          (start_index <= start_gene & end_index   >= end_gene)) & 
-                                           n_gene_overlap_th == 1)) %>% 
+                                         next_dist2tss >= dist_prune_ge &
+                                         n_gene_overlap_th == 1)) %>% 
       dplyr::ungroup() %>% 
       dplyr::mutate(nearest_localized = replace(nearest_localized, !is.na(signal), NA)) %>% 
       dplyr::mutate(n_gene_overlap_th = replace(n_gene_overlap_th, !is.na(signal), NA))
     
+    gtx_debug("nearest_gene | calculating method: nearest_localized +complete")
   } 
   
   ret <- input %>% dplyr::ungroup()
@@ -566,6 +531,7 @@ int_calc_nearest_from_near <- function(input, nearest_method = c('nearest_tss', 
                                     .vars_predicate = dplyr::any_vars(. == TRUE))
   }
   
+  gtx_debug("nearest_gene | int_calc_nearest_from_near +complete")
   return(ret)
 }
 
