@@ -106,7 +106,7 @@ int_ht_phewas_wrapper <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     else if(!missing(hgnc)){ input <- dplyr::tibble(hgncid = hgnc)   }
     
     if(nrow(input) > chunk_size){
-      gtx_debug("Spliting input into chunks for PheWAS.")
+      gtx_info("Input has {nrow(input)} rows. Spliting input into chunks of ~ {chunk_size} for PheWAS.")
       ret <- 
         input %>% 
         mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
@@ -132,7 +132,7 @@ int_ht_phewas_wrapper <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     else if(!missing(rs)){ input <- dplyr::tibble(rsid = rs)   }
     
     if(nrow(input) > chunk_size){
-      gtx_debug("Spliting input into chunks for PheWAS.")
+      gtx_info("Input has {nrow(input)} rows. Spliting input into chunks of ~ {chunk_size} for PheWAS.")
       ret <- 
         input %>% 
         mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
@@ -156,7 +156,7 @@ int_ht_phewas_wrapper <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
   } else if(!missing(ref)){
     input <- dplyr::tibble(chrom = chrom, pos = pos, ref = ref, alt = alt) 
     if(nrow(input) > chunk_size){
-      gtx_debug("Spliting input into chunks for PheWAS.")
+      gtx_info("Input has {nrow(input)} rows. Spliting input into chunks of ~ {chunk_size} for PheWAS.")
       ret <- 
         input %>% 
         mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
@@ -183,7 +183,7 @@ int_ht_phewas_wrapper <- function(hgnc, hgncid, rs, rsid, chrom, pos, ref, alt,
     gtx_debug("int_input_tbl | chrom,pos,ref - ID all genomic coordinates.")
     input <- dplyr::tibble(chrom = chrom, pos = pos) 
     if(nrow(input) > chunk_size){
-      gtx_debug("Spliting input into chunks for PheWAS.")
+      gtx_info("Input has {nrow(input)} rows. Spliting input into chunks of ~ {chunk_size} for PheWAS.")
       ret <- 
         input %>% 
         mutate(tile = ntile(row_number(), ceiling(nrow(.)/chunk_size))) %>% 
