@@ -23,7 +23,7 @@ extract_study_info <- function(str,dbc=getOption("gtx.dbConnection", NULL)) {
 }
 
 #' Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)
-#' devtool
+#' 
 #' This function allows the users to pre-process and extract the 
 #' required data from the GWA studies database, which then
 #' can be used to run Mendelian Randomization and other related
