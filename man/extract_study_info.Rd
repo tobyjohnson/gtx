@@ -14,6 +14,8 @@ extract_study_info(str, dbc = getOption("gtx.dbConnection", NULL))
 \value{
 the study meta-information which then can be used in extract_outcome()
 or extract_exposure() methods
+
+internal
 }
 \description{
 Finds a unique identifier for the study using a keyword or keyphrase. NOTE! keyword or keyphrase search is quite naive at this moment and may not return desirable results.

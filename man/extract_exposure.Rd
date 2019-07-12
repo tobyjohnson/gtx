@@ -2,7 +2,12 @@
 % Please edit documentation in R/mranalysis.R
 \name{extract_exposure}
 \alias{extract_exposure}
-\title{Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)}
+\title{Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)
+devtool
+This function allows the users to pre-process and extract the 
+required data from the GWA studies database, which then
+can be used to run Mendelian Randomization and other related
+analyses.}
 \usage{
 extract_exposure(p = 5e-08, analyses = NULL, str = "",
   rsid = FALSE, dbc = getOption("gtx.dbConnection", NULL))
@@ -22,6 +27,8 @@ extract_exposure(p = 5e-08, analyses = NULL, str = "",
 the dataframe with exposure instruments (Warning! they have to be formatted and possibly clumped to be used in the MR analysis)
 }
 \description{
+Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)
+devtool
 This function allows the users to pre-process and extract the 
 required data from the GWA studies database, which then
 can be used to run Mendelian Randomization and other related

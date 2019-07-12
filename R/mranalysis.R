@@ -8,9 +8,9 @@
 #' @return the study meta-information which then can be used in extract_outcome()
 #' or extract_exposure() methods
 #' 
-#' @export
+#' internal
 #' 
-extract_study_info <- function(str,dbc=getOption("gtx.dbConnection", NULL)){
+extract_study_info <- function(str,dbc=getOption("gtx.dbConnection", NULL)) {
   
   #Extract all records with the given description
   studies<-odbc::dbGetQuery(dbc, paste0("SELECT * FROM analyses WHERE description LIKE '%", str, "%';"))
