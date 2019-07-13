@@ -13,7 +13,7 @@
 #' @param pos positions(s) to analyze as a single or vector  #Not implemented yet
 #' @param nearest_method  [Default = 'nearest_tss'] String(s) specifying the method for calculating nearest gene. 
 #' {'nearest_tss', 'nearest_dist_pruned', 'nearest_localized'}
-#' @param dist_prune_ge [Default = 1e5] For nearest_method 'nearest_localized', this is the distance that the second nearest gene must be from the TH. 
+#' @param dist_prune_ge [Default = 50000] For nearest_method 'nearest_localized', this is the distance that the second nearest gene must be from the TH. 
 #' @param include_negative_results [Default = FALSE] Return non-nearest gene within surround distance.
 #' @param surround [Default = 1e6] Max distance (bp) to non-nearest gene. 
 #' @param ignore_ukb_neale [Default = TRUE] TRUE = ignore Neale UKB GWAS in PheWAS
@@ -24,7 +24,7 @@
 nearest_gene <- function(analysis, hgnc, hgncid, ensemblid, 
                          rs, rsid, chrom, pos,
                          nearest_method = c('nearest_tss', 'nearest_dist_pruned', 'nearest_localized'),
-                         dist_prune_ge = 1e5,
+                         dist_prune_ge = 50000,
                          # max_dist2tss = NULL, #TODO
                          protein_coding_only = TRUE,
                          include_negative_results = FALSE,
@@ -455,7 +455,7 @@ int_nearest_gene_instr_on_gwas <- function(analysis, aba_gwas_results = FALSE,
 
 
 int_calc_nearest_from_near <- function(input, nearest_method = c('nearest_tss', 'nearest_dist_pruned', 'nearest_localized'), 
-                                       include_negative_results = FALSE, dist_prune_ge = 1e5){
+                                       include_negative_results = FALSE, dist_prune_ge = 50000){
   gtx_debug("nearest_gene | int_calc_nearest_from_near +start")
   if(missing(input)){
     gtx_fatal_stop("Missing input into int_calc_nearest_from_near.")

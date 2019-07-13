@@ -6,7 +6,7 @@
 \usage{
 nearest_gene(analysis, hgnc, hgncid, ensemblid, rs, rsid, chrom, pos,
   nearest_method = c("nearest_tss", "nearest_dist_pruned",
-  "nearest_localized"), dist_prune_ge = 1e+05,
+  "nearest_localized"), dist_prune_ge = 50000,
   protein_coding_only = TRUE, include_negative_results = FALSE,
   surround = 1e+06, gwas_pval_le = 5e-08, calc_th = FALSE, gwas_args,
   aba_gwas_results = FALSE, ignore_ukb_neale = TRUE,
@@ -28,7 +28,7 @@ nearest_gene(analysis, hgnc, hgncid, ensemblid, rs, rsid, chrom, pos,
 \item{nearest_method}{[Default = 'nearest_tss'] String(s) specifying the method for calculating nearest gene. 
 {'nearest_tss', 'nearest_dist_pruned', 'nearest_localized'}}
 
-\item{dist_prune_ge}{[Default = 1e5] For nearest_method 'nearest_localized', this is the distance that the second nearest gene must be from the TH.}
+\item{dist_prune_ge}{[Default = 50000] For nearest_method 'nearest_localized', this is the distance that the second nearest gene must be from the TH.}
 
 \item{include_negative_results}{[Default = FALSE] Return non-nearest gene within surround distance.}
 
