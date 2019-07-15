@@ -2,8 +2,8 @@ Package: gtx
 Type: Package
 Encoding: UTF-8
 Title: Genetics ToolboX
-Version: 2.1.3
-Date: 2019-06-07
+Version: 2.1.4
+Date: 2019-07-15
 Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.Johnson@gsk.com"), 
              person("Karsten", "Sieber", role = c("ctb"), email = "karsten.b.sieber@gsk.com"),
              person("Kijoung", "Song", role = c("ctb"), email = "kys21207@gsk.com"),
