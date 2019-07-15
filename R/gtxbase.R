@@ -576,6 +576,7 @@ gtxanalysis_label <- function(analysis, entity, signal, nlabel = TRUE,
 #' @param ncohort_ge Numeric to select number in cohort greater-or-equal
 #' @param has_cleo Logical, select only analyses with \link{CLEO} results
 #' @param analysis_fields Names of columns/fields to return
+#' @param sort_by Column name for descending sort, either ncohort or ncase
 #' @param tag_is Internal use only
 #' @param with_tags Internal use only
 #' @param has_access_only Deprecated
@@ -593,6 +594,7 @@ gtxanalyses <- function(analysis, analysis_not,
                         ## if extra filters are added, be sure to update definition of all_analyses below
                         analysis_fields = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
+                        sort_by, 
                         tag_is, with_tags = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
@@ -675,8 +677,17 @@ gtxanalyses <- function(analysis, analysis_not,
         }
     }
     
+    if (!missing(sort_by) && identical(tolower(sort_by), 'ncohort') && 'ncohort' %in% names(res)) {
+      gtx_debug('Sorting by ncohort')
+      res <- res[order(res$ncohort, decreasing = TRUE), ]
+    }
+    if (!missing(sort_by) && identical(tolower(sort_by), 'ncase') && 'ncase' %in% names(res)) {
+      gtx_debug('Sorting by ncase')
+      res <- res[order(res$ncase, decreasing = TRUE), ]
+    }
+    
     if (identical(nrow(res), 0L)) {
-      futile.logger::flog.warn('No analyses match the search criteria')
+      gtx_warn('No analyses match the search criteria')
     }
     return(res)
 }

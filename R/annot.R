@@ -65,7 +65,7 @@ annot <- function(x,
     }
     gtx_fatal_stop('annot(): could not determine query from names(x) = [{paste(names(x), collapse = ", ")}]')
   } else if (!missing(analysis)) {
-    return(gtxanalyses(analysis = analysis)) # short term fix, move gtxanalyses code here
+    return(gtxanalyses(analysis = unique(analysis))) # short term fix, move gtxanalyses code here
   }
   if (!missing(chrom) || !missing(pos) || !missing(ref) || !missing(alt) || !missing(rs)) {
     w1 <- gtxwhere(chrom = chrom, pos = pos, ref = ref, alt = alt, rs = rs)

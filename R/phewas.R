@@ -360,7 +360,7 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     tmpl <- unique(na.omit(res[ , c('entity', 'entity_type')]))
     gtx_debug('Looking up labels for {nrow(tmpl)} entity/ies')
     if (nrow(tmpl) > 0) { # FIXME this is a workaround for annot failing with 0 row argument
-        tmpl <- within(annot(tmpl), {
+      tmpl <- within(annot(tmpl), {
         entity_label <- paste0(label, ' ')
         label <- NULL
       })
