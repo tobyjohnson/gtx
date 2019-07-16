@@ -385,7 +385,9 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
       # If no tags, currently expect pval, label, to provide a deterministic sort order
       res <- res[order(res$pval, res$label), ]
     }
-    row.names(res) <- 1:nrow(res) # otherwise preserved from prior to ordering and fails identical() test
+    if (nrow(res) > 0) {
+      row.names(res) <- 1:nrow(res) # otherwise preserved from prior to ordering and fails identical() test
+    }
     
     # add attribute, used for plot labelling etc., FIXME should we do this when multiple variants matched hence no query was run?
     attr(res, 'variant') <- v1_label
