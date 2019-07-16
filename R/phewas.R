@@ -351,10 +351,12 @@ phewas.data <- function(chrom, pos, ref, alt, rs,
     
     # add chrom/pos/ref/alt columns to make easier to pass through to other functions, or to help interpretation if saved to a file
     # (note, not added if v1<-NULL above)
-    res$chrom <- v1$chrom
-    res$pos <- v1$pos
-    res$ref <- v1$ref
-    res$alt <- v1$alt
+    if (nrow(res) > 0) {
+      res$chrom <- v1$chrom
+      res$pos <- v1$pos
+      res$ref <- v1$ref
+      res$alt <- v1$alt
+    }
     
     # Fix labels for entities, finding labels for the NA ones then pasting on
     tmpl <- unique(na.omit(res[ , c('entity', 'entity_type')]))
