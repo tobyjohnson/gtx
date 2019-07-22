@@ -21,7 +21,7 @@
 #' @param pos_start start position - Used to define a specific region, overrides surround
 #' @param pos_end end position - Used to define a specific region, overrides surround
 #' @param p12_ge [Default >= 0.80] This is the "H4" posterior probability cutoff 
-#' @param minpval1_le [Default <= 1e-4] Min pval seen in the eQTL                
+#' @param minpval1_le [Default <= 1e-5] Min pval seen in the eQTL                
 #' @param minpval2_le [Default <= 5e-8] Min pval seen in the GWAS data           
 #' @param ncase_ge [Default >= 200] Minimum ncases for traits.                   
 #' @param ncohort_ge [Default >= 200] Minimum ncohort for traits.
@@ -45,7 +45,7 @@
 #' @import dplyr
 aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                       chrom, pos, pos_start, pos_end, p12_ge = 0.80, 
-                      minpval1_le   = 1e-4, minpval2_le = 5e-8,
+                      minpval1_le   = 1e-5, minpval2_le = 5e-8,
                       surround = 1e6, ncase_ge = 200, ncohort_ge = 200, 
                       protein_coding_only = FALSE, 
                       neale_only  = FALSE, 
@@ -238,7 +238,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                   th_ref   = ref_index,
                   th_alt   = alt_index) %>% 
     # Make sure the TH are in cis-windows of the coloc genes
-    dplyr::filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) %>%   
+    dplyr::filter((gene_start - 1e6 < th_pos) & (gene_start + 1e6 > th_pos)) %>%   
     # Join GWAS trait info - e.g. label & ncase
     dplyr::inner_join(.,
       analyses_tbl %>% dplyr::select(analysis, label, phenotype, ncase, ncohort),
@@ -259,7 +259,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       colocs_th_tbl,
       by = "chrom") %>% 
     # Make sure the TH are in the desired input window
-    dplyr::filter((in_start < th_start) & (in_end > th_end)) 
+    dplyr::filter((in_start < th_pos) & (in_end > th_pos)) 
   
   # ---
   gtx_debug("aba.query | collect results")
@@ -267,7 +267,9 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     colocs_final_tbl %>% 
     dplyr::collect() %>% 
     dplyr::mutate(rsid = paste0("rs", rs)) %>% 
-    dplyr::group_by(rsid) %>% 
+    dplyr::group_by(analysis2, entity) %>% 
+    dplyr::top_n(1, dplyr::desc(th_pval)) %>% 
+    dplyr::group_by(chrom, th_pos, th_ref, th_alt) %>% 
     dplyr::mutate(genes_per_locus = dplyr::n_distinct(entity)) %>% 
     dplyr::ungroup()
   
@@ -399,14 +401,19 @@ aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impal
         dplyr::distinct(), 
       by = c("input", "analysis2")) %>% 
     # Make sure the TH are in the desired input window
-    dplyr::filter((in_start < th_start) & (in_end > th_end)) %>% 
+    dplyr::filter((in_start < th_pos) & (in_end > th_pos)) %>% 
     dplyr::inner_join(.,
       input %>% 
         dplyr::select(input, entity, hgncid, chrom, gene_start, genetype) %>% 
         dplyr::distinct(), 
       by = c("input", "entity")) %>% 
     # Make sure the gene cis-windows are in the gwas TH window
-    dplyr::filter((gene_start - 1e6 < th_start) & (gene_start + 1e6 > th_end)) 
+    dplyr::filter((gene_start - 1e6 < th_pos) & (gene_start + 1e6 > th_pos)) %>% 
+    dplyr::group_by(analysis2, entity) %>% 
+    dplyr::top_n(1, dplyr::desc(th_pval)) %>% 
+    dplyr::group_by(chrom, th_pos, th_ref, th_alt) %>% 
+    dplyr::mutate(genes_per_locus = dplyr::n_distinct(entity)) %>% 
+    dplyr::ungroup()
   
   # ---
   gtx_debug("aba.fill | clean up conn")
