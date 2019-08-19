@@ -1,27 +1,3 @@
-#' Search study by keyword.
-#' 
-#' Finds a unique identifier for the study using a keyword or keyphrase. NOTE! keyword or keyphrase search is quite naive at this moment and may not return desirable results.
-#' 
-#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
-#' @param str (required): a keyword/keyphrase to search for the study of interest
-#' @param dbc (default): other parameters 
-#' @return the study meta-information which then can be used in extract_outcome()
-#' or extract_exposure() methods
-#' 
-#' internal
-#' 
-extract_study_info <- function(str,dbc=getOption("gtx.dbConnection", NULL)) {
-  
-  #Extract all records with the given description
-  studies<-odbc::dbGetQuery(dbc, paste0("SELECT * FROM analyses WHERE description LIKE '%", str, "%';"))
-  
-  if( nrow(studies) < 1 ) {
-    message("No results were returned! Please, try a shorter phrase.")  
-  }
-  
-  return(studies)
-}
-
 #' Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)
 #' 
 #' This function allows the users to pre-process and extract the 
@@ -425,7 +401,7 @@ if(rsid==FALSE){
   
   if(type=="exposure"){
   
-    data<-data %>% dplyr::mutate(SNP=paste0(pos_index,":",chrom,"_",ref_index,"_",alt_index),id=paste0(analysis,"_",entity))  
+    data<-data %>% dplyr::mutate(SNP=paste0(pos_index,":",chrom,"_",ref_index,"_",alt_index),id=paste0(analysis,":",entity))  
     data<-data[toupper(data$ref_index) %in% c('A','G','C','T'),]
     data<-data[toupper(data$alt_index) %in% c('A','G','C','T'),]
 
@@ -438,7 +414,7 @@ if(rsid==FALSE){
   }
    else{
   
-    data<-data %>% dplyr::mutate(SNP=paste0(pos,":",chrom,"_",ref,"_",alt),id=paste0(analysis,"_",entity))  
+    data<-data %>% dplyr::mutate(SNP=paste0(pos,":",chrom,"_",ref,"_",alt),id=paste0(analysis,":",entity))  
     data<-data[toupper(data$ref) %in% c('A','G','C','T'),]
     data<-data[toupper(data$alt) %in% c('A','G','C','T'),]
     
@@ -451,7 +427,7 @@ if(rsid==FALSE){
   }
   else{
     
-    data<-data %>% dplyr::mutate(id=paste0(analysis,"_",entity))
+    data<-data %>% dplyr::mutate(id=paste0(analysis,":",entity))
     data<-data[!is.na(data$rsid),]
     data<-data[!is.null(data$rsid),]
     data$rsid<-paste0("rs",data$rsid)
@@ -552,3 +528,125 @@ run_mr_gsk<-function(exp,out,rsid=FALSE,clump=TRUE,hetero=TRUE,pleio=TRUE,single
  return(my.list) 
 }
 
+#' Visualisation of MR results
+#' 
+#' This methods creates three types of plots for a chosen exposure and outcome.
+#' 
+#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
+#' @param mrres (required): the list of dataframes from run_for_mr method
+#' @param scatter (optional): if TRUE creates a scatter plot for an exposure/outcome pair
+#' @param forest (optional): if TRUE creates a forest plot for an exposure/outcome pair
+#' @param funnel (optional): if TRUE creates a funnel plots for an exposure/outcome pair 
+#' @param exp (optional): if "internal", the plot labels will be formatted assuming the exposure is 
+#' from the internal source; it should be changed to "external" wherever is applicable.
+#' @param out (optional): if "internal", the plot labels will be formatted accordingly for the outcome
+#' as for the exposure; it should be changed to "external" wherever is applicable.
+#' @return the list of three types of plots for one exposure vs one outcome:
+#' 1) scatter plot
+#' 2) forest plot
+#' 3) funnel plot 
+#' 
+#' @import TwoSampleMR ggplot2 stringr
+#' 
+#' @export
+#' 
+#' @examples To access the plots, e.g. \dontrun{plots[[1]]} - a scatter plot
+#' 
+visual_for_mr <- function(mrres,scatter=TRUE,forest=TRUE,funnel=TRUE,exp="internal",out="internal",dbc=getOption("gtx.dbConnection", NULL)){
+  
+  ##Format plot labels for the internal data;
+  ##if "external" is stated for "exp" (exposure) or "out" (outcome), 
+  ##then the labels will not be formatted for exp or out respectively
+  labels<-format_plot_labels(mrres, exp, out, dbc = dbc)
+  exp_label<-labels[1]
+  out_label<-labels[2]
+  
+  ##Build a scatter plot
+  if(scatter==TRUE) {
+    p1 <- TwoSampleMR::mr_scatter_plot(mrres[[1]], mrres[[5]])
+    p1 <- p1[[1]] + labs(x = stringr::str_wrap(paste0("SNP effect on ",exp_label), width = 40), y=stringr::str_wrap(paste0("SNP effect on ",out_label), width = 35))
+  } else {
+    p1 <- NULL
+    message("Warning! Scatter plots will not be created.")
+  }
+  
+  ##Build a forest plot
+  if(forest==TRUE & !is.null(mrres[[4]])){
+    p2 <- TwoSampleMR::mr_forest_plot(mrres[[4]])
+    p2 <- p2[[1]] + labs(x = stringr::str_wrap(paste0("MR effect size for ",exp_label," on ",out_label), width = 70))
+  } else {
+    p2 <- NULL
+    message("Warning! Forest plots will not or cannot be created.")
+  }
+  
+  ##Build a funnel plot
+  if(funnel==TRUE & !is.null(mrres[[4]])){
+    p3 <- TwoSampleMR::mr_funnel_plot(mrres[[4]])
+  } else {
+    p3 <- NULL
+    message("Warning! Funnel plots will not or cannot be created.")
+  }
+  
+  ##Return the list of plots
+  list.plots <- list(p1,p2,p3)
+  
+  return(list.plots)
+}
+
+#'Format plot labels for internal data
+#'
+#'@author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
+#'@param mrres (required): MR results as derived from run_mr_gsk()
+#'@param exp_flag (optional): a flag that indicates a source of the exposure, i.e. internal or external;
+#'labels are fomatted for the internal data only
+#'@param out_flag (optional): a flag that indicates a source of the outcome, i.e. internal or external;
+#'labels are formatted for the internal data only
+#'@return labels for the chosen exposure and outcome; if external, they will not be modified.
+#'
+#'@keywords internal
+#'
+format_plot_labels<-function(mrres,exp_flag="internal",out_flag="internal",dbc=getOption("gtx.dbConnection", NULL)){
+  
+  ##Reformat labels for internal usage
+  if(exp_flag=="internal"){
+    exp_id<-gsub(':.+','',unique(mrres[[1]]$exposure))
+    exp_label<-gtx::gtxanalysis_label(analysis = exp_id, nlabel = FALSE, dbc = dbc)
+  } else {
+    exp_label<-as.character(unique(mrres[[1]]$exposure))
+  }
+  
+  if(out_flag=="internal"){
+    out_id<-gsub(':.+','',unique(mrres[[1]]$outcome))
+    out_label<-gtx::gtxanalysis_label(analysis = out_id, nlabel = FALSE, dbc = dbc)
+  } else {
+    out_label<-as.character(unique(mrres[[1]]$outcome))
+  }
+  
+  labels<-c(exp_label,out_label)
+  
+  return(labels)
+}  
+
+#' Search study by keyword.
+#' 
+#' Finds a unique identifier for the study using a keyword or keyphrase. NOTE! keyword or keyphrase search is quite naive at this moment and may not return desirable results.
+#' 
+#' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
+#' @param str (required): a keyword/keyphrase to search for the study of interest
+#' @param dbc (default): other parameters 
+#' @return the study meta-information which then can be used in extract_outcome()
+#' or extract_exposure() methods
+#' 
+#' @keywords internal
+#' 
+extract_study_info <- function(str,dbc=getOption("gtx.dbConnection", NULL)) {
+  
+  #Extract all records with the given description
+  studies<-odbc::dbGetQuery(dbc, paste0("SELECT * FROM analyses WHERE description LIKE '%", str, "%';"))
+  
+  if( nrow(studies) < 1 ) {
+    message("No results were returned! Please, try a shorter phrase.")  
+  }
+  
+  return(studies)
+}
