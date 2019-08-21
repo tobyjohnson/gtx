@@ -610,14 +610,14 @@ format_plot_labels<-function(mrres,exp_flag="internal",out_flag="internal",dbc=g
   ##Reformat labels for internal usage
   if(exp_flag=="internal"){
     exp_id<-gsub(':.+','',unique(mrres[[1]]$exposure))
-    exp_label<-gtx::gtxanalysis_label(analysis = exp_id, nlabel = FALSE, dbc = dbc)
+    exp_label<-gtxanalysis_label(analysis = exp_id, nlabel = FALSE, dbc = dbc)
   } else {
     exp_label<-as.character(unique(mrres[[1]]$exposure))
   }
   
   if(out_flag=="internal"){
     out_id<-gsub(':.+','',unique(mrres[[1]]$outcome))
-    out_label<-gtx::gtxanalysis_label(analysis = out_id, nlabel = FALSE, dbc = dbc)
+    out_label<-gtxanalysis_label(analysis = out_id, nlabel = FALSE, dbc = dbc)
   } else {
     out_label<-as.character(unique(mrres[[1]]$outcome))
   }
