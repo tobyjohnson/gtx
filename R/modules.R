@@ -152,10 +152,10 @@ add_ssh_known_host <- function(known_host){
       gtx_error("add_ssh_known_host | Unable to properly grep the known_hosts file.")  
     }
     
-    if(!rlang::is_bare_character(search_file)){
-      if(stringr::str_detect(string = search_file, pattern = known_host)){
+    if(rlang::is_bare_character(search_file)){
+      if(any(stringr::str_detect(string = search_file, pattern = known_host), na.rm = TRUE) == TRUE){
         gtx_debug("add_ssh_known_host | Found previous url in known host, skipping add.")  
-        return()
+        return(TRUE)
       }
     }
   }
