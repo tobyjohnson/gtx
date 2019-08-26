@@ -79,7 +79,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                                  'analysis2 ilike "ttam%"'))
   
   sql_query <- glue('SELECT * FROM {db}.coloc_results')
-  if(any(aid_filter$filter_val == TRUE)){
+  if(any(aid_filter$filter_val == TRUE, na.rm = TRUE)){
     regex_for_aids <- 
       glue::glue_collapse(aid_filter %>% 
                             dplyr::filter(filter_val == TRUE) %>% 
@@ -91,9 +91,11 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
     
   aba_tbl      <- dplyr::tbl(impala, dplyr::sql(sql_query))
   gwas_th_tbl  <- dplyr::tbl(impala, glue::glue("{db}.gwas_results_top_hits"))
-  genes_tbl    <- dplyr::tbl(impala, glue::glue("{db}.genes"))
   analyses_tbl <- dplyr::tbl(impala, glue::glue("{db}.analyses"))
-  sites_tbl    <- dplyr::tbl(impala, glue::glue("{db}.sites_ukb_500kv3"))
+  sites_tbl    <- dplyr::tbl(impala, glue::glue("{db}.sites"))
+  genes_tbl <- 
+    dplyr::tbl(impala, glue::glue("{db}.t_genes")) %>% 
+    dplyr::mutate(cis_hi = tss - 1e6, cis_lo = tss + 1e6)
   
   # ---
   gtx_debug("aba.query | set input")
@@ -144,10 +146,10 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       dplyr::inner_join(
         input_raw_tbl,
         genes_tbl %>% 
-          dplyr::select(hgncid, ensemblid, chrom, in_pos = "pos_start"),
+          dplyr::select(hgncid, ensemblid, chrom, tss),
         by = "hgncid") %>% 
-      dplyr::mutate(in_start = in_pos - surround, in_end = in_pos + surround) %>% 
-      dplyr::select(-in_pos, -hgncid)
+      dplyr::mutate(in_start = tss - surround, in_end = tss + surround) %>% 
+      dplyr::select(-tss, -hgncid)
   }
   else if(!missing(ensemblid)){
     gtx_debug("aba.query | harmonizing ensemblid input.")
@@ -155,9 +157,9 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       dplyr::inner_join(
         input_raw_tbl,
         genes_tbl %>% 
-          dplyr::select(ensemblid, chrom, in_pos = "pos_start"),
+          dplyr::select(ensemblid, chrom, tss),
         by = "ensemblid") %>% 
-      dplyr::mutate(in_start = in_pos - surround, in_end = in_pos + surround) %>% 
+      dplyr::mutate(in_start = tss - surround, in_end = tss + surround) %>% 
       dplyr::select(-in_pos)
   }
   else if(!missing(rsid)){
@@ -211,7 +213,8 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                   minpval2 <= minpval2_le) %>% 
     dplyr::inner_join(.,
                genes_tbl %>% 
-                 dplyr::select(ensemblid, gene_start = pos_start, gene_end = pos_end, genetype, hgncid, chrom),
+                 dplyr::select(ensemblid, gene_start = pos_start, gene_end = pos_end, 
+                               genetype, hgncid, chrom, tss, cis_hi, cis_lo),
                by = c("entity" = "ensemblid"))
   
   if(protein_coding_only == TRUE){  
@@ -238,14 +241,14 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
                   th_ref   = ref_index,
                   th_alt   = alt_index) %>% 
     # Make sure the TH are in cis-windows of the coloc genes
-    dplyr::filter((gene_start - 1e6 < th_pos) & (gene_start + 1e6 > th_pos)) %>%   
+    dplyr::filter((cis_hi < th_pos) & (th_pos < cis_lo)) %>% 
     # Join GWAS trait info - e.g. label & ncase
     dplyr::inner_join(.,
       analyses_tbl %>% dplyr::select(analysis, label, phenotype, ncase, ncohort),
       by = c("analysis2" = "analysis")) %>% 
     # Append RSID to each TH index
     dplyr::left_join(.,
-      sites_tbl %>% dplyr::select("rs_chrom" = "chrom", "rs_pos" = "pos", "rs_ref" = "ref", "rs_alt" = "alt", "rs"),
+      sites_tbl %>% dplyr::select("rs_chrom" = "chrom", "rs_pos" = "pos", "rs_ref" = "ref", "rs_alt" = "alt", "rsid"),
       by = c("chrom" = "rs_chrom", "th_pos" = "rs_pos", "th_ref" = "rs_ref", "th_alt" = "rs_alt")) %>% 
   # we should then filter ncase
   dplyr::filter(ncase >= ncase_ge | ncohort >= ncohort_ge)
@@ -266,7 +269,7 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   colocs_final <- 
     colocs_final_tbl %>% 
     dplyr::collect() %>% 
-    dplyr::mutate(rsid = paste0("rs", rs)) %>% 
+    dplyr::mutate(rsid = paste0("rs", rsid)) %>% 
     dplyr::group_by(analysis2, entity) %>% 
     dplyr::top_n(1, dplyr::desc(th_pval)) %>% 
     dplyr::group_by(chrom, th_pos, th_ref, th_alt) %>% 
@@ -311,7 +314,7 @@ aba.flatten <- function(.data){
   # ---
   gtx_debug("aba.flatten | verify input")
   mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
-  if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
+  if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE, na.rm = TRUE)){
     gtx_error("aba.flatten | missing input column.")
     return()
   }
@@ -366,7 +369,7 @@ aba.fill <- function(.data, db = gtx::config_db(), impala = getOption("gtx.impal
   # ---
   gtx_debug("aba.fill | verify input")
   mandatory_cols <- c("input", "rsid", "entity", "analysis1", "analysis2")
-  if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
+  if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE, na.rm = TRUE)){
     gtx_error("aba.fill | missing input column.")
     return()
   }
@@ -470,14 +473,14 @@ aba.plot <- function(.data, ...){
   gtx_debug("aba.plot | validating input")
   input <- .data
   required_cols <- c("analysis1", "analysis2", "label", "hgncid", "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
-  if(!all(required_cols %in% (names(input)))){
+  if(!all(required_cols %in% (names(input)), na.rm = TRUE)){
     gtx_error('aba.plot | input is missing required cols. \\
               Required cols include: {paste(required_cols, collapse = ", ")}')
     stop();
   }
   
   # If we only have 1 "input" process as singular
-  if(all((names(input) %in% "input")==FALSE)){
+  if(all((names(input) %in% "input")==FALSE, na.rm = TRUE)){
     gtx_debug("aba.plot | process single input")
     ret = aba.int_coloc_plot(.data = input, ...) 
   }
@@ -508,7 +511,7 @@ aba.int_coloc_plot <- function(.data, p12_ge = 0.80, max_dot_size = 5, title = N
   required_cols <- c("analysis1", "analysis2", "label", "hgncid", 
                      "p12", "alpha21", "gene_start", "th_pos", "chrom", "rsid")
   
-  if(!all(required_cols %in% (names(input)))){
+  if(!all(required_cols %in% (names(input)), na.rm = TRUE)){
     gtx_error('aba.plot | input is missing required cols. \\
               Required cols include: {paste(required_cols, collapse = ", ")}')
     stop();
@@ -752,7 +755,7 @@ aba.save <- function(.data, path = getwd(), suffix = "aba-colocs", ...){
   
   input = .data
   mandatory_cols <- c("input", "figures")
-  if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE)){
+  if(any(purrr::map_lgl(mandatory_cols, ~ .x %in% names(input)) == FALSE, na.rm = TRUE)){
     gtx_error("aba.save | missing input column.")
     return()
   }
@@ -818,7 +821,7 @@ aba.zoom <- function(.data, hgncid, entity, analysis2, p12_ge = 0.80){
   # ---
   gtx_debug("aba.zoom | validating input.")
   required_cols <- c("analysis1", "analysis2", "hgncid", "entity", "p12")
-  if(!all(required_cols %in% (names(input)))){
+  if(!all(required_cols %in% (names(input)), na.rm = TRUE)){
     gtx_error('aba.zoom | input is missing required cols. \\
               Required cols include: {paste(required_cols, collapse = ", ")}')
     stop();
@@ -875,7 +878,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(tier1_zoom = !!hgncid) %>% 
       dplyr::mutate(zoom1_pos_query = (hgncid == !!hgncid & p12 >= p12_ge)) %>% 
       dplyr::group_by(analysis2) %>% 
-      dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query))
+      dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query, na.rm = TRUE))
   }
   else if(!missing(entity)){
     gtx_debug("aba.zoom1 | Filtering using input entity: {entity}.")
@@ -884,7 +887,7 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(tier1_zoom = !!entity) %>% 
       dplyr::mutate(zoom1_pos_query = (entity == !!entity & p12 >= p12_ge)) %>% 
       dplyr::group_by(analysis2) %>% 
-      dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query))
+      dplyr::mutate(zoom1_pos_gwas = any(zoom1_pos_query, na.rm = TRUE))
   }
   else if(!missing(analysis2)){
     gtx_debug("aba.zoom1 | Filtering using input analysis2: {analysis2}.")
@@ -899,11 +902,11 @@ aba.int_zoom1 <- function(.data, hgncid, entity, analysis2, p12_ge){
   ret <- 
     ret %>% 
     dplyr::group_by(hgncid) %>% 
-    dplyr::mutate(zoom1_proxy_genes = any(zoom1_pos_gwas & p12 >= p12_ge)) %>% 
+    dplyr::mutate(zoom1_proxy_genes = any(zoom1_pos_gwas & p12 >= p12_ge, na.rm = TRUE)) %>% 
     dplyr::group_by(analysis2) %>% 
-    dplyr::mutate(zoom1_proxy_gwas = any(zoom1_proxy_genes & p12 >= p12_ge)) %>% 
+    dplyr::mutate(zoom1_proxy_gwas = any(zoom1_proxy_genes & p12 >= p12_ge, na.rm = TRUE)) %>% 
     dplyr::group_by(analysis1) %>% 
-    dplyr::mutate(zoom1_proxy_tissues = any(zoom1_proxy_genes & zoom1_proxy_gwas & p12 >= p12_ge)) %>% 
+    dplyr::mutate(zoom1_proxy_tissues = any(zoom1_proxy_genes & zoom1_proxy_gwas & p12 >= p12_ge, na.rm = TRUE)) %>% 
     dplyr::ungroup() %>% 
     dplyr::mutate(zoom1 = (zoom1_proxy_genes & zoom1_proxy_gwas & zoom1_proxy_tissues)) %>% 
     dplyr::filter(zoom1) %>%
@@ -926,7 +929,7 @@ aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(tier2_zoom = !!hgncid) %>% 
       dplyr::mutate(zoom2_pos_query = (hgncid == !!hgncid & p12 >= p12_ge)) %>% 
       dplyr::group_by(analysis2) %>% 
-      dplyr::mutate(zoom2_pos_gwas = any(zoom2_pos_query))
+      dplyr::mutate(zoom2_pos_gwas = any(zoom2_pos_querym, na.rm = TRUE))
       
   }
   else if(!missing(entity)){
@@ -936,7 +939,7 @@ aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
       dplyr::mutate(tier2_zoom = !!entity) %>% 
       dplyr::mutate(zoom2_pos_query = (entity == !!entity & p12 >= p12_ge)) %>% 
       dplyr::group_by(analysis2) %>% 
-      dplyr::mutate(zoom2_pos_gwas = any(zoom2_pos_query))
+      dplyr::mutate(zoom2_pos_gwas = any(zoom2_pos_query, na.rm = TRUE))
   }
   else if(!missing(analysis2)){
     gtx_debug("aba.zoom2 | Filtering using input analysis2: {analysis2}.")
@@ -951,9 +954,9 @@ aba.int_zoom2 <- function(.data, hgncid, entity, analysis2, p12_ge){
   ret <- 
     ret %>% 
     dplyr::group_by(hgncid) %>% 
-    dplyr::mutate(zoom2_proxy_genes = any(zoom2_pos_gwas & p12 >= 0.80)) %>% 
+    dplyr::mutate(zoom2_proxy_genes = any(zoom2_pos_gwas & p12 >= 0.80, na.rm = TRUE)) %>% 
     dplyr::group_by(analysis1) %>% 
-    dplyr::mutate(zoom2_proxy_tissues = any(zoom2_proxy_genes & zoom2_pos_gwas & p12 >= 0.80)) %>% 
+    dplyr::mutate(zoom2_proxy_tissues = any(zoom2_proxy_genes & zoom2_pos_gwas & p12 >= 0.80, na.rm = TRUE)) %>% 
     dplyr::ungroup() %>% 
     dplyr::mutate(zoom2 = (zoom2_proxy_genes & zoom2_pos_gwas & zoom2_proxy_tissues)) %>% 
     dplyr::ungroup() %>% 
