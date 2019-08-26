@@ -501,6 +501,7 @@ int_ht_rpd_wrapper <- function(analysis, chrom, pos, signal, use_database, ...){
       regionplot.data(analysis = analysis, 
                       chrom    = chrom, 
                       pos      = pos, 
+                      # TODO: Consider adding emac filter?
                       style    = 'signal', ...) %>% 
       dplyr::as_tibble() %>% 
       dplyr::select(-freq, -rsq) %>% 

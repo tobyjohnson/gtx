@@ -148,12 +148,12 @@ add_ssh_known_host <- function(known_host){
                            args = c(known_host, known_hosts_file), 
                            stdout = TRUE)
     
-    if(!is.null(purrr::pluck(search_file, attr_getter("status")))){
+    if(!is.null(purrr::pluck(search_file, purrr::attr_getter("status")))){
       gtx_error("add_ssh_known_host | Unable to properly grep the known_hosts file.")  
     }
     
-    if(!is_bare_character(search_file)){
-      if(str_detect(string = search_file, pattern = known_host)){
+    if(!rlang::is_bare_character(search_file)){
+      if(stringr::str_detect(string = search_file, pattern = known_host)){
         gtx_debug("add_ssh_known_host | Found previous url in known host, skipping add.")  
         return()
       }
@@ -165,7 +165,7 @@ add_ssh_known_host <- function(known_host){
                   stdout = glue::glue("{home_dir}/tmp_keyscan"),
                   stderr = FALSE)
   
-  if(!is.null(purrr::pluck(exec, attr_getter("status")))){
+  if(!is.null(purrr::pluck(exec, purrr::attr_getter("status")))){
     gtx_error("add_ssh_known_host | Unable to ssh-keyscan.")
     stop()
   }
@@ -175,7 +175,7 @@ add_ssh_known_host <- function(known_host){
                   stdout = FALSE,
                   stderr = FALSE)
   
-  if(!is.null(purrr::pluck(exec, attr_getter("status")))){
+  if(!is.null(purrr::pluck(exec, purrr::attr_getter("status")))){
     gtx_error("add_ssh_known_host | Unable to ssh-keyscan.")  
     stop()
   }
