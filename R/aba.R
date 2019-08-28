@@ -229,9 +229,13 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
   colocs_th_tbl <- 
     dplyr::inner_join(
       colocs_tbl,
+      # For the GWAS top hits, we currently (08-28-2019) have 
+      # some TH table with RSID (ttam) and some TH tables w/o (gene_gwas)
+      # Selecting the cols we need, could be updated later to include RSID
+      # and avoid the join with the sites table later. 
       gwas_th_tbl %>% 
-        dplyr::select(-signal, -num_variants, -rsq_index, -min_pval, 
-                      -freq_index, -beta_index, -se_index),
+        dplyr::select(chrom, pos_start, pos_end, pos_index,
+                      ref_index, alt_index, pval_index, analysis),
       by = c("analysis2" = "analysis", "chrom")) %>% 
     dplyr::select(dplyr::everything(), 
                   th_pos   = pos_index, 
@@ -248,7 +252,8 @@ aba.query <- function(analysis_ids, hgncid, ensemblid, rsid,
       by = c("analysis2" = "analysis")) %>% 
     # Append RSID to each TH index
     dplyr::left_join(.,
-      sites_tbl %>% dplyr::select("rs_chrom" = "chrom", "rs_pos" = "pos", "rs_ref" = "ref", "rs_alt" = "alt", "rsid"),
+      sites_tbl %>% dplyr::select("rs_chrom" = "chrom", "rs_pos" = "pos", 
+                                  "rs_ref" = "ref", "rs_alt" = "alt", "rsid"),
       by = c("chrom" = "rs_chrom", "th_pos" = "rs_pos", "th_ref" = "rs_ref", "th_alt" = "rs_alt")) %>% 
   # we should then filter ncase
   dplyr::filter(ncase >= ncase_ge | ncohort >= ncohort_ge)
