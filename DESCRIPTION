@@ -11,9 +11,8 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
              person("Li", "Li", role = c("ctb")),
              person("Valeriia", "Haberland", role=c("ctb"), email = "valeriia.haberland@bristol.ac.uk"))
 Imports:
-  odbc,RSQLite,data.table,beeswarm,survival,meta,rmeta,futile.logger,glue,tidyr,stringr,purrr,ggplot2,readr,implyr,rlang,tibble,gglasso,DescTools,TwoSampleMR
-Remotes:
-  MRCIEU/TwoSampleMR
+  odbc,RSQLite,data.table,beeswarm,survival,meta,rmeta,futile.logger,glue,tidyr,stringr,
+  purrr,ggplot2,readr,implyr,rlang,tibble,gglasso,DescTools,TwoSampleMR
 Depends:
   DBI,dplyr
 Suggests:
