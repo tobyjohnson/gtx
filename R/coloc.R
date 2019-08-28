@@ -932,13 +932,15 @@ multicoloc.plot <- function(res,
 
 ## We aim to deprecate multicoloc.kbs by fixing multicoloc
 ## to return results as a long list
+
+#' multicoloc.data_kbs gets data like multicoloc.data but also cals colocs
 #' @import data.table
 #' @export
-multicoloc.kbs <- function(analysis1, analysis2,
+#' @inheritParams [multicoloc]
+multicoloc.data_kbs <- function(analysis1, analysis2,
                        chrom, pos_start, pos_end, pos, 
                        hgncid, ensemblid, rs, surround = 0,
-                       hard_clip = FALSE, style = 'heatplot',
-                       thresh_analysis = 0.1, thresh_entity = 0.1, 
+                       hard_clip = FALSE,
                        dbc = getOption("gtx.dbConnection", NULL), ...) {
   gtxdbcheck(dbc)
 
@@ -950,8 +952,10 @@ multicoloc.kbs <- function(analysis1, analysis2,
                          dbc = dbc) %>% 
         data.table::as.data.table()
   
+  data.table::setkey(ss, analysis1, entity1)
+  
   res <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
-                    sprintf('SELECT ensemblid AS entity1, hgncid FROM genes WHERE %s ORDER BY pos_start;',
+                    sprintf('SELECT ensemblid AS entity1, hgncid, pos_start FROM genes WHERE %s ORDER BY pos_start;',
                             gtxwhere(ensemblid = unique(ss$entity))), # FIXME not guaranteed entity_type is ENSG
                     uniq = FALSE)
   res$entity <- res$ensemblid # FIXME not guaranteed entity_type
@@ -959,11 +963,80 @@ multicoloc.kbs <- function(analysis1, analysis2,
   ret <- ss[ ,
               coloc.fast(beta1, se1, beta2, se2),
               by = .(analysis1, entity1)] %>% 
-         left_join(., res, by = "entity1") %>% 
-         dplyr::rename(tissue = analysis1) %>%
-         dplyr::rename(ensembl_id = entity1) %>%
-         dplyr::rename(hgnc_id = hgncid)
-      # FIXME you may want to rename P1, P2, P12 etc.
+         dplyr::left_join(., res, by = "entity1") %>% 
+         dplyr::rename(entity = entity1) %>% 
+         dplyr::as_tibble() %>% 
+         dplyr::mutate(hgncid = stringr::str_replace(hgncid, "^$", NA_character_))
+         # FIXME you may want to rename P1, P2, P12 etc.
   
+  attr(ret, "analysis2") <- analysis2
+   
   return(ret)
 }
+
+## We aim to deprecate multicoloc.kbs by fixing multicoloc
+## to return results as a long list
+
+#' multicoloc.plot_kbs ggplot implementation of multicoloc plots.
+#' @export
+#' @param .data multicoloc.data_kbs() dataframe
+#' @param thresh_analysis_ge [Default = 0.5]
+#' @param thresh_entity_ge   [Default = 0.5]
+multicoloc.plot_kbs <- function(.data, thresh_analysis_ge = 0.5, thresh_entity_ge = 0.5){
+  input = .data
+  
+  analysis2 = purrr::pluck(input, purrr::attr_getter("analysis2"))
+  
+  plot_dat <- 
+    input %>% 
+    # Replace missing hgncid with ensemblids
+    dplyr::mutate(hgncid = dplyr::case_when(is.na(hgncid) ~ entity, TRUE ~ hgncid)) %>% 
+    dplyr::group_by(analysis1) %>% 
+    dplyr::mutate(tissue_above_thresh = any(P12 >= thresh_analysis_ge, na.rm = TRUE)) %>% 
+    dplyr::group_by(entity) %>% 
+    dplyr::mutate(entity_above_thresh = any(P12 >= thresh_entity_ge, na.rm = TRUE)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::filter(tissue_above_thresh == TRUE & entity_above_thresh == TRUE) %>% 
+    dplyr::select(analysis1, entity, hgncid, P12, alpha21, pos_start) %>% 
+    dplyr::mutate(hgncid = forcats::fct_reorder(hgncid, pos_start)) %>%
+    dplyr::group_by(analysis1) %>% 
+    dplyr::mutate(mutate_tissue_max_h4 = max(P12, na.rm = TRUE)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(analysis1 = forcats::fct_reorder(analysis1, mutate_tissue_max_h4)) %>%  
+    dplyr::mutate(h4_plot = round(P12, 2) * 100) %>% 
+    dplyr::mutate(dir_of_effect = case_when(alpha21 > 0 ~ "Positive correlation", 
+                                            alpha21 < 0 ~ "Negative correlation")) %>% 
+    dplyr::mutate(dir_of_effect = forcats::fct_relevel(dir_of_effect, 
+                                                       c("Positive correlation", "Negative correlation")))
+  
+  mc_fig <- 
+    plot_dat %>% 
+    ggplot2::ggplot(ggplot2::aes(x = hgncid, y = analysis1)) +
+    ggplot2::geom_label(ggplot2::aes(label = h4_plot, fill = dir_of_effect, alpha = P12), 
+                                     label.size = 0, 
+                                     show.legend = FALSE) + 
+    ggplot2::guides(fill = ggplot2::guide_legend(title = 'Correlation of gene expression\n with GWAS', 
+                                                 override.aes = aes(label = ""), 
+                                                 order = 1),
+                    alpha = ggplot2::guide_legend(title = "Coloc Posterior Probability (PP)\n   (Bold >= 0.80)",
+                                                  override.aes = aes(label = "PP"),
+                                                  order = 2)) + 
+    ggplot2::geom_label(data = dplyr::filter(plot_dat, P12 >= 0.80), 
+                        ggplot2::aes(label = h4_plot, fill = dir_of_effect, alpha = P12), 
+                        label.size = 0.4, 
+                        fontface = "bold") +
+    ggplot2::scale_alpha(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.00)) +              # scaled for H4; [0-1]
+    ggplot2::scale_fill_manual(values = c("Positive correlation" = "#F8766D",    # red
+                                          "Negative correlation" = "#619Cff")) + # blue
+    ggplot2::theme_bw() + 
+    ggplot2::theme(axis.text.x      = ggplot2::element_text(size = 9, angle = 35, hjust = 1),
+                   axis.text.y      = ggplot2::element_text(size = 9),
+                   axis.title.x     = ggplot2::element_blank(),
+                   axis.title.y     = ggplot2::element_blank(), 
+                   panel.grid.major = ggplot2::element_blank(), 
+                   plot.title       = element_text(hjust = 0.5)) +
+    ggplot2::ggtitle(analysis2)
+  
+  return(mc_fig)
+}
+  
