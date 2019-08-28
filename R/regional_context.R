@@ -394,8 +394,7 @@ int_ht_regional_context <- function(input, chrom, pos, analysis, signal,
   if(!missing(input)){
     required_cols <- c("chrom", "pos", "analysis", "signal")
     if(!all(required_cols %in% (names(input)))){
-      gtx_fatal_stop('int_ht_regional_context_analysis | input is missing required cols. ',
-                     'Required cols include: {paste(required_cols, collapse = ", ")}')
+      gtx_fatal_stop('int_ht_regional_context_analysis | input is missing required cols.')
     }
   }
   # else create input table
