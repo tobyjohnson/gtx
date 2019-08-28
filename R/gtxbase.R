@@ -163,24 +163,33 @@ gtxwhat <- function(analysis1, # rename to analysis_u or analysis_uniq FIXME
         if (missing(analysis)) NULL
         else {
             if (getOption('gtx.analysisIsString', TRUE)) { # Future release will change default to FALSE
-                sprintf("analysis='%s'", sanitize(analysis, type = "alphanum"))
+                sprintf("%sanalysis='%s'", 
+                        tablename, 
+                        sanitize(analysis, type = "alphanum"))
             } else {
-                sprintf("analysis=%s", sanitize1(analysis, type = "count")) # note no quotes
+                sprintf("%sanalysis=%s", 
+                        tablename, 
+                        sanitize1(analysis, type = "count")) # note no quotes
             }
         },
         
         if (missing(description_contains)) NULL
-        else sprintf("description ILIKE '%%%s%%'", sanitize(description_contains, type = "text")), # Sanitation may be too restrictive, should do something intelligent with whitespace
+        else sprintf("lower(%sdescription) LIKE '%%%s%%'", 
+                     tablename, 
+                     sanitize(tolower(description_contains), type = "text")), # Sanitation may be too restrictive, should do something intelligent with whitespace
 
         if (missing(phenotype_contains)) NULL
-        else sprintf("phenotype ILIKE '%%%s%%'", sanitize(phenotype_contains, type = "text")), # Sanitation may be too restrictive
+        else sprintf("lower(%sphenotype) LIKE '%%%s%%'", 
+                     tablename, 
+                     sanitize(phenotype_contains, type = "text")), # Sanitation may be too restrictive
 
         if (missing(has_tag)) NULL
-        else sprintf("tag='%s'", sanitize(has_tag, type = "alphanum")) # Sanitation may be too restrictive
+        else sprintf("%stag='%s'", tablename, 
+                     sanitize(has_tag, type = "alphanum")) # Sanitation may be too restrictive
     )
     ## format
     ws1f <- paste0("(", 
-                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(tablename, x, collapse = " OR "))), 
+                  unlist(sapply(ws1, function(x) if (is.null(x)) NULL else paste0(x, collapse = " OR "))), 
                   ")", collapse = " OR ")
 
     ##
@@ -567,6 +576,7 @@ gtxanalysis_label <- function(analysis, entity, signal, nlabel = TRUE,
 #' @param ncohort_ge Numeric to select number in cohort greater-or-equal
 #' @param has_cleo Logical, select only analyses with \link{CLEO} results
 #' @param analysis_fields Names of columns/fields to return
+#' @param sort_by Column name for descending sort, either ncohort or ncase
 #' @param tag_is Internal use only
 #' @param with_tags Internal use only
 #' @param has_access_only Deprecated
@@ -584,6 +594,7 @@ gtxanalyses <- function(analysis, analysis_not,
                         ## if extra filters are added, be sure to update definition of all_analyses below
                         analysis_fields = c('description', 'phenotype', 'covariates', 'cohort', 'unit',
                                     'ncase', 'ncontrol', 'ncohort'),
+                        sort_by, 
                         tag_is, with_tags = FALSE,
                         has_access_only = FALSE, 
                         dbc = getOption("gtx.dbConnection", NULL)) {
@@ -600,6 +611,9 @@ gtxanalyses <- function(analysis, analysis_not,
     } else if ('SQLiteConnection' %in% class(dbc)) {
         ## When dbc is an SQLite handle, there is no concept of a database
         dbs <- NULL
+    } else if ('KineticaConnection' %in% class(dbc)) {
+      ## When dbc is a Kinetica handle, there is no concept of a database
+      dbs <- NULL
     } else {
         stop('dbc class [ ', paste(class(dbc), collapse = ', '), ' ] not recognized')
     }
@@ -663,8 +677,17 @@ gtxanalyses <- function(analysis, analysis_not,
         }
     }
     
+    if (!missing(sort_by) && identical(tolower(sort_by), 'ncohort') && 'ncohort' %in% names(res)) {
+      gtx_debug('Sorting by ncohort')
+      res <- res[order(res$ncohort, decreasing = TRUE), ]
+    }
+    if (!missing(sort_by) && identical(tolower(sort_by), 'ncase') && 'ncase' %in% names(res)) {
+      gtx_debug('Sorting by ncase')
+      res <- res[order(res$ncase, decreasing = TRUE), ]
+    }
+    
     if (identical(nrow(res), 0L)) {
-      futile.logger::flog.warn('No analyses match the search criteria')
+      gtx_warn('No analyses match the search criteria')
     }
     return(res)
 }

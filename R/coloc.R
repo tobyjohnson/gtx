@@ -173,14 +173,17 @@ coloc.data <- function(analysis1, analysis2,
   ## Determine entity, if required, for each analysis
   xentity1 <- gtxentity(analysis1, 
                         entity = entity1, hgncid = hgncid, ensemblid = ensemblid,
-                        tablename = 't1')
+                        tablename = 't1',
+                        dbc = dbc)
   xentity2 <- gtxentity(analysis2, 
                         entity = entity2, hgncid = hgncid, ensemblid = ensemblid,
-                        tablename = 't2')
+                        tablename = 't2',
+                        dbc = dbc)
 
   ## Get association statistics
   res <- sqlWrapper(dbc, 
                     sprintf('SELECT 
+                                 t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt,
                                  t1.beta%s AS beta1, t1.se%s AS se1, 
                                  t2.beta%s AS beta2, t2.se%s AS se2  
                              FROM 
@@ -191,14 +194,15 @@ coloc.data <- function(analysis1, analysis2,
                              WHERE 
                                  %s AND %s AND %s %s AND 
                                  %s AND %s AND %s %s 
+                             ORDER BY chrom, pos, ref, alt
                              ;', 
                             if (missing(signal1)) '' else '_cond', 
                             if (missing(signal1)) '' else '_cond', 
                             if (missing(signal2)) '' else '_cond', 
                             if (missing(signal2)) '' else '_cond', 
-                            gtxanalysisdb(analysis1), 
+                            gtxanalysisdb(analysis1, dbc = dbc), 
                             if (missing(signal1)) '' else '_cond', 
-                            gtxanalysisdb(analysis2), 
+                            gtxanalysisdb(analysis2, dbc = dbc), 
                             if (missing(signal2)) '' else '_cond', 
                             where_from(analysisu = analysis1, signalu = signal1, tablename = 't1'), 
                             gtxwhere(chrom = xregion$chrom, pos_ge = xregion$pos_start, pos_le = xregion$pos_end, tablename = 't1'), 
@@ -463,7 +467,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
   pos_end = xregion$pos_end
 
   ## Currently only works if analysis1 all in the same db table
-  db1 <- unique(sapply(analysis1, gtxanalysisdb))
+  db1 <- unique(sapply(analysis1, gtxanalysisdb, dbc = dbc))
   if (length(db1) == 1L) {
     if (db1 == '') {
       # current database, okay
@@ -541,6 +545,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
     res <- sqlWrapper(dbc,
                       sprintf('SELECT STRAIGHT_JOIN
                                    t1.analysis AS analysis1, t1.entity AS entity1,
+                                   t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt, 
                                    t1.beta AS beta1, t1.se AS se1, 
                                    t2.beta AS beta2, t2.se AS se2 
                                FROM 
@@ -557,12 +562,13 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                                     WHERE 
                                         %s AND %s AND pval IS NOT NULL
                                    ) AS t2
-                               USING (chrom, pos, ref, alt);',
+                               USING (chrom, pos, ref, alt)
+                               ORDER BY analysis1, entity1, chrom, pos, ref, alt;',
                             db1, 
                             gtxwhat(analysis = analysis1),
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end),
                             gtxwhere(chrom = chrom, entity = eq),
-                            gtxanalysisdb(analysis2),
+                            gtxanalysisdb(analysis2, dbc = dbc),
                             where_from(analysisu = analysis2), 
                             gtxwhere(chrom = chrom, pos_ge = pos_start, pos_le = pos_end) 
                             ),
@@ -575,8 +581,8 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
     t0 <- as.double(Sys.time())
     res <- try(sqlWrapper(dbc,
                       sprintf('SELECT 
-                                   t1.chrom, t1.pos, t1.ref, t1.alt, 
                                    t1.analysis AS analysis1, t1.entity AS entity1, t2.signal AS signal2, 
+                                   t1.chrom AS chrom, t1.pos AS pos, t1.ref AS ref, t1.alt AS alt, 
                                    t1.beta AS beta1, t1.se AS se1, 
                                    t2.beta_cond AS beta2, t2.se_cond AS se2 
                                FROM %sgwas_results AS t1
@@ -585,6 +591,7 @@ multicoloc.data <- function(analysis1, analysis2, signal2,
                                WHERE
                                    %s AND %s AND %s AND pval IS NOT NULL
                                    AND %s AND %s
+                               ORDER BY analysis1, entity1, signal2, chrom, pos, ref, alt
                                ;',
                               db1, 
                               gtxanalysisdb(analysis2),
@@ -748,7 +755,7 @@ multicoloc <- function(analysis1, analysis2, signal2,
     
     # could make logic on this, with set to empty vector if missing(signals2)
       
-    data.table::setkey(ss, analysis1, entity1)
+    data.table::setkey(ss, analysis1, entity1, signal2) # added signal2 here
     res <- ss[ ,
               coloc.fast(beta1, se1, beta2, se2, join_type = 'left'), # FIXME explicitly pass priors
               by = .(analysis1, entity1, signal2)]
@@ -758,15 +765,29 @@ multicoloc <- function(analysis1, analysis2, signal2,
   gtx_info('Colocalization analyzed for {sum(!is.na(res$P12))} pairs in {round(t1 - t0, 3)}s.')
 
   ## get results labels (resl), i.e. gene data for entities
-  ## 
-  ## FIXME not guaranteed entity_type is ensg
-  resl <- sqlWrapper(getOption('gtx.dbConnection_cache_genes', dbc), 
-                    sprintf('SELECT ensemblid AS entity1, hgncid, chrom, pos_start, pos_end FROM genes WHERE %s ORDER BY pos_start;',
-                            gtxwhere(ensemblid = unique(res$entity1))), # FIXME not guaranteed entity_type is ENSG
-                    uniq = FALSE)
-  res <- cbind(res, 
-               resl[match(res$entity1, resl$entity1), c('hgncid', 'chrom', 'pos_start', 'pos_end')])
-  
+  ## 1. look up entity_type for each analysis1 and merge:
+  res <- merge(res, 
+               annot(analysis = res$analysis1)[ , c('analysis', 'entity_type'), drop = FALSE], 
+               by.x = 'analysis1', by.y = 'analysis', 
+               all.x = TRUE, all.y = FALSE)
+  ## 2. look up labels for each (entity, entity_type) pair and merge:
+  res <- merge(res, 
+               annot(within(res, entity <- entity1)[ , c('entity', 'entity_type'), drop = FALSE]), 
+               by.x = c('entity1', 'entity_type'), by.y = c('entity', 'entity_type'),
+               all.x = TRUE, all.y = FALSE)
+  ## 3. fallback for entities not found by annot()
+  w_res_nolabel <- which(with(res, label == '' | is.na(label)))
+  if (length(w_res_nolabel) > 0) {
+    gtx_warn('using fallback labels for entities [{paste(res[w_res_nolabel]$entity1, collapse = ", ")}]')
+    res[w_res_nolabel, label := entity1]  
+  }
+  ## 4. restore key (and hence row order), inherited from ss, but broken by previous merges
+  if (missing(signal2)) {
+    data.table::setkey(res, analysis1, entity1)
+  } else {
+    data.table::setkey(res, analysis1, entity1, signal2)
+  }
+
   ## Add the following as an attr()ibute
   ## analysis2 is not allowed an entity currently
   pdesc2 <- gtxanalysis_label(analysis = analysis2, signal = signal2, nlabel = FALSE, dbc = dbc)
@@ -845,7 +866,7 @@ multicoloc.plot <- function(res,
   gtxdbcheck(dbc)
 
   analyses <- unique(res$analysis1)
-  entities <- res[match(unique(res$entity1), res$entity1), list(entity1, hgncid, chrom, pos_start, pos_end)]
+  entities <- res[match(unique(res$entity1), res$entity1), list(entity1, label, chrom, pos_start, pos_end)]
   entities <- entities[order((entities$pos_start + entities$pos_end)/2.), ]
   ## create column z between -1 and 1 for coloc P12 probability * sign of effect direction
   ## then reshape ready for matrix
@@ -857,7 +878,7 @@ multicoloc.plot <- function(res,
   # note, preserve order of entities because sorted by midpoint pos_start,pos_end
   # MUST BE preserved if replaced by a merge or left join
   #  res <- cbind(res, resc[match(res$entity1, resc$entity1), paste0('z', '.', analyses), with  = FALSE])
-  rownames(zmat) <- with(entities, ifelse(hgncid != '', as.character(hgncid), as.character(entity1))) # FIXME will this work for all entity types
+  rownames(zmat) <- entities$label
   colnames(zmat) <- analyses
 
   ## thresh_analysis <- thresh_analysis*max(zmat, na.rm = TRUE) # threshold could be relative instead of absolute
