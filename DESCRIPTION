@@ -8,13 +8,15 @@ Authors@R: c(person("Toby", "Johnson", role = c("aut", "cre"), email = "Toby.x.J
              person("Karsten", "Sieber", role = c("ctb"), email = "karsten.b.sieber@gsk.com"),
              person("Kijoung", "Song", role = c("ctb"), email = "kys21207@gsk.com"),
              person("Andrew", "Slater", role = c("ctb")),
-             person("Li", "Li", role = c("ctb")))
+             person("Li", "Li", role = c("ctb")),
+             person("Valeriia", "Haberland", role=c("ctb"), email = "valeriia.haberland@bristol.ac.uk"))
 Imports:
-  odbc,RSQLite,data.table,beeswarm,survival,meta,rmeta,futile.logger,glue,tidyr,stringr,purrr,ggplot2,readr,implyr,rlang,tibble,gglasso
+  odbc,RSQLite,data.table,beeswarm,survival,meta,rmeta,futile.logger,glue,tidyr,stringr,
+  purrr,ggplot2,readr,implyr,rlang,tibble,gglasso,DescTools,TwoSampleMR
 Depends:
   DBI,dplyr
 Suggests:
-    knitr,testthat,sparklyr
+    knitr,testthat,sparklyr,MRInstruments
 VignetteBuilder: knitr
 License: GPL (>= 3)
 Description: Assorted tools for genetic and pharmacogenetic association 
