@@ -7,8 +7,9 @@
 gtxanalyses(analysis, analysis_not, phenotype_contains,
   description_contains, has_tag, ncase_ge, ncohort_ge, has_cleo = FALSE,
   analysis_fields = c("description", "phenotype", "covariates", "cohort",
-  "unit", "ncase", "ncontrol", "ncohort"), tag_is, with_tags = FALSE,
-  has_access_only = FALSE, dbc = getOption("gtx.dbConnection", NULL))
+  "unit", "ncase", "ncontrol", "ncohort"), sort_by, tag_is,
+  with_tags = FALSE, has_access_only = FALSE,
+  dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
 \item{analysis}{Key value(s) for GWAS analysis/es required}
@@ -28,6 +29,8 @@ gtxanalyses(analysis, analysis_not, phenotype_contains,
 \item{has_cleo}{Logical, select only analyses with \link{CLEO} results}
 
 \item{analysis_fields}{Names of columns/fields to return}
+
+\item{sort_by}{Column name for descending sort, either ncohort or ncase}
 
 \item{tag_is}{Internal use only}
 
