@@ -198,9 +198,9 @@ extract_exposure_qtl <- function(p = 5e-08,
         AND g.ref=s.ref AND g.alt=s.alt
         WHERE g.pval < ",
         p,
-        " AND a.analysis = '",
+        " AND a.analysis = ",
         analysis,
-        "' AND g.entity IN (",
+        " AND g.entity IN (",
         s,
         ")
         ORDER BY g.analysis,g.entity;"
