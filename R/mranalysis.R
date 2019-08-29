@@ -168,7 +168,8 @@ extract_exposure <- function(p = 5e-08,
 #' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
 #' @param p (optional): p-value threshold for the top findings where 5e-08 (default). 
 #' @param analysis (required): a string with analysis ID as defined in the GWA studies database
-#' @param entities (required): a dataframe which should have a column 'entity'
+#' @param entities (optional): a dataframe which should have a column 'entity'; if NULL (default), all
+#' entities for a specified analysis ID will be considered for instrument extraction
 #' @param dbc (default): other parameters
 #' @return the dataframe with exposure instruments (Warning! they have to be formatted and clumped to be used in the MR analysis)
 #'
@@ -181,31 +182,55 @@ extract_exposure_qtl <- function(p = 5e-08,
   ##Check the validity of input
   validate_exposure_qtl(analysis, entities)
   
-  #Create a string of entities
-  s <- paste(unique(entities$entity), collapse = "','")
-  s <- paste0("'", s, "'")
-  
-  #Request the instruments from the database
-  res_exp <-
-    odbc::dbGetQuery(
-      dbc,
-      paste0(
-        "SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,g.pval,
-        g.freq,g.analysis,g.entity,a.description,a.phenotype,
-        a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results AS g
-        INNER JOIN analyses AS a ON g.analysis=a.analysis
-        INNER JOIN sites AS s ON g.pos=s.pos AND g.chrom=s.chrom
-        AND g.ref=s.ref AND g.alt=s.alt
-        WHERE g.pval < ",
-        p,
-        " AND a.analysis = '",
-        analysis,
-        "' AND g.entity IN (",
-        s,
-        ")
-        ORDER BY g.analysis,g.entity;"
+  res_exp <- NULL
+  if (is.null(entities)) {
+    #Request the instruments from the database
+    res_exp <-
+      odbc::dbGetQuery(
+        dbc,
+        paste0(
+          "SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,g.pval,
+          g.freq,g.analysis,g.entity,a.description,a.phenotype,
+          a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results AS g
+          INNER JOIN analyses AS a ON g.analysis=a.analysis
+          INNER JOIN sites AS s ON g.pos=s.pos AND g.chrom=s.chrom
+          AND g.ref=s.ref AND g.alt=s.alt
+          WHERE g.pval < ",
+          p,
+          " AND a.analysis = '",
+          analysis,
+          "' 
+          ORDER BY g.analysis,g.entity;"
+        )
       )
-      )
+    
+  } else {
+    #Create a string of entities
+    s <- paste(unique(entities$entity), collapse = "','")
+    s <- paste0("'", s, "'")
+    
+    #Request the instruments from the database
+    res_exp <-
+      odbc::dbGetQuery(
+        dbc,
+        paste0(
+          "SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,g.pval,
+          g.freq,g.analysis,g.entity,a.description,a.phenotype,
+          a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results AS g
+          INNER JOIN analyses AS a ON g.analysis=a.analysis
+          INNER JOIN sites AS s ON g.pos=s.pos AND g.chrom=s.chrom
+          AND g.ref=s.ref AND g.alt=s.alt
+          WHERE g.pval < ",
+          p,
+          " AND a.analysis = '",
+          analysis,
+          "' AND g.entity IN (",
+          s,
+          ")
+          ORDER BY g.analysis,g.entity;"
+        )
+        )
+  }
   
   if ((is.null(res_exp)) |
       (dim(res_exp)[1] == 0))
@@ -865,21 +890,23 @@ filter_entities <- function(res=NULL, analyses){
 #' 
 #' @keywords internal
 #' 
-validate_exposure_qtl <- function(analysis, entities){
+validate_exposure_qtl <- function(analysis, entities) {
   
   ##Check whether analysis and entities have valid formats
-  if(is.null(analysis) | is.null(entities)){
-    stop("Error: 'analysis' and 'entities' cannot be empty.")
+  if (is.null(analysis)) {
+    stop("Error: 'analysis' cannot be empty.")
   }
   
-  if(!is.data.frame(entities) | length(which(names(entities) %in% c('entity'))) != 1){
-    stop("Error: 'entities' should have a column (only one) called 'entity'.") 
+  if (!is.null(entities)) {
+    if (!is.data.frame(entities) |
+        length(which(names(entities) %in% c('entity'))) != 1) {
+      stop("Error: 'entities' should have a column (only one) called 'entity'.")
+    }
   }
   
-  if(!is.character(analysis)){
+  if (!is.character(analysis)) {
     stop("Error: 'analysis' should contain only one analysis ID of string type.")
   }
-
 }
 
 #' Search study by keyword.

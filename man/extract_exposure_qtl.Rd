@@ -12,7 +12,8 @@ extract_exposure_qtl(p = 5e-08, analysis = NULL, entities = NULL,
 
 \item{analysis}{(required): a string with analysis ID as defined in the GWA studies database}
 
-\item{entities}{(required): a dataframe which should have a column 'entity'}
+\item{entities}{(optional): a dataframe which should have a column 'entity'; if NULL (default), all
+entities for a specified analysis ID will be considered for instrument extraction}
 
 \item{dbc}{(default): other parameters}
 }
