@@ -4,6 +4,3 @@
 .Ruserdata
 *~
 .Rbuildignore
-mrbase.oauth
-*.png
-unit_tests.log

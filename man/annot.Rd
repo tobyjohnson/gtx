@@ -4,30 +4,25 @@
 \alias{annot}
 \title{Query analysis, variant, gene etc. annotation}
 \usage{
-annot(x, analysis, chrom, pos, ref, alt, rs, hgnc, ensg, entity,
-  max_variants = 30L, max_genes = 3L,
-  dbc = getOption("gtx.dbConnection", NULL))
+annot(analysis, chrom, pos, ref, alt, rs, hgnc, ensg, max_variants = 30L,
+  max_genes = 3L, dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
-\item{x}{data frame, see Details}
+\item{analysis}{Analysis identifier}
 
-\item{analysis}{Analysis identifier(s)}
+\item{chrom}{Chromosome identifier (string)}
 
-\item{chrom}{Chromosome identifier(s) (string)}
+\item{pos}{Position}
 
-\item{pos}{Position(s)}
+\item{ref}{Reference allele}
 
-\item{ref}{Reference allele(s)}
-
-\item{alt}{Alternate allele(s)}
+\item{alt}{Alternate allele}
 
 \item{rs}{dbSNP identifier (e.g. "rs123456")}
 
-\item{hgnc}{HGNC gene symbol(s)}
+\item{hgnc}{HGNC gene symbol}
 
-\item{ensg}{Ensembl gene identifier(s) (e.g. "ENSG00000123456")}
-
-\item{entity}{Entity identifier(s)}
+\item{ensg}{Ensembl gene identifier (e.g. "ENSG00000123456")}
 
 \item{max_variants}{Maximum number of variants to return}
 

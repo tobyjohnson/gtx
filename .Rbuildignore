@@ -2,4 +2,3 @@
 .git
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^mrbase\.oauth$
