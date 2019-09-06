@@ -3,26 +3,6 @@
 ## pval_significance determines the threshold used to declare significance
 ## pval_plot determines the threshold for true plotting
 
-#' 
-#' 
-#' @param analysis
-#' @param style
-#' @param pval_thres
-#' @param maf_ge
-#' @param rsq_ge
-#' @param emac_ge
-#' @param case_emac_ge
-#' @param gene_annotate
-#' @param plot_ymax
-#' @param prune_dist
-#' @param manhattan_thresh
-#' @param manhattan_interspace
-#' @param qqplot_col
-#' @param qqplot_alpha
-#' @param plot_fastbox
-#' @param zrocx
-#' @param entity
-#' @param dbc
 #' @import data.table
 #' @export
 gwas <- function(analysis,
@@ -54,7 +34,7 @@ gwas <- function(analysis,
 	entity_string = paste0(" AND entity='", entity, "' ")
 	}
     res <- sqlWrapper(dbc,
-	      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
+	      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se, entity
 		       FROM %sgwas_results
 		       WHERE %s AND %s %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
 		      gtxanalysisdb(analysis),
@@ -72,7 +52,10 @@ gwas <- function(analysis,
 
     t1 <- as.double(Sys.time())
     gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
-    
+
+    if (is.null(entity) & nrow(res[!is.null(entity)] )>1) {
+	stop("you are running a GWAS on a xQTL dataset, without specifying an entity. This will return a lot of data")
+	}
     if(nrow(res) == 0){
       res <- data.table::data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
                         pos_end    = NA, num_variants = NA, min_pval   = NA, 
