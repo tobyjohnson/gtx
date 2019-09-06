@@ -3,6 +3,26 @@
 ## pval_significance determines the threshold used to declare significance
 ## pval_plot determines the threshold for true plotting
 
+#' 
+#' 
+#' @param analysis
+#' @param style
+#' @param pval_thres
+#' @param maf_ge
+#' @param rsq_ge
+#' @param emac_ge
+#' @param case_emac_ge
+#' @param gene_annotate
+#' @param plot_ymax
+#' @param prune_dist
+#' @param manhattan_thresh
+#' @param manhattan_interspace
+#' @param qqplot_col
+#' @param qqplot_alpha
+#' @param plot_fastbox
+#' @param zrocx
+#' @param entity
+#' @param dbc
 #' @import data.table
 #' @export
 gwas <- function(analysis,
@@ -18,6 +38,7 @@ gwas <- function(analysis,
                  qqplot_alpha = 0.01,
                  plot_fastbox = 2, 
                  zrok = FALSE,
+		 entity = FALSE,
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
