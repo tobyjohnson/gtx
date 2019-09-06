@@ -42,10 +42,10 @@ gwas <- function(analysis,
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
-    ## FIXME unclear how to handle analysis with entities
-    ## FIXME should throw error if entity_type is not NULL
     
     t0 <- as.double(Sys.time())
+
+    ## FIXME should throw error if entity_type is not NULL
 
     # entity should be FALSE for all eQTL datasets. This may go to gtxfilter, but prefer to put it here for now.
     if (is.null(entity)) {
@@ -69,6 +69,7 @@ gwas <- function(analysis,
 	      zrok = zrok)
 
     res <- data.table::data.table(res) # in future, sqlWrapper will return data.table objects always
+
     t1 <- as.double(Sys.time())
     gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
     
@@ -181,7 +182,11 @@ gwas <- function(analysis,
         abline(h = -log10(manhattan_thresh), col = 'red', lty = 'dashed')
         #axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
         lidx <- rep(1:2, length.out = nrow(mmpos))
-        for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = c(0, 0.5)[idx], at = midpt, cex = 0.5))
+	if (nrow(mmpos)>1) { #eQTL data can be available only for one chromosome (e.g. cis data only)
+        	for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = c(0, 0.5)[idx], at = midpt, cex = 0.5))
+	} else {
+        	with(mmpos, mtext(chrom, side = 1, line = c(0, 0.5)[1], at = midpt, cex = 0.5))
+	}
         if (truncp) {
             ## would be nice to more cleanly overwrite y axis label
             axis(2, at = ymax, labels = substitute({}>=ymax, list(ymax = ymax)), las = 1)

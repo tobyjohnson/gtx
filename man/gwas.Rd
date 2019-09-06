@@ -32,6 +32,7 @@ gwas(analysis,
   \item{qqplot_col}{Colour for QQ plot}
   \item{qqplot_alpha}{Null envelope alpha value for QQ plot}
   \item{plot_fastbox}{Box height for fast approximate plotting}
+  \item{entity}{entity (only for xQTL data)}
   \item{dbc}{Database connection}
 }
 \details{
