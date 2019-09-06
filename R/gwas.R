@@ -38,7 +38,7 @@ gwas <- function(analysis,
                  qqplot_alpha = 0.01,
                  plot_fastbox = 2, 
                  zrok = FALSE,
-		 entity = FALSE,
+		 entity = NULL,
                  dbc = getOption("gtx.dbConnection", NULL)) {
     gtxdbcheck(dbc)
     
@@ -47,36 +47,27 @@ gwas <- function(analysis,
     
     t0 <- as.double(Sys.time())
 
-    if (entity == FALSE ) {
-	res <- sqlWrapper(dbc,
-                      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
-                               FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
-                              gtxanalysisdb(analysis),
-                              gtxwhat(analysis1 = analysis),
-                              gtxfilter(pval_le = pval_thresh,
-                                        maf_ge = maf_ge, rsq_ge = rsq_ge,
-                                        emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
-                                        analysis = analysis,
-                                        dbc = dbc)),
-                      uniq = FALSE,
-                      zrok = zrok)
-	} else {
-	res <- sqlWrapper(dbc,
-                      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
-                               FROM %sgwas_results
-                               WHERE %s AND %s AND entity = "%s" AND pval IS NOT NULL ORDER BY chrom, pos;', 
-                              gtxanalysisdb(analysis),
-                              gtxwhat(analysis1 = analysis),
-                              gtxfilter(pval_le = pval_thresh,
-                                        maf_ge = maf_ge, rsq_ge = rsq_ge,
-                                        emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
-                                        analysis = analysis,
-                                        dbc = dbc), 
-			      entity),
-                      uniq = FALSE,
-                      zrok = zrok)
+    # entity should be FALSE for all eQTL datasets. This may go to gtxfilter, but prefer to put it here for now.
+    if (is.null(entity)) {
+	entity_string = "" }
+    else {
+	entity_string = paste0(" AND entity='", entity, "' ")
 	}
+    res <- sqlWrapper(dbc,
+	      sprintf('SELECT chrom, pos, ref, alt, pval, rsq, freq, beta, se
+		       FROM %sgwas_results
+		       WHERE %s AND %s %s AND pval IS NOT NULL ORDER BY chrom, pos;', 
+		      gtxanalysisdb(analysis),
+		      gtxwhat(analysis1 = analysis),
+		      gtxfilter(pval_le = pval_thresh,
+				maf_ge = maf_ge, rsq_ge = rsq_ge,
+				emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
+				analysis = analysis,
+				dbc = dbc),
+		      entity_string),
+	      uniq = FALSE,
+	      zrok = zrok)
+
     res <- data.table::data.table(res) # in future, sqlWrapper will return data.table objects always
     t1 <- as.double(Sys.time())
     gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
@@ -129,14 +120,15 @@ gwas <- function(analysis,
         pvals <- sqlWrapper(dbc,
                             sprintf('SELECT chrom, pos, pval
                                FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL;',
+                               WHERE %s AND %s %s AND pval IS NOT NULL;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_le = 10^-plot_fastbox,
                                          maf_ge = maf_ge, rsq_ge = rsq_ge,
                                          emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                          analysis = analysis,
-                                         dbc = dbc)),
+                                         dbc = dbc),
+			       entity_string),
                             uniq = FALSE)
         t1 <- as.double(Sys.time())
         gtx_info('Manhattan/QQplot results query returned {nrow(pvals)} rows in {round(t1 - t0, 3)}s.')
@@ -156,9 +148,10 @@ gwas <- function(analysis,
         mmpos <- sqlWrapper(dbc, 
                             sprintf('SELECT chrom, min(pos) AS minpos, max(pos) AS maxpos
                                FROM %sgwas_results
-                               WHERE %s GROUP BY chrom;', 
+                               WHERE %s %s GROUP BY chrom;', 
                                gtxanalysisdb(analysis), 
-                               gtxwhat(analysis1 = analysis)),
+                               gtxwhat(analysis1 = analysis),
+                               entity_string),
                             uniq = FALSE)
         mmpos <- mmpos[order_chrom(mmpos$chrom), ]
         mmpos$offset <- c(0, cumsum(as.double(mmpos$maxpos - mmpos$minpos + manhattan_interspace)))[1:nrow(mmpos)] - mmpos$minpos + manhattan_interspace
@@ -227,14 +220,15 @@ gwas <- function(analysis,
         nump <- as.integer(sqlWrapper(getOption('gtx.dbConnection'),
                                       sprintf('SELECT count(1) AS nump
                                FROM %sgwas_results
-                               WHERE %s AND %s AND pval IS NOT NULL;',
+                               WHERE %s AND %s %s AND pval IS NOT NULL;',
                                gtxanalysisdb(analysis),
                                gtxwhat(analysis1 = analysis),
                                gtxfilter(pval_gt = 10^-plot_fastbox,
                                          maf_ge = maf_ge, rsq_ge = rsq_ge,
                                          emac_ge = emac_ge, case_emac_ge = case_emac_ge, 
                                          analysis = analysis,
-                                         dbc = dbc)),
+                                         dbc = dbc),
+			       entity_string),
                                uniq = TRUE)$nump) + nrow(pvals)
         pe <- (rank(pvals$pval) - 0.5)/nump # expected p-values
         t1 <- as.double(Sys.time())
