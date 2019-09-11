@@ -27,7 +27,7 @@ extract_exposure <- function(pval_thresh = 5e-08,
         ## and search keywords (optional)
         ## Return all (default) or chosen GWASs based on the keywords
         res_exp <-
-          odbc::dbGetQuery(
+          sqlWrapper(
             dbc,
             paste0(
               "SELECT g.pos_index,g.chrom,g.ref_index,g.alt_index,g.beta_index,g.se_index,
@@ -40,7 +40,9 @@ extract_exposure <- function(pval_thresh = 5e-08,
               description_contains,
               "%'
               ORDER BY g.analysis,g.entity;"
-            )
+            ),
+            uniq = FALSE,
+            zrok = TRUE
             )
         
         if ((is.null(res_exp)) |
@@ -58,7 +60,7 @@ extract_exposure <- function(pval_thresh = 5e-08,
           s <- paste0("'", s, "'")
           
           res_exp <-
-            odbc::dbGetQuery(
+            sqlWrapper(
               dbc,
               paste0(
                 "SELECT g.pos_index,g.chrom,g.ref_index,g.alt_index,g.beta_index,
@@ -71,7 +73,9 @@ extract_exposure <- function(pval_thresh = 5e-08,
                 s,
                 ")
                 ORDER BY g.analysis,g.entity;"
-              )
+              ),
+              uniq = FALSE,
+              zrok = TRUE
               )
           
           #Choose only the right <analysis,entity> pairs
@@ -93,7 +97,7 @@ extract_exposure <- function(pval_thresh = 5e-08,
         ## and search keywords (optional)
         ## Return all (default) or chosen GWASs based on the keywords
         res_exp <-
-          odbc::dbGetQuery(
+          sqlWrapper(
             dbc,
             paste0(
               "SELECT g.pos_index,g.chrom,s.rsid,g.ref_index,g.alt_index,g.beta_index,g.se_index,
@@ -108,7 +112,9 @@ extract_exposure <- function(pval_thresh = 5e-08,
               description_contains,
               "%'
               ORDER BY g.analysis,g.entity;"
-            )
+            ),
+            uniq = FALSE,
+            zrok = TRUE
             )
         
         if ((is.null(res_exp)) |
@@ -126,7 +132,7 @@ extract_exposure <- function(pval_thresh = 5e-08,
           s <- paste0("'", s, "'")
           
           res_exp <-
-            odbc::dbGetQuery(
+            sqlWrapper(
               dbc,
               paste0(
                 "SELECT g.pos_index,g.chrom,s.rsid,g.ref_index,g.alt_index,g.beta_index,
@@ -141,7 +147,9 @@ extract_exposure <- function(pval_thresh = 5e-08,
                 s,
                 ")
                 ORDER BY g.analysis,g.entity;"
-              )
+              ),
+              uniq = FALSE,
+              zrok = TRUE
               )
           
           #Choose only the right <analysis,entity> pairs
@@ -186,7 +194,7 @@ extract_exposure_qtl <- function(pval_thresh = 5e-08,
   if (is.null(entities)) {
     #Request the instruments from the database
     res_exp <-
-      odbc::dbGetQuery(
+      sqlWrapper(
         dbc,
         paste0(
           "SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,g.pval,
@@ -201,7 +209,9 @@ extract_exposure_qtl <- function(pval_thresh = 5e-08,
           analysis,
           "' 
           ORDER BY g.analysis,g.entity;"
-        )
+        ),
+        uniq = FALSE,
+        zrok = TRUE
       )
     
   } else {
@@ -211,7 +221,7 @@ extract_exposure_qtl <- function(pval_thresh = 5e-08,
     
     #Request the instruments from the database
     res_exp <-
-      odbc::dbGetQuery(
+      sqlWrapper(
         dbc,
         paste0(
           "SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,g.pval,
@@ -228,7 +238,9 @@ extract_exposure_qtl <- function(pval_thresh = 5e-08,
           s,
           ")
           ORDER BY g.analysis,g.entity;"
-        )
+        ),
+        uniq = FALSE,
+        zrok = TRUE
         )
   }
   
@@ -293,7 +305,7 @@ extract_outcome <- function(snp_list = NULL,
             ## Query needs an optimization (in development)
             res <-
               apply(snp_list, 1, function(X)
-                odbc::dbGetQuery(
+                sqlWrapper(
                   dbc,
                   paste0(
                     "SELECT g.pos,g.chrom,g.ref,g.alt,g.beta,g.se,
@@ -308,7 +320,9 @@ extract_outcome <- function(snp_list = NULL,
                     s,
                     ")
                     ORDER BY g.analysis,g.entity;"
-                  )
+                  ),
+                  uniq = FALSE,
+                  zrok = TRUE
                   ))
             
             #Combine all results
@@ -347,7 +361,7 @@ extract_outcome <- function(snp_list = NULL,
           
           ## Extract the outcome instruments using SNPs
           res_out <-
-            odbc::dbGetQuery(
+            sqlWrapper(
               dbc,
               paste0(
                 "SELECT g.pos,g.chrom,g.ref,g.alt,g.beta,g.se,
@@ -365,7 +379,9 @@ extract_outcome <- function(snp_list = NULL,
                 s_out,
                 ")
                 ORDER BY g.analysis,g.entity;"
-                )
+                ),
+              uniq = FALSE,
+              zrok = TRUE
                 )
           
           #Choose only the right <analysis,entity> pairs
@@ -403,7 +419,7 @@ extract_outcome <- function(snp_list = NULL,
             #Search by chromosome positions
             res <-
               apply(snp_list, 1, function(X)
-                odbc::dbGetQuery(
+                sqlWrapper(
                   dbc,
                   paste0(
                     "SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,
@@ -419,8 +435,11 @@ extract_outcome <- function(snp_list = NULL,
                     s,
                     ")
                     ORDER BY g.analysis,g.entity;"
-                  )
+                  ),
+                  uniq = FALSE,
+                  zrok = TRUE
                   ))
+            
           } else if (ncol(snp_list) <= 1 & search == "pos:chrom") {
             stop(
               "Error: snp_list should have at least two columns in this order: position (1) and chromosome (2)."
@@ -439,7 +458,7 @@ extract_outcome <- function(snp_list = NULL,
             #Search by rsIDs
             res <-
               apply(snp_list, 1, function(X)
-                odbc::dbGetQuery(
+                sqlWrapper(
                   dbc,
                   paste0(
                     "SELECT g.pos,g.chrom,ids.rsid,g.ref,g.alt,g.beta,g.se,
@@ -454,7 +473,9 @@ extract_outcome <- function(snp_list = NULL,
                     s,
                     ")
                     ORDER BY g.analysis,g.entity;"
-                  )
+                  ),
+                  uniq = FALSE,
+                  zrok = TRUE
                   ))
           } else{
             stop(
@@ -493,7 +514,7 @@ extract_outcome <- function(snp_list = NULL,
           
           ## Extract the outcome instruments using SNPs
           res_out <-
-            odbc::dbGetQuery(
+            sqlWrapper(
               dbc,
               paste0(
                 "SELECT g.pos,g.chrom,s.rsid,g.ref,g.alt,g.beta,g.se,
@@ -513,7 +534,9 @@ extract_outcome <- function(snp_list = NULL,
                 s_out,
                 ")
                 ORDER BY g.analysis,g.entity;"
-                )
+                ),
+              uniq = FALSE,
+              zrok = TRUE
                 )
           
           #Choose only the right <analysis,entity> pairs
@@ -924,12 +947,20 @@ validate_exposure_qtl <- function(analysis, entities) {
 extract_study_info <- function(description_contains, 
                                dbc = getOption("gtx.dbConnection", NULL)) {
  
-    #Extract all records with the given description
-    studies <-
-      odbc::dbGetQuery(dbc,
-                       paste0("SELECT * FROM analyses WHERE description LIKE '%", description_contains, "%';"))
-    
-    if (nrow(studies) < 1) {
+  #Extract all records with the given description
+  studies <-
+    sqlWrapper(
+      dbc,
+      paste0(
+        "SELECT * FROM analyses WHERE description LIKE '%",
+        description_contains,
+        "%';"
+      ),
+      uniq = FALSE,
+      zrok = TRUE
+    )
+  
+  if (nrow(studies) < 1) {
       message("No results were returned! Please, try a shorter phrase.")
     }
     
