@@ -4,15 +4,16 @@
 \alias{extract_exposure}
 \title{Extracts top instruments based on the chosen p-value (the instruments are distance-pruned)}
 \usage{
-extract_exposure(p = 5e-08, analyses = NULL, str = "",
-  rsid = FALSE, dbc = getOption("gtx.dbConnection", NULL))
+extract_exposure(pval_thresh = 5e-08, analyses = NULL,
+  description_contains = "", rsid = FALSE,
+  dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
-\item{p}{(optional): p-value threshold for the top findings where 5e-08 (default). Note! the instruments with a more lenient p-value threshold cannot be extracted.}
+\item{pval_thresh}{(optional): p-value threshold for the top findings where 5e-08 (default). Note! the instruments with a more lenient p-value threshold cannot be extracted.}
 
 \item{analyses}{(optional): the study information: at least should have a column with analysis IDs; entity_type IDs if applicable.}
 
-\item{str}{(optional): a keyword/keyphrase to choose the studies of interest; by default searches all studies}
+\item{description_contains}{(optional): a keyword/keyphrase to choose the studies of interest; by default searches all studies}
 
 \item{rsid}{(optional): logical; if FALSE (default) returns only chrom:position; if TRUE includes rsIDs (Warning! SNPs without rsIDs may not be returned);}
 

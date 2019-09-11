@@ -4,11 +4,11 @@
 \alias{extract_exposure_qtl}
 \title{Extracts top instruments based on the chosen p-value (the instruments are not pruned)}
 \usage{
-extract_exposure_qtl(p = 5e-08, analysis = NULL, entities = NULL,
-  dbc = getOption("gtx.dbConnection", NULL))
+extract_exposure_qtl(pval_thresh = 5e-08, analysis = NULL,
+  entities = NULL, dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
-\item{p}{(optional): p-value threshold for the top findings where 5e-08 (default).}
+\item{pval_thresh}{(optional): p-value threshold for the top findings where 5e-08 (default).}
 
 \item{analysis}{(required): a string with analysis ID as defined in the GWA studies database}
 

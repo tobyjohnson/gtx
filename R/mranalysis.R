@@ -6,18 +6,18 @@
 #' analyses.
 #' 
 #' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
-#' @param p (optional): p-value threshold for the top findings where 5e-08 (default). Note! the instruments with a more lenient p-value threshold cannot be extracted. 
+#' @param pval_thresh (optional): p-value threshold for the top findings where 5e-08 (default). Note! the instruments with a more lenient p-value threshold cannot be extracted. 
 #' @param analyses (optional): the study information: at least should have a column with analysis IDs; entity_type IDs if applicable.
-#' @param str (optional): a keyword/keyphrase to choose the studies of interest; by default searches all studies
+#' @param description_contains (optional): a keyword/keyphrase to choose the studies of interest; by default searches all studies
 #' @param rsid (optional): logical; if FALSE (default) returns only chrom:position; if TRUE includes rsIDs (Warning! SNPs without rsIDs may not be returned); 
 #' @param dbc (default): other parameters
 #' @return the dataframe with exposure instruments (Warning! they have to be formatted and possibly clumped to be used in the MR analysis)
 #'
 #' @export
 #'
-extract_exposure <- function(p = 5e-08,
+extract_exposure <- function(pval_thresh = 5e-08,
                              analyses = NULL,
-                             str = '',
+                             description_contains = '',
                              rsid = FALSE,
                              dbc = getOption("gtx.dbConnection", NULL)) {
     if (rsid == FALSE) {
@@ -35,9 +35,9 @@ extract_exposure <- function(p = 5e-08,
               a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results_top_hits_with_entity AS g
               INNER JOIN analyses AS a ON g.analysis=a.analysis
               WHERE g.pval_index < ",
-              p,
+              pval_thresh,
               " AND a.description LIKE '%",
-              str,
+              description_contains,
               "%'
               ORDER BY g.analysis,g.entity;"
             )
@@ -66,7 +66,7 @@ extract_exposure <- function(p = 5e-08,
                 a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results_top_hits_with_entity AS g
                 INNER JOIN analyses AS a ON g.analysis=a.analysis
                 WHERE g.pval_index < ",
-                p,
+                pval_thresh,
                 " AND g.analysis IN (",
                 s,
                 ")
@@ -103,9 +103,9 @@ extract_exposure <- function(p = 5e-08,
               INNER JOIN sites AS s ON g.pos_index=s.pos AND g.chrom=s.chrom
               AND g.ref_index=s.ref AND g.alt_index=s.alt
               WHERE g.pval_index < ",
-              p,
+              pval_thresh,
               " AND a.description LIKE '%",
-              str,
+              description_contains,
               "%'
               ORDER BY g.analysis,g.entity;"
             )
@@ -136,7 +136,7 @@ extract_exposure <- function(p = 5e-08,
                 INNER JOIN sites AS s ON g.pos_index=s.pos AND g.chrom=s.chrom
                 AND g.ref_index=s.ref AND g.alt_index=s.alt
                 WHERE g.pval_index < ",
-                p,
+                pval_thresh,
                 " AND g.analysis IN (",
                 s,
                 ")
@@ -166,7 +166,7 @@ extract_exposure <- function(p = 5e-08,
 #' Randomization and other related analyses. 
 #' 
 #' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
-#' @param p (optional): p-value threshold for the top findings where 5e-08 (default). 
+#' @param pval_thresh (optional): p-value threshold for the top findings where 5e-08 (default). 
 #' @param analysis (required): a string with analysis ID as defined in the GWA studies database
 #' @param entities (optional): a dataframe which should have a column 'entity'; if NULL (default), all
 #' entities for a specified analysis ID will be considered for instrument extraction
@@ -175,7 +175,7 @@ extract_exposure <- function(p = 5e-08,
 #'
 #' @export
 #' 
-extract_exposure_qtl <- function(p = 5e-08,
+extract_exposure_qtl <- function(pval_thresh = 5e-08,
                                  analysis = NULL,
                                  entities = NULL,
                                  dbc = getOption("gtx.dbConnection", NULL)) {
@@ -196,7 +196,7 @@ extract_exposure_qtl <- function(p = 5e-08,
           INNER JOIN sites AS s ON g.pos=s.pos AND g.chrom=s.chrom
           AND g.ref=s.ref AND g.alt=s.alt
           WHERE g.pval < ",
-          p,
+          pval_thresh,
           " AND a.analysis = '",
           analysis,
           "' 
@@ -221,7 +221,7 @@ extract_exposure_qtl <- function(p = 5e-08,
           INNER JOIN sites AS s ON g.pos=s.pos AND g.chrom=s.chrom
           AND g.ref=s.ref AND g.alt=s.alt
           WHERE g.pval < ",
-          p,
+          pval_thresh,
           " AND a.analysis = '",
           analysis,
           "' AND g.entity IN (",
@@ -251,7 +251,7 @@ extract_exposure_qtl <- function(p = 5e-08,
 #' or one column with rsIDs.
 #' @param analyses_exp (required if the exposure instruments extracted from the database): the exposure study information; should have at least one column: analysis and if applicable: entity. 
 #' @param analyses_out (required): the outcome study information; should have at least one column: analysis and if applicable: entity.
-#' @param p (optional): the p-value threshold to extract the exposure instruments from the database (if analyses_exp is not NULL).
+#' @param pval_thresh (optional): the p-value threshold to extract the exposure instruments from the database (if analyses_exp is not NULL).
 #' @param rsid (optional): logical; if FALSE (default) returns SNPs identified only by chrom:position; if TRUE includes rsIDs (Warning! SNPs without rsIDs may not be returned); 
 #' @param search (optional): if "pos:chrom" (default) searches the instruments in the database by their chromosome position; alternatively, searches by their rsIDs (rsid should be "TRUE")
 #' (only applicable to the searches for external files with the exposure instruments, i.e. snp_list is not NULL).  
@@ -265,7 +265,7 @@ extract_exposure_qtl <- function(p = 5e-08,
 extract_outcome <- function(snp_list = NULL,
                             analyses_exp = NULL,
                             analyses_out,
-                            p = 5e-08,
+                            pval_thresh = 5e-08,
                             rsid = FALSE,
                             search = "pos:chrom",
                             dbc = getOption("gtx.dbConnection", NULL)) {
@@ -355,7 +355,7 @@ extract_outcome <- function(snp_list = NULL,
                 a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
                 INNER JOIN (SELECT DISTINCT gg.pos_index,gg.chrom FROM gwas_results_top_hits_with_entity AS gg
                 WHERE gg.pval_index < ",
-                p,
+                pval_thresh,
                 " AND gg.analysis IN (",
                 s_exp,
                 ")) AS out
@@ -501,7 +501,7 @@ extract_outcome <- function(snp_list = NULL,
                 a.unit,a.ncase,a.ncontrol,a.ncohort FROM gwas_results as g
                 INNER JOIN (SELECT DISTINCT gg.pos_index,gg.chrom FROM gwas_results_top_hits_with_entity AS gg
                 WHERE gg.pval_index < ",
-                p,
+                pval_thresh,
                 " AND gg.analysis IN (",
                 s_exp,
                 ")) AS out
@@ -914,20 +914,20 @@ validate_exposure_qtl <- function(analysis, entities) {
 #' Finds a unique identifier for the study using a keyword or keyphrase. NOTE! keyword or keyphrase search is quite naive at this moment and may not return desirable results.
 #' 
 #' @author Valeriia Haberland \email{valeriia.haberland@@bristol.ac.uk}
-#' @param str (required): a keyword/keyphrase to search for the study of interest
+#' @param description_contains (required): a keyword/keyphrase to search for the study of interest
 #' @param dbc (default): other parameters 
 #' @return the study meta-information which then can be used in extract_outcome()
 #' or extract_exposure() methods
 #' 
 #' @keywords internal
 #' 
-extract_study_info <- function(str, 
+extract_study_info <- function(description_contains, 
                                dbc = getOption("gtx.dbConnection", NULL)) {
  
     #Extract all records with the given description
     studies <-
       odbc::dbGetQuery(dbc,
-                       paste0("SELECT * FROM analyses WHERE description LIKE '%", str, "%';"))
+                       paste0("SELECT * FROM analyses WHERE description LIKE '%", description_contains, "%';"))
     
     if (nrow(studies) < 1) {
       message("No results were returned! Please, try a shorter phrase.")

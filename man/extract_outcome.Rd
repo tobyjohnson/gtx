@@ -5,7 +5,7 @@
 \title{Extracts the outcome instruments based on the exposure SNPs}
 \usage{
 extract_outcome(snp_list = NULL, analyses_exp = NULL, analyses_out,
-  p = 5e-08, rsid = FALSE, search = "pos:chrom",
+  pval_thresh = 5e-08, rsid = FALSE, search = "pos:chrom",
   dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
@@ -16,7 +16,7 @@ or one column with rsIDs.}
 
 \item{analyses_out}{(required): the outcome study information; should have at least one column: analysis and if applicable: entity.}
 
-\item{p}{(optional): the p-value threshold to extract the exposure instruments from the database (if analyses_exp is not NULL).}
+\item{pval_thresh}{(optional): the p-value threshold to extract the exposure instruments from the database (if analyses_exp is not NULL).}
 
 \item{rsid}{(optional): logical; if FALSE (default) returns SNPs identified only by chrom:position; if TRUE includes rsIDs (Warning! SNPs without rsIDs may not be returned);}
 

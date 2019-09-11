@@ -4,10 +4,11 @@
 \alias{extract_study_info}
 \title{Search study by keyword.}
 \usage{
-extract_study_info(str, dbc = getOption("gtx.dbConnection", NULL))
+extract_study_info(description_contains,
+  dbc = getOption("gtx.dbConnection", NULL))
 }
 \arguments{
-\item{str}{(required): a keyword/keyphrase to search for the study of interest}
+\item{description_contains}{(required): a keyword/keyphrase to search for the study of interest}
 
 \item{dbc}{(default): other parameters}
 }
