@@ -25,9 +25,8 @@ gwas <- function(analysis,
     
     t0 <- as.double(Sys.time())
 
-    ## FIXME should throw error if entity_type is not NULL
-
-    # entity should be FALSE for all eQTL datasets. This may go to gtxfilter, but prefer to put it here for now.
+    # If entity is not null, create a string (entity_string) which will be added to all the SQL calls.
+    # TODO: see if this can be included in gtxfilter()
     if (is.null(entity)) {
 	entity_string = "" }
     else {
@@ -53,9 +52,12 @@ gwas <- function(analysis,
     t1 <- as.double(Sys.time())
     gtx_info('Significant results query returned {nrow(res)} rows in {round(t1 - t0, 3)}s.')
 
-    if (is.null(entity) & nrow(res[!is.null(entity)] )>1) {
-	stop("you are running a GWAS on a xQTL dataset, without specifying an entity. This will return a lot of data")
-	}
+    if (nrow(res[!is.na(res$entity)] )>0)  { # dataset may be xQTL, as entity column is not NA
+	gtx_debug("dataset may be xQTL, as the entity column is not NA")
+	if (is.null(entity)) {
+		stop("you are attempting to run a gwas() call on a xQTL dataset, but you didn't specify an entity. Aborting as this would return a lot of data")
+		}
+	} 
     if(nrow(res) == 0){
       res <- data.table::data.table(signal     = NA, chrom        = NA, pos_start  = NA, 
                         pos_end    = NA, num_variants = NA, min_pval   = NA, 
@@ -91,7 +93,13 @@ gwas <- function(analysis,
 
     ## Plot description
     ## no handling of entity is required in title
-    main <- gtxanalysis_label(analysis = analysis, entity = NULL, nlabel = TRUE, dbc = dbc)
+	    entity_df = data.frame(entity=entity, entity_label = entity) # TODO: change this when new entities table is available
+	    main <- gtxanalysis_label(analysis = analysis, entity = entity_df, nlabel = TRUE, dbc = dbc)
+    #if (!is.null(entity)) {
+#	} else {
+#	    main <- gtxanalysis_label(analysis = analysis, entity = NULL, nlabel = TRUE, dbc = dbc)
+#	}
+
     ## Filtering description
     ## in future we may need to pass maf_lt and rsq_lt as well  
     fdesc <- gtxfilter_label(maf_ge = maf_ge, rsq_ge = rsq_ge,
@@ -165,10 +173,10 @@ gwas <- function(analysis,
         abline(h = -log10(manhattan_thresh), col = 'red', lty = 'dashed')
         #axis(1, at = mmpos$midpt, labels = rep(NA, nrow(mmpos)))
         lidx <- rep(1:2, length.out = nrow(mmpos))
-	if (nrow(mmpos)>1) { #eQTL data can be available only for one chromosome (e.g. cis data only)
-        	for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = c(0, 0.5)[idx], at = midpt, cex = 0.5))
-	} else {
+	if (nrow(mmpos)==1) { # This condition is activated when results data is available only for one chromosome (e.g. for xQTL datasets)
         	with(mmpos, mtext(chrom, side = 1, line = c(0, 0.5)[1], at = midpt, cex = 0.5))
+	} else {
+        	for (idx in 1:2) with(mmpos[lidx == idx, ], mtext(chrom, side = 1, line = c(0, 0.5)[idx], at = midpt, cex = 0.5))
 	}
         if (truncp) {
             ## would be nice to more cleanly overwrite y axis label
